@@ -1,0 +1,10 @@
+# Requirements for Traffic Visualization
+# pip install -r requirements_viz.txt
+
+PyQt5>=5.15.0
+geopandas>=0.12.0
+shapely>=2.0.0
+fiona>=1.8.0
+pyproj>=3.0.0
+
+

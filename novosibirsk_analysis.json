@@ -1,0 +1,157 @@
+{
+  "project_name": "Анализ: Новосибирск (Вечерний час-пик 17:00 - 19:00)",
+  "pcu_coefficients": {
+    "passenger_car": 1.0,
+    "truck_lt_3_5t": 1.5,
+    "truck_lt_10t": 2.5,
+    "bus": 2.0,
+    "other": 1.5
+  },
+
+  "directional_links": [
+    {
+      "id": "L1_RING_EXIT",
+      "type": "intersection",
+      "name": "Выезд с Кольца (R1 -> S2)",
+      "length_km": 0.1,
+      "cycle_time": 100,
+      "green_time": 30,
+      "g_others": 65,
+      "saturation_flow_base": 1880,
+      "lanes_count": 4,
+      "lane_width_m": 3.3, "grade_percent": 0.0, "parking_present": false,
+      "heavy_vehicles_percent": 0.078,
+      "traffic_counts": {"passenger_car": 2487, "truck_lt_3_5t": 112, "truck_lt_10t": 14, "bus": 41, "other": 14},
+      "is_ring_approach": false
+    },
+    {
+      "id": "L2_A_RING_TO_PED",
+      "type": "straight",
+      "name": "Прямой: до Светофора",
+      "length_km": 0.4,
+      "lanes_total": 3, "lanes_bus": 1,
+      "capacity_per_lane_base": 1880,
+      "lane_width_m": 3.0, "grade_percent": 0.0, "parking_present": true,
+      "heavy_vehicles_percent": 0.065,
+      "traffic_counts": {"passenger_car": 2487, "truck_lt_3_5t": 112, "truck_lt_10t": 14, "bus": 41, "other": 14}
+    },
+    {
+      "id": "L2_PED_SIGNAL",
+      "type": "intersection",
+      "name": "Пешеходный светофор (Направление от Кольца)",
+      "length_km": 0.02,
+      "cycle_time": 70,
+      "green_time": 35,
+      "g_others": 25,
+      "saturation_flow_base": 1680,
+      "lanes_count": 4,
+      "lane_width_m": 3.0, "grade_percent": 0.0, "parking_present": false,
+      "heavy_vehicles_percent": 0.065,
+      "traffic_counts": {"passenger_car": 2487, "truck_lt_3_5t": 112, "truck_lt_10t": 14, "bus": 41, "other": 14},
+      "is_ring_approach": false
+    },
+    {
+      "id": "L2_B_PED_TO_I3",
+      "type": "straight",
+      "name": "Прямой: после Светофора до Перекрестка",
+      "length_km": 0.6,
+      "lanes_total": 3, "lanes_bus": 1,
+      "capacity_per_lane_base": 1880,
+      "lane_width_m": 3.0, "grade_percent": 0.0, "parking_present": true,
+      "heavy_vehicles_percent": 0.065,
+      "traffic_counts": {"passenger_car": 2487, "truck_lt_3_5t": 112, "truck_lt_10t": 14, "bus": 41, "other": 14}
+    },
+    {
+      "id": "L3_I3_APPROACH",
+      "type": "intersection",
+      "name": "Подход к Перекрестку (из S2)",
+      "length_km": 0.1,
+      "cycle_time": 100,
+      "green_time": 40,
+      "g_others": 50,
+      "saturation_flow_base": 1680,
+      "lanes_count": 4,
+      "lane_width_m": 3.3, "grade_percent": 0.0, "parking_present": false,
+      "heavy_vehicles_percent": 0.065,
+      "traffic_counts": {"passenger_car": 2487, "truck_lt_3_5t": 112, "truck_lt_10t": 14, "bus": 41, "other": 14},
+      "is_ring_approach": false
+    },
+
+    {
+      "id": "L4_A_I3_TO_PED",
+      "type": "straight",
+      "name": "Прямой: от Перекрестка до Светофора",
+      "length_km": 0.6,
+      "lanes_total": 3, "lanes_bus": 1,
+      "capacity_per_lane_base": 1680,
+      "lane_width_m": 3.3, "grade_percent": 0.0, "parking_present": true,
+      "heavy_vehicles_percent": 0.062,
+      "traffic_counts": {"passenger_car": 2432, "truck_lt_3_5t": 108, "truck_lt_10t": 11, "bus": 34, "other": 9}
+    },
+    {
+      "id": "L4_PED_SIGNAL",
+      "type": "intersection",
+      "name": "Пешеходный светофор (Направление к Кольцу)",
+      "length_km": 0.02,
+      "cycle_time": 70,
+      "green_time": 35,
+      "g_others": 25,
+      "saturation_flow_base": 1680,
+      "lanes_count": 4,
+      "lane_width_m": 3.3, "grade_percent": 0.0, "parking_present": false,"heavy_vehicles_percent": 0.062,
+      "traffic_counts": {"passenger_car": 2432, "truck_lt_3_5t": 108, "truck_lt_10t": 11, "bus": 34, "other": 9},
+      "is_ring_approach": false
+    },
+    {
+      "id": "L4_B_PED_TO_RING",
+      "type": "straight",
+      "name": "Прямой: от Светофора до Кольца",
+      "length_km": 0.4,
+      "lanes_total": 3, "lanes_bus": 1,
+      "capacity_per_lane_base": 1680,
+      "lane_width_m": 3.0, "grade_percent": 0.0, "parking_present": true,
+      "heavy_vehicles_percent": 0.062,
+      "traffic_counts": {"passenger_car": 2432, "truck_lt_3_5t": 108, "truck_lt_10t": 11, "bus": 34, "other": 9}
+    },
+    {
+      "id": "L5_RING_ENTRY",
+      "type": "intersection",
+      "name": "Въезд на Кольцо (Регулируемый)",
+      "length_km": 0.1,
+      "cycle_time": 100,
+      "green_time": 30,
+      "g_others": 65,
+      "saturation_flow_base": 1880,
+      "lanes_count": 4,
+      "lane_width_m": 3.5, "grade_percent": 0.0, "parking_present": false,
+      "heavy_vehicles_percent": 0.062,
+      "traffic_counts": {"passenger_car": 2432, "truck_lt_3_5t": 108, "truck_lt_10t": 11, "bus": 34, "other": 9},
+      "is_ring_approach": true
+    },
+
+    {
+      "id": "L_RING_CIRCULATION",
+      "type": "straight",
+      "name": "Движение по кольцу (Насыщенный поток)",
+      "length_km": 0.494,
+      "lanes_total": 4, "lanes_bus": 0,
+      "capacity_per_lane_base": 2000,
+      "traffic_counts": {"passenger_car": 4127, "truck_lt_3_5t": 286, "truck_lt_10t": 15, "bus": 82, "other": 37},
+      "lane_width_m": 3.5, "grade_percent": 0.0, "parking_present": false,
+      "heavy_vehicles_percent": 0.082
+    }
+  ],
+
+  "routes": [
+    {
+      "id": "Route_A_Forward",
+      "name": "Кольцо -> Перекресток",
+      "links": ["L1_RING_EXIT", "L2_A_RING_TO_PED", "L2_PED_SIGNAL", "L2_B_PED_TO_I3", "L3_I3_APPROACH"]
+    },
+    {
+      "id": "Route_B_Backward",
+      "name": "Перекресток -> Кольцо",
+      "links": ["L3_I3_APPROACH", "L4_A_I3_TO_PED", "L4_PED_SIGNAL", "L4_B_PED_TO_RING", "L5_RING_ENTRY"]
+    }
+  ]
+}
