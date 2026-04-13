@@ -13,43 +13,113 @@
   "network": {
     "nodes": [
       {
-        "id": "N_0.0_0.0",
-        "lon": null,
-        "lat": null,
+        "id": "N_82.903738_55.04656",
+        "lon": 82.903738,
+        "lat": 55.04656,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "",
+        "name": "N_82.903738_55.04656",
         "metadata": {}
       },
       {
-        "id": "N1",
-        "lon": 82.895732,
-        "lat": 55.052643,
-        "x": 621100.808,
-        "y": -6102291.931,
+        "id": "N_82.903338_55.046685",
+        "lon": 82.903338,
+        "lat": 55.046685,
+        "x": null,
+        "y": null,
         "node_type": "intersection",
-        "name": "N1",
+        "name": "N_82.903338_55.046685",
         "metadata": {}
       },
       {
-        "id": "N2",
-        "lon": 82.89614,
-        "lat": 55.052354,
-        "x": 621127.736,
-        "y": -6102260.451,
+        "id": "N_82.902648_55.047136",
+        "lon": 82.902648,
+        "lat": 55.047136,
+        "x": null,
+        "y": null,
         "node_type": "intersection",
-        "name": "N2",
+        "name": "N_82.902648_55.047136",
         "metadata": {}
       },
       {
-        "id": "N3",
-        "lon": 82.902854,
-        "lat": 55.046557,
-        "x": 621574.096,
-        "y": -6101627.149,
+        "id": "N_82.902462_55.047328",
+        "lon": 82.902462,
+        "lat": 55.047328,
+        "x": null,
+        "y": null,
         "node_type": "intersection",
-        "name": "N3",
+        "name": "N_82.902462_55.047328",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.896459_55.052318",
+        "lon": 82.896459,
+        "lat": 55.052318,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.896459_55.052318",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.89609_55.052758",
+        "lon": 82.89609,
+        "lat": 55.052758,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.89609_55.052758",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.895607_55.052559",
+        "lon": 82.895607,
+        "lat": 55.052559,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.895607_55.052559",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.896095_55.05223",
+        "lon": 82.896095,
+        "lat": 55.05223,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.896095_55.05223",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.896302_55.052074",
+        "lon": 82.896302,
+        "lat": 55.052074,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.896302_55.052074",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.902955_55.046658",
+        "lon": 82.902955,
+        "lat": 55.046658,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.902955_55.046658",
+        "metadata": {}
+      },
+      {
+        "id": "N_82.902962_55.046277",
+        "lon": 82.902962,
+        "lat": 55.046277,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "N_82.902962_55.046277",
         "metadata": {}
       }
     ],
@@ -57,8 +127,8 @@
       {
         "id": "L1_RING_EXIT",
         "name": "Выезд с Кольца (R1 -> S2)",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.903738_55.04656",
+        "end_node_id": "N_82.903338_55.046685",
         "link_type": "intersection",
         "length_km": 0.1,
         "traffic_counts": {
@@ -68,7 +138,12 @@
           "bus": 41,
           "other": 14
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.903738,
+          "lat_start": 55.04656,
+          "lon_end": 82.903338,
+          "lat_end": 55.046685
+        },
         "parameters": {
           "cycle_time": 100,
           "green_time": 30,
@@ -110,8 +185,8 @@
       {
         "id": "L2_A_RING_TO_PED",
         "name": "Прямой: до Светофора",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.903338_55.046685",
+        "end_node_id": "N_82.902648_55.047136",
         "link_type": "straight",
         "length_km": 0.4,
         "traffic_counts": {
@@ -121,7 +196,12 @@
           "bus": 41,
           "other": 14
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.903338,
+          "lat_start": 55.046685,
+          "lon_end": 82.902648,
+          "lat_end": 55.047136
+        },
         "parameters": {
           "lanes_total": 3,
           "lanes_bus": 1,
@@ -156,8 +236,8 @@
       {
         "id": "L2_PED_SIGNAL",
         "name": "Пешеходный светофор (Направление от Кольца)",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.902648_55.047136",
+        "end_node_id": "N_82.902462_55.047328",
         "link_type": "intersection",
         "length_km": 0.02,
         "traffic_counts": {
@@ -167,7 +247,12 @@
           "bus": 41,
           "other": 14
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.902648,
+          "lat_start": 55.047136,
+          "lon_end": 82.902462,
+          "lat_end": 55.047328
+        },
         "parameters": {
           "cycle_time": 70,
           "green_time": 35,
@@ -209,8 +294,8 @@
       {
         "id": "L2_B_PED_TO_I3",
         "name": "Прямой: после Светофора до Перекрестка",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.902462_55.047328",
+        "end_node_id": "N_82.896459_55.052318",
         "link_type": "straight",
         "length_km": 0.6,
         "traffic_counts": {
@@ -220,7 +305,12 @@
           "bus": 41,
           "other": 14
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.902462,
+          "lat_start": 55.047328,
+          "lon_end": 82.896459,
+          "lat_end": 55.052318
+        },
         "parameters": {
           "lanes_total": 3,
           "lanes_bus": 1,
@@ -255,8 +345,8 @@
       {
         "id": "L3_I3_APPROACH",
         "name": "Подход к Перекрестку (из S2)",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.896459_55.052318",
+        "end_node_id": "N_82.89609_55.052758",
         "link_type": "intersection",
         "length_km": 0.1,
         "traffic_counts": {
@@ -266,7 +356,12 @@
           "bus": 41,
           "other": 14
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.896459,
+          "lat_start": 55.052318,
+          "lon_end": 82.89609,
+          "lat_end": 55.052758
+        },
         "parameters": {
           "cycle_time": 100,
           "green_time": 40,
@@ -308,8 +403,8 @@
       {
         "id": "L4_A_I3_TO_PED",
         "name": "Прямой: от Перекрестка до Светофора",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.895607_55.052559",
+        "end_node_id": "N_82.896095_55.05223",
         "link_type": "straight",
         "length_km": 0.6,
         "traffic_counts": {
@@ -319,7 +414,12 @@
           "bus": 34,
           "other": 9
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.895607,
+          "lat_start": 55.052559,
+          "lon_end": 82.896095,
+          "lat_end": 55.05223
+        },
         "parameters": {
           "lanes_total": 3,
           "lanes_bus": 1,
@@ -354,8 +454,8 @@
       {
         "id": "L4_PED_SIGNAL",
         "name": "Пешеходный светофор (Направление к Кольцу)",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.896095_55.05223",
+        "end_node_id": "N_82.896302_55.052074",
         "link_type": "intersection",
         "length_km": 0.02,
         "traffic_counts": {
@@ -365,7 +465,12 @@
           "bus": 34,
           "other": 9
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.896095,
+          "lat_start": 55.05223,
+          "lon_end": 82.896302,
+          "lat_end": 55.052074
+        },
         "parameters": {
           "cycle_time": 70,
           "green_time": 35,
@@ -407,8 +512,8 @@
       {
         "id": "L4_B_PED_TO_RING",
         "name": "Прямой: от Светофора до Кольца",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.896302_55.052074",
+        "end_node_id": "N_82.902955_55.046658",
         "link_type": "straight",
         "length_km": 0.4,
         "traffic_counts": {
@@ -418,7 +523,12 @@
           "bus": 34,
           "other": 9
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.896302,
+          "lat_start": 55.052074,
+          "lon_end": 82.902955,
+          "lat_end": 55.046658
+        },
         "parameters": {
           "lanes_total": 3,
           "lanes_bus": 1,
@@ -453,8 +563,8 @@
       {
         "id": "L5_RING_ENTRY",
         "name": "Въезд на Кольцо (Регулируемый)",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.902955_55.046658",
+        "end_node_id": "N_82.902962_55.046277",
         "link_type": "intersection",
         "length_km": 0.1,
         "traffic_counts": {
@@ -464,7 +574,12 @@
           "bus": 34,
           "other": 9
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.902955,
+          "lat_start": 55.046658,
+          "lon_end": 82.902962,
+          "lat_end": 55.046277
+        },
         "parameters": {
           "cycle_time": 100,
           "green_time": 30,
@@ -506,8 +621,8 @@
       {
         "id": "L_RING_CIRCULATION",
         "name": "Движение по кольцу (Насыщенный поток)",
-        "start_node_id": "N_0.0_0.0",
-        "end_node_id": "N_0.0_0.0",
+        "start_node_id": "N_82.902962_55.046277",
+        "end_node_id": "N_82.903738_55.04656",
         "link_type": "straight",
         "length_km": 0.494,
         "traffic_counts": {
@@ -517,7 +632,12 @@
           "bus": 82,
           "other": 37
         },
-        "coords": {},
+        "coords": {
+          "lon_start": 82.902962,
+          "lat_start": 55.046277,
+          "lon_end": 82.903738,
+          "lat_end": 55.04656
+        },
         "parameters": {
           "lanes_total": 4,
           "lanes_bus": 0,
@@ -543,66 +663,6 @@
           "name": "Движение по кольцу (Насыщенный поток)",
           "type": "StraightRoad"
         },
-        "metadata": {}
-      },
-      {
-        "id": "6",
-        "name": "Road 6",
-        "start_node_id": "N1",
-        "end_node_id": "N2",
-        "link_type": "intersection",
-        "length_km": 0.5,
-        "traffic_counts": {
-          "car": 500
-        },
-        "coords": {
-          "lon_start": 82.895732,
-          "lat_start": 55.052643,
-          "lon_end": 82.89614,
-          "lat_end": 55.052354
-        },
-        "parameters": {
-          "length_km": 0.5,
-          "cycle_time": 100,
-          "green_time": 30,
-          "saturation_flow_base": 1800,
-          "lanes_count": 1,
-          "lane_width_m": 3.5,
-          "grade_percent": 0.0,
-          "parking_present": false,
-          "heavy_vehicles_percent": 0.0,
-          "g_others": 70
-        },
-        "results": {},
-        "metadata": {}
-      },
-      {
-        "id": "5",
-        "name": "Road 5",
-        "start_node_id": "N2",
-        "end_node_id": "N3",
-        "link_type": "straight",
-        "length_km": 0.5,
-        "traffic_counts": {
-          "car": 500
-        },
-        "coords": {
-          "lon_start": 82.89614,
-          "lat_start": 55.052354,
-          "lon_end": 82.902854,
-          "lat_end": 55.046557
-        },
-        "parameters": {
-          "length_km": 0.5,
-          "lanes_total": 1,
-          "lanes_bus": 0,
-          "capacity_per_lane_base": 1800,
-          "lane_width_m": 3.5,
-          "grade_percent": 0.0,
-          "parking_present": false,
-          "heavy_vehicles_percent": 0.0
-        },
-        "results": {},
         "metadata": {}
       }
     ],
