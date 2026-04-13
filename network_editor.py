@@ -250,9 +250,24 @@ class NetworkEditor(QMainWindow):
         data = {
             "project_name": "Editor Export",
             "pcu_coefficients": {"car": 1.0, "truck": 2.5, "bus": 2.0},
-            "directional_links": [],
-            "routes": []
+            "metadata": {"source": "network_editor"},
+            "network": {"nodes": [], "links": [], "routes": []},
+            "scenarios": []
         }
+        for node in self.nodes:
+            pos = node.scenePos()
+            lon, lat = unproject_coords(pos.x(), pos.y())
+            data["network"]["nodes"].append({
+                "id": node.id,
+                "name": node.id,
+                "lon": round(lon, 6),
+                "lat": round(lat, 6),
+                "x": round(pos.x(), 3),
+                "y": round(pos.y(), 3),
+                "node_type": "intersection",
+                "metadata": {}
+            })
+
         for link in self.links:
             p1 = link.start_node.scenePos()
             p2 = link.end_node.scenePos()
@@ -260,14 +275,30 @@ class NetworkEditor(QMainWindow):
             lon2, lat2 = unproject_coords(p2.x(), p2.y())
 
             link_entry = {
-                "id": link.id, "name": f"Road {link.id}", "type": "straight",
-                "length_km": 0.5, "traffic_counts": {"car": 500},
+                "id": link.id,
+                "name": f"Road {link.id}",
+                "start_node_id": link.start_node.id,
+                "end_node_id": link.end_node.id,
+                "link_type": "straight",
+                "length_km": 0.5,
+                "traffic_counts": {"car": 500},
+                "parameters": {
+                    "lanes_total": 1,
+                    "lanes_bus": 0,
+                    "capacity_per_lane_base": 1800,
+                    "lane_width_m": 3.5,
+                    "grade_percent": 0.0,
+                    "parking_present": False,
+                    "heavy_vehicles_percent": 0.0
+                },
+                "results": {},
                 "coords": {
                     "lon_start": round(lon1, 6), "lat_start": round(lat1, 6),
                     "lon_end": round(lon2, 6), "lat_end": round(lat2, 6)
-                }
+                },
+                "metadata": {}
             }
-            data["directional_links"].append(link_entry)
+            data["network"]["links"].append(link_entry)
 
         with open("manual_network.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
