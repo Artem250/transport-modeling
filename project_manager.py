@@ -5,6 +5,7 @@ from analysis_service import AnalysisService
 from project_loader import ProjectLoader
 from project_saver import ProjectSaver
 from report_formatter import ReportFormatter
+from validation_service import ValidationService
 
 
 class TrafficProject:
@@ -20,6 +21,7 @@ class TrafficProject:
         self.loader = ProjectLoader()
         self.saver = ProjectSaver()
         self.analysis_service = AnalysisService()
+        self.validation_service = ValidationService()
 
         self.project = None
         self.links = {}
@@ -35,6 +37,11 @@ class TrafficProject:
 
         try:
             self.project = self.loader.load(self.json_path)
+            validation_errors = self.validation_service.validate_project(self.project)
+            if validation_errors:
+                print("Обнаружены ошибки проекта:")
+                for error in validation_errors:
+                    print(f" - {error}")
             self._sync_legacy_views()
             print(f"Загружено: {len(self.links)} ссылок, {len(self.routes)} маршрутов.")
             return True

@@ -23,6 +23,8 @@ class RoutingService:
                 break
 
             for link in network.get_outgoing_links(current_node_id):
+                if link.metadata.get("disabled"):
+                    continue
                 next_node_id = link.end_node_id
                 link_weight = self._get_link_weight(link, weight)
                 candidate_distance = current_distance + link_weight
@@ -55,4 +57,3 @@ class RoutingService:
         if weight == "delay_sec":
             return float(link.results.get("Delay_sec", 0.0))
         return float(getattr(link, weight, link.length_km))
-

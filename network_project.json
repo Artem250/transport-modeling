@@ -21,6 +21,36 @@
         "node_type": "intersection",
         "name": "",
         "metadata": {}
+      },
+      {
+        "id": "N1",
+        "lon": 82.895732,
+        "lat": 55.052643,
+        "x": 621100.808,
+        "y": -6102291.931,
+        "node_type": "intersection",
+        "name": "N1",
+        "metadata": {}
+      },
+      {
+        "id": "N2",
+        "lon": 82.89614,
+        "lat": 55.052354,
+        "x": 621127.736,
+        "y": -6102260.451,
+        "node_type": "intersection",
+        "name": "N2",
+        "metadata": {}
+      },
+      {
+        "id": "N3",
+        "lon": 82.902854,
+        "lat": 55.046557,
+        "x": 621574.096,
+        "y": -6101627.149,
+        "node_type": "intersection",
+        "name": "N3",
+        "metadata": {}
       }
     ],
     "links": [
@@ -513,6 +543,66 @@
           "name": "Движение по кольцу (Насыщенный поток)",
           "type": "StraightRoad"
         },
+        "metadata": {}
+      },
+      {
+        "id": "6",
+        "name": "Road 6",
+        "start_node_id": "N1",
+        "end_node_id": "N2",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 500
+        },
+        "coords": {
+          "lon_start": 82.895732,
+          "lat_start": 55.052643,
+          "lon_end": 82.89614,
+          "lat_end": 55.052354
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "cycle_time": 100,
+          "green_time": 30,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "5",
+        "name": "Road 5",
+        "start_node_id": "N2",
+        "end_node_id": "N3",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 500
+        },
+        "coords": {
+          "lon_start": 82.89614,
+          "lat_start": 55.052354,
+          "lon_end": 82.902854,
+          "lat_end": 55.046557
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
         "metadata": {}
       }
     ],
