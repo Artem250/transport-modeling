@@ -13,113 +13,113 @@
   "network": {
     "nodes": [
       {
-        "id": "N_82.903738_55.04656",
+        "id": "N1",
         "lon": 82.903738,
         "lat": 55.04656,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.903738_55.04656",
+        "name": "N1",
         "metadata": {}
       },
       {
-        "id": "N_82.903338_55.046685",
+        "id": "N2",
         "lon": 82.903338,
         "lat": 55.046685,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.903338_55.046685",
+        "name": "N2",
         "metadata": {}
       },
       {
-        "id": "N_82.902648_55.047136",
+        "id": "N3",
         "lon": 82.902648,
         "lat": 55.047136,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.902648_55.047136",
+        "name": "N3",
         "metadata": {}
       },
       {
-        "id": "N_82.902462_55.047328",
+        "id": "N4",
         "lon": 82.902462,
         "lat": 55.047328,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.902462_55.047328",
+        "name": "N4",
         "metadata": {}
       },
       {
-        "id": "N_82.896459_55.052318",
+        "id": "N5",
         "lon": 82.896459,
         "lat": 55.052318,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.896459_55.052318",
+        "name": "N5",
         "metadata": {}
       },
       {
-        "id": "N_82.89609_55.052758",
+        "id": "N6",
         "lon": 82.89609,
         "lat": 55.052758,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.89609_55.052758",
+        "name": "N6",
         "metadata": {}
       },
       {
-        "id": "N_82.895607_55.052559",
+        "id": "N7",
         "lon": 82.895607,
         "lat": 55.052559,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.895607_55.052559",
+        "name": "N7",
         "metadata": {}
       },
       {
-        "id": "N_82.896095_55.05223",
+        "id": "N8",
         "lon": 82.896095,
         "lat": 55.05223,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.896095_55.05223",
+        "name": "N8",
         "metadata": {}
       },
       {
-        "id": "N_82.896302_55.052074",
+        "id": "N9",
         "lon": 82.896302,
         "lat": 55.052074,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.896302_55.052074",
+        "name": "N9",
         "metadata": {}
       },
       {
-        "id": "N_82.902955_55.046658",
+        "id": "N10",
         "lon": 82.902955,
         "lat": 55.046658,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.902955_55.046658",
+        "name": "N10",
         "metadata": {}
       },
       {
-        "id": "N_82.902962_55.046277",
+        "id": "N11",
         "lon": 82.902962,
         "lat": 55.046277,
         "x": null,
         "y": null,
         "node_type": "intersection",
-        "name": "N_82.902962_55.046277",
+        "name": "N11",
         "metadata": {}
       }
     ],
@@ -127,8 +127,8 @@
       {
         "id": "L1_RING_EXIT",
         "name": "Выезд с Кольца (R1 -> S2)",
-        "start_node_id": "N_82.903738_55.04656",
-        "end_node_id": "N_82.903338_55.046685",
+        "start_node_id": "N1",
+        "end_node_id": "N2",
         "link_type": "intersection",
         "length_km": 0.1,
         "traffic_counts": {
@@ -185,8 +185,8 @@
       {
         "id": "L2_A_RING_TO_PED",
         "name": "Прямой: до Светофора",
-        "start_node_id": "N_82.903338_55.046685",
-        "end_node_id": "N_82.902648_55.047136",
+        "start_node_id": "N2",
+        "end_node_id": "N3",
         "link_type": "straight",
         "length_km": 0.4,
         "traffic_counts": {
@@ -236,8 +236,8 @@
       {
         "id": "L2_PED_SIGNAL",
         "name": "Пешеходный светофор (Направление от Кольца)",
-        "start_node_id": "N_82.902648_55.047136",
-        "end_node_id": "N_82.902462_55.047328",
+        "start_node_id": "N3",
+        "end_node_id": "N4",
         "link_type": "intersection",
         "length_km": 0.02,
         "traffic_counts": {
@@ -294,8 +294,8 @@
       {
         "id": "L2_B_PED_TO_I3",
         "name": "Прямой: после Светофора до Перекрестка",
-        "start_node_id": "N_82.902462_55.047328",
-        "end_node_id": "N_82.896459_55.052318",
+        "start_node_id": "N4",
+        "end_node_id": "N5",
         "link_type": "straight",
         "length_km": 0.6,
         "traffic_counts": {
@@ -345,8 +345,8 @@
       {
         "id": "L3_I3_APPROACH",
         "name": "Подход к Перекрестку (из S2)",
-        "start_node_id": "N_82.896459_55.052318",
-        "end_node_id": "N_82.89609_55.052758",
+        "start_node_id": "N5",
+        "end_node_id": "N6",
         "link_type": "intersection",
         "length_km": 0.1,
         "traffic_counts": {
@@ -403,8 +403,8 @@
       {
         "id": "L4_A_I3_TO_PED",
         "name": "Прямой: от Перекрестка до Светофора",
-        "start_node_id": "N_82.895607_55.052559",
-        "end_node_id": "N_82.896095_55.05223",
+        "start_node_id": "N7",
+        "end_node_id": "N8",
         "link_type": "straight",
         "length_km": 0.6,
         "traffic_counts": {
@@ -454,8 +454,8 @@
       {
         "id": "L4_PED_SIGNAL",
         "name": "Пешеходный светофор (Направление к Кольцу)",
-        "start_node_id": "N_82.896095_55.05223",
-        "end_node_id": "N_82.896302_55.052074",
+        "start_node_id": "N8",
+        "end_node_id": "N9",
         "link_type": "intersection",
         "length_km": 0.02,
         "traffic_counts": {
@@ -512,8 +512,8 @@
       {
         "id": "L4_B_PED_TO_RING",
         "name": "Прямой: от Светофора до Кольца",
-        "start_node_id": "N_82.896302_55.052074",
-        "end_node_id": "N_82.902955_55.046658",
+        "start_node_id": "N9",
+        "end_node_id": "N10",
         "link_type": "straight",
         "length_km": 0.4,
         "traffic_counts": {
@@ -563,8 +563,8 @@
       {
         "id": "L5_RING_ENTRY",
         "name": "Въезд на Кольцо (Регулируемый)",
-        "start_node_id": "N_82.902955_55.046658",
-        "end_node_id": "N_82.902962_55.046277",
+        "start_node_id": "N10",
+        "end_node_id": "N11",
         "link_type": "intersection",
         "length_km": 0.1,
         "traffic_counts": {
@@ -621,8 +621,8 @@
       {
         "id": "L_RING_CIRCULATION",
         "name": "Движение по кольцу (Насыщенный поток)",
-        "start_node_id": "N_82.902962_55.046277",
-        "end_node_id": "N_82.903738_55.04656",
+        "start_node_id": "N11",
+        "end_node_id": "N1",
         "link_type": "straight",
         "length_km": 0.494,
         "traffic_counts": {

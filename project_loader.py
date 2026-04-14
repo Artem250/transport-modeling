@@ -57,10 +57,11 @@ class ProjectLoader:
         )
         network = Network()
         coords_source = self._load_legacy_coords_source()
+        node_ids_by_coord = {}
 
         for item in data.get("directional_links", []):
             coords = self._resolve_legacy_coords(item, coords_source)
-            start_node_id, end_node_id, coords = self._extract_nodes_and_coords(item, coords)
+            start_node_id, end_node_id, coords = self._extract_nodes_and_coords(item, coords, node_ids_by_coord)
             for node_id, lon, lat in (
                 (start_node_id, coords.get("lon_start"), coords.get("lat_start")),
                 (end_node_id, coords.get("lon_end"), coords.get("lat_end")),
@@ -106,6 +107,7 @@ class ProjectLoader:
             )
 
         project.network = network
+        self._assign_default_node_names(project.network)
         return project
 
     def _build_network(self, network_data: dict) -> Network:
@@ -154,9 +156,15 @@ class ProjectLoader:
                 )
             )
 
+        self._assign_default_node_names(network)
         return network
 
-    def _extract_nodes_and_coords(self, item: dict, coords: dict | None = None) -> tuple[str, str, dict]:
+    def _extract_nodes_and_coords(
+        self,
+        item: dict,
+        coords: dict | None = None,
+        node_ids_by_coord: dict | None = None,
+    ) -> tuple[str, str, dict]:
         coords = coords or item.get("coords", {})
         if coords.get("type") == "polyline":
             points = coords.get("points", [])
@@ -177,7 +185,15 @@ class ProjectLoader:
             round(coords.get("lon_end", 0.0), 6),
             round(coords.get("lat_end", 0.0), 6),
         )
-        return f"N_{start_key[0]}_{start_key[1]}", f"N_{end_key[0]}_{end_key[1]}", coords
+        if node_ids_by_coord is None:
+            return f"N_{start_key[0]}_{start_key[1]}", f"N_{end_key[0]}_{end_key[1]}", coords
+
+        if start_key not in node_ids_by_coord:
+            node_ids_by_coord[start_key] = f"N{len(node_ids_by_coord) + 1}"
+        if end_key not in node_ids_by_coord:
+            node_ids_by_coord[end_key] = f"N{len(node_ids_by_coord) + 1}"
+
+        return node_ids_by_coord[start_key], node_ids_by_coord[end_key], coords
 
     def _load_legacy_coords_source(self) -> dict:
         coords_source = {}
@@ -243,3 +259,12 @@ class ProjectLoader:
                     end_node.name = end_node.name or end_node.id
             elif end_lon is not None and end_lat is not None:
                 network.add_node(Node(id=link.end_node_id, lon=end_lon, lat=end_lat, name=link.end_node_id))
+
+    def _assign_default_node_names(self, network: Network) -> None:
+        ordered_nodes = sorted(network.nodes.values(), key=lambda node: node.id)
+        for index, node in enumerate(ordered_nodes, start=1):
+            if not node.name or self._looks_like_coordinate_node_id(node.name) or self._looks_like_coordinate_node_id(node.id):
+                node.name = f"N{index}"
+
+    def _looks_like_coordinate_node_id(self, value: str) -> bool:
+        return value.startswith("N_") and "_" in value[2:]

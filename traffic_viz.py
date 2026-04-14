@@ -128,9 +128,11 @@ class TrafficLink(QGraphicsPathItem):
         self.app_callback = app_callback
         self.is_route_highlighted = False
         self.intermediate_points = []
+        res = link_model.results or {}
+        self.is_ring = res.get("is_ring", False) or ("RING" in self.id and "CIRCULATION" in self.id)
 
         coords = link_model.coords or {}
-        if coords.get("type") == "polyline":
+        if not self.is_ring and coords.get("type") == "polyline":
             raw_points = coords.get("points", [])
             if len(raw_points) > 2:
                 for p in raw_points[1:-1]:
@@ -147,10 +149,28 @@ class TrafficLink(QGraphicsPathItem):
         path = QPainterPath()
         p1 = self.start_node.scenePos()
         p2 = self.end_node.scenePos()
-        path.moveTo(p1)
-        for pt in self.intermediate_points:
-            path.lineTo(QPointF(pt[0], pt[1]))
-        path.lineTo(p2)
+
+        if self.is_ring:
+            vec = p2 - p1
+            dist = math.sqrt(vec.x() ** 2 + vec.y() ** 2)
+            if dist > 1.0:
+                radius = dist / math.sqrt(2)
+                mid = (p1 + p2) / 2
+                perp_x = -(p2.y() - p1.y()) / dist
+                perp_y = (p2.x() - p1.x()) / dist
+                h = dist / 2
+                center_x = mid.x() + perp_x * h
+                center_y = mid.y() + perp_y * h
+                rect = QRectF(center_x - radius, center_y - radius, radius * 2, radius * 2)
+                path.addEllipse(rect)
+            else:
+                path.moveTo(p1)
+                path.lineTo(p2)
+        else:
+            path.moveTo(p1)
+            for pt in self.intermediate_points:
+                path.lineTo(QPointF(pt[0], pt[1]))
+            path.lineTo(p2)
         self.setPath(path)
 
     def update_visuals(self, stage):
@@ -381,17 +401,25 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Маршрут", "Проект не загружен.")
             return
 
-        node_ids = list(self.project.network.nodes.keys())
-        start_node_id, ok = QInputDialog.getItem(self, "Маршрут", "Начальный узел:", node_ids, 0, False)
+        node_display = self._get_node_display_pairs()
+        if not node_display:
+            QMessageBox.warning(self, "Маршрут", "В проекте нет узлов.")
+            return
+
+        display_names = [display for display, _ in node_display]
+        start_display, ok = QInputDialog.getItem(self, "Маршрут", "Начальный узел:", display_names, 0, False)
         if not ok:
             return
-        end_node_id, ok = QInputDialog.getItem(self, "Маршрут", "Конечный узел:", node_ids, 0, False)
+        end_display, ok = QInputDialog.getItem(self, "Маршрут", "Конечный узел:", display_names, 0, False)
         if not ok:
             return
         weight, ok = QInputDialog.getItem(self, "Маршрут", "Критерий:", ["length_km", "travel_time_sec", "delay_sec"], 0, False)
         if not ok:
             return
 
+        display_to_id = {display: node_id for display, node_id in node_display}
+        start_node_id = display_to_id[start_display]
+        end_node_id = display_to_id[end_display]
         path_link_ids = self.routing_service.find_shortest_path(self.project.network, start_node_id, end_node_id, weight)
         for link in self.viz_links:
             link.is_route_highlighted = link.id in path_link_ids
@@ -409,6 +437,19 @@ class MainWindow(QMainWindow):
             f"<b>Суммарная длина:</b> {round(total_length, 3)} км<br>"
             f"<b>Суммарная задержка:</b> {round(total_delay, 1)} сек"
         )
+
+    def _get_node_display_pairs(self):
+        ordered_nodes = sorted(
+            self.project.network.nodes.values(),
+            key=lambda node: node.name or node.id,
+        )
+        result = []
+        for node in ordered_nodes:
+            label = node.name or node.id
+            if label != node.id:
+                label = f"{label} ({node.id})"
+            result.append((label, node.id))
+        return result
 
     def save_current_positions_to_project(self):
         if self.project is None:
