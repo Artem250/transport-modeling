@@ -468,8 +468,8 @@
         "coords": {
           "lon_start": 82.896095,
           "lat_start": 55.05223,
-          "lon_end": 82.896302,
-          "lat_end": 55.052074
+          "lon_end": 82.896434,
+          "lat_end": 55.05194
         },
         "parameters": {
           "cycle_time": 70,
@@ -524,8 +524,8 @@
           "other": 9
         },
         "coords": {
-          "lon_start": 82.896302,
-          "lat_start": 55.052074,
+          "lon_start": 82.896434,
+          "lat_start": 55.05194,
           "lon_end": 82.902955,
           "lat_end": 55.046658
         },
