@@ -14,70 +14,60 @@
     "nodes": [
       {
         "id": "N1",
-        "lon": 82.903738,
-        "lat": 55.04656,
-        "x": null,
-        "y": null,
+        "lon": 82.90261,
+        "lat": 55.04684,
+        "x": 621557.686,
+        "y": -6101658.164,
         "node_type": "intersection",
         "name": "N1",
         "metadata": {}
       },
       {
-        "id": "N2",
-        "lon": 82.903338,
-        "lat": 55.046685,
-        "x": null,
-        "y": null,
-        "node_type": "intersection",
-        "name": "N2",
-        "metadata": {}
-      },
-      {
         "id": "N3",
-        "lon": 82.902648,
-        "lat": 55.047136,
-        "x": null,
-        "y": null,
+        "lon": 82.903367,
+        "lat": 55.046639,
+        "x": 621606.68,
+        "y": -6101637.199,
         "node_type": "intersection",
         "name": "N3",
         "metadata": {}
       },
       {
         "id": "N4",
-        "lon": 82.902462,
-        "lat": 55.047328,
-        "x": null,
-        "y": null,
+        "lon": 82.902929,
+        "lat": 55.046909,
+        "x": 621577.843,
+        "y": -6101666.419,
         "node_type": "intersection",
         "name": "N4",
         "metadata": {}
       },
       {
         "id": "N5",
-        "lon": 82.896459,
-        "lat": 55.052318,
-        "x": null,
-        "y": null,
+        "lon": 82.896523,
+        "lat": 55.052387,
+        "x": 621152.07,
+        "y": -6102264.749,
         "node_type": "intersection",
         "name": "N5",
         "metadata": {}
       },
       {
         "id": "N6",
-        "lon": 82.89609,
-        "lat": 55.052758,
-        "x": null,
-        "y": null,
+        "lon": 82.896195,
+        "lat": 55.052756,
+        "x": 621130.03,
+        "y": -6102305.329,
         "node_type": "intersection",
         "name": "N6",
         "metadata": {}
       },
       {
         "id": "N7",
-        "lon": 82.895607,
-        "lat": 55.052559,
-        "x": null,
-        "y": null,
+        "lon": 82.895539,
+        "lat": 55.052522,
+        "x": 621088.852,
+        "y": -6102278.148,
         "node_type": "intersection",
         "name": "N7",
         "metadata": {}
@@ -86,156 +76,177 @@
         "id": "N8",
         "lon": 82.896095,
         "lat": 55.05223,
-        "x": null,
-        "y": null,
+        "x": 621125.219,
+        "y": -6102246.593,
         "node_type": "intersection",
         "name": "N8",
         "metadata": {}
       },
       {
         "id": "N9",
-        "lon": 82.896302,
-        "lat": 55.052074,
-        "x": null,
-        "y": null,
+        "lon": 82.896653,
+        "lat": 55.051699,
+        "x": 621162.436,
+        "y": -6102188.427,
         "node_type": "intersection",
         "name": "N9",
         "metadata": {}
       },
       {
+        "id": "N14",
+        "lon": 82.902824,
+        "lat": 55.046489,
+        "x": 621572.441,
+        "y": -6101619.57,
+        "node_type": "intersection",
+        "name": "N14",
+        "metadata": {}
+      },
+      {
+        "id": "N2",
+        "lon": 82.894735,
+        "lat": 55.05225,
+        "x": 621038.309,
+        "y": -6102246.487,
+        "node_type": "intersection",
+        "name": "N2",
+        "metadata": {}
+      },
+      {
         "id": "N10",
-        "lon": 82.902955,
-        "lat": 55.046658,
-        "x": null,
-        "y": null,
+        "lon": 82.890697,
+        "lat": 55.050689,
+        "x": 620785.064,
+        "y": -6102065.852,
         "node_type": "intersection",
         "name": "N10",
         "metadata": {}
       },
       {
         "id": "N11",
-        "lon": 82.902962,
-        "lat": 55.046277,
-        "x": null,
-        "y": null,
+        "lon": 82.89685,
+        "lat": 55.053018,
+        "x": 621171.066,
+        "y": -6102335.593,
         "node_type": "intersection",
         "name": "N11",
+        "metadata": {}
+      },
+      {
+        "id": "N12",
+        "lon": 82.899861,
+        "lat": 55.054153,
+        "x": 621359.944,
+        "y": -6102467.094,
+        "node_type": "intersection",
+        "name": "N12",
+        "metadata": {}
+      },
+      {
+        "id": "N13",
+        "lon": 82.895897,
+        "lat": 55.053008,
+        "x": 621110.251,
+        "y": -6102332.833,
+        "node_type": "intersection",
+        "name": "N13",
+        "metadata": {}
+      },
+      {
+        "id": "N15",
+        "lon": 82.896572,
+        "lat": 55.053261,
+        "x": 621152.594,
+        "y": -6102362.125,
+        "node_type": "intersection",
+        "name": "N15",
+        "metadata": {}
+      },
+      {
+        "id": "N16",
+        "lon": 82.899524,
+        "lat": 55.054383,
+        "x": 621337.725,
+        "y": -6102492.104,
+        "node_type": "intersection",
+        "name": "N16",
+        "metadata": {}
+      },
+      {
+        "id": "N17",
+        "lon": 82.890476,
+        "lat": 55.050918,
+        "x": 620770.248,
+        "y": -6102090.906,
+        "node_type": "intersection",
+        "name": "N17",
+        "metadata": {}
+      },
+      {
+        "id": "N18",
+        "lon": 82.894528,
+        "lat": 55.052437,
+        "x": 621024.501,
+        "y": -6102266.853,
+        "node_type": "intersection",
+        "name": "N18",
+        "metadata": {}
+      },
+      {
+        "id": "N19",
+        "lon": 82.895238,
+        "lat": 55.052738,
+        "x": 621068.971,
+        "y": -6102301.656,
+        "node_type": "intersection",
+        "name": "N19",
+        "metadata": {}
+      },
+      {
+        "id": "N20",
+        "lon": 82.895033,
+        "lat": 55.05308,
+        "x": 621054.809,
+        "y": -6102339.359,
+        "node_type": "intersection",
+        "name": "N20",
+        "metadata": {}
+      },
+      {
+        "id": "N21",
+        "lon": 82.895489,
+        "lat": 55.05323,
+        "x": 621083.472,
+        "y": -6102356.76,
+        "node_type": "intersection",
+        "name": "N21",
+        "metadata": {}
+      },
+      {
+        "id": "N22",
+        "lon": 82.892593,
+        "lat": 55.055056,
+        "x": 620893.024,
+        "y": -6102554.942,
+        "node_type": "intersection",
+        "name": "N22",
+        "metadata": {}
+      },
+      {
+        "id": "N23",
+        "lon": 82.893087,
+        "lat": 55.055248,
+        "x": 620923.96,
+        "y": -6102577.177,
+        "node_type": "intersection",
+        "name": "N23",
         "metadata": {}
       }
     ],
     "links": [
       {
-        "id": "L1_RING_EXIT",
-        "name": "Выезд с Кольца (R1 -> S2)",
-        "start_node_id": "N1",
-        "end_node_id": "N2",
-        "link_type": "intersection",
-        "length_km": 0.1,
-        "traffic_counts": {
-          "passenger_car": 2487,
-          "truck_lt_3_5t": 112,
-          "truck_lt_10t": 14,
-          "bus": 41,
-          "other": 14
-        },
-        "coords": {
-          "lon_start": 82.903738,
-          "lat_start": 55.04656,
-          "lon_end": 82.903338,
-          "lat_end": 55.046685
-        },
-        "parameters": {
-          "cycle_time": 100,
-          "green_time": 30,
-          "g_others": 65,
-          "saturation_flow_base": 1880,
-          "lanes_count": 4,
-          "lane_width_m": 3.3,
-          "grade_percent": 0.0,
-          "parking_present": false,
-          "heavy_vehicles_percent": 0.078,
-          "is_ring_approach": false
-        },
-        "results": {
-          "S_corrected": 1633.0,
-          "f_w": 0.97,
-          "f_g": 1.0,
-          "f_HV": 0.895,
-          "f_p": 1.0,
-          "f_R": 1.0,
-          "Cycle_T": 100,
-          "Green_g": 30,
-          "Green_g_others": 65,
-          "V": 2793.0,
-          "C_initial": 1959.0,
-          "VC_ratio": 1.426,
-          "LOS": "F",
-          "Delay_sec": 102.8,
-          "Length_km": 0.1,
-          "id": "L1_RING_EXIT",
-          "name": "Выезд с Кольца (R1 -> S2)",
-          "type": "Intersection",
-          "Optimization_Proposal": "КРИТИЧЕСКАЯ ПЕРЕГРУЗКА: Требуется реконструкция или изменение геометрии.",
-          "C_optimized": 1959.0,
-          "VC_optimized": 1.426,
-          "LOS_optimized": "F"
-        },
-        "metadata": {}
-      },
-      {
-        "id": "L2_A_RING_TO_PED",
-        "name": "Прямой: до Светофора",
-        "start_node_id": "N2",
-        "end_node_id": "N3",
-        "link_type": "straight",
-        "length_km": 0.4,
-        "traffic_counts": {
-          "passenger_car": 2487,
-          "truck_lt_3_5t": 112,
-          "truck_lt_10t": 14,
-          "bus": 41,
-          "other": 14
-        },
-        "coords": {
-          "lon_start": 82.903338,
-          "lat_start": 55.046685,
-          "lon_end": 82.902648,
-          "lat_end": 55.047136
-        },
-        "parameters": {
-          "lanes_total": 3,
-          "lanes_bus": 1,
-          "capacity_per_lane_base": 1880,
-          "lane_width_m": 3.0,
-          "grade_percent": 0.0,
-          "parking_present": true,
-          "heavy_vehicles_percent": 0.065
-        },
-        "results": {
-          "f_w": 0.94,
-          "f_g": 1.0,
-          "f_HV": 0.939,
-          "f_p": 0.95,
-          "C_base_per_lane": 1880,
-          "V": 2793.0,
-          "C_initial": 3531.0,
-          "VC_ratio": 0.791,
-          "LOS": "D",
-          "Delay_sec": 2.4,
-          "Length_km": 0.4,
-          "id": "L2_A_RING_TO_PED",
-          "name": "Прямой: до Светофора",
-          "type": "StraightRoad",
-          "Optimization_Proposal": "РАСШИРЕНИЕ: Добавить 0.3 полосы.",
-          "C_optimized": 3990.0,
-          "VC_optimized": 0.7,
-          "LOS_optimized": "C"
-        },
-        "metadata": {}
-      },
-      {
         "id": "L2_PED_SIGNAL",
-        "name": "Пешеходный светофор (Направление от Кольца)",
+        "name": "Пешеходный светофор (прямое направление)",
         "start_node_id": "N3",
         "end_node_id": "N4",
         "link_type": "intersection",
@@ -248,10 +259,10 @@
           "other": 14
         },
         "coords": {
-          "lon_start": 82.902648,
-          "lat_start": 55.047136,
-          "lon_end": 82.902462,
-          "lat_end": 55.047328
+          "lon_start": 82.903367,
+          "lat_start": 55.046639,
+          "lon_end": 82.902929,
+          "lat_end": 55.046909
         },
         "parameters": {
           "cycle_time": 70,
@@ -262,38 +273,14 @@
           "lane_width_m": 3.0,
           "grade_percent": 0.0,
           "parking_present": false,
-          "heavy_vehicles_percent": 0.065,
-          "is_ring_approach": false
+          "heavy_vehicles_percent": 0.065
         },
-        "results": {
-          "S_corrected": 1439.0,
-          "f_w": 0.94,
-          "f_g": 1.0,
-          "f_HV": 0.911,
-          "f_p": 1.0,
-          "f_R": 1.0,
-          "Cycle_T": 70,
-          "Green_g": 35,
-          "Green_g_others": 25,
-          "V": 2793.0,
-          "C_initial": 2878.0,
-          "VC_ratio": 0.971,
-          "LOS": "E",
-          "Delay_sec": 0.3,
-          "Length_km": 0.02,
-          "id": "L2_PED_SIGNAL",
-          "name": "Пешеходный светофор (Направление от Кольца)",
-          "type": "Intersection",
-          "Optimization_Proposal": "КРИТИЧЕСКАЯ ПЕРЕГРУЗКА: Требуется реконструкция или изменение геометрии.",
-          "C_optimized": 2878.0,
-          "VC_optimized": 0.971,
-          "LOS_optimized": "E"
-        },
+        "results": {},
         "metadata": {}
       },
       {
         "id": "L2_B_PED_TO_I3",
-        "name": "Прямой: после Светофора до Перекрестка",
+        "name": "Прямой: после светофора до перекрёстка",
         "start_node_id": "N4",
         "end_node_id": "N5",
         "link_type": "straight",
@@ -306,10 +293,10 @@
           "other": 14
         },
         "coords": {
-          "lon_start": 82.902462,
-          "lat_start": 55.047328,
-          "lon_end": 82.896459,
-          "lat_end": 55.052318
+          "lon_start": 82.902929,
+          "lat_start": 55.046909,
+          "lon_end": 82.896523,
+          "lat_end": 55.052387
         },
         "parameters": {
           "lanes_total": 3,
@@ -320,31 +307,12 @@
           "parking_present": true,
           "heavy_vehicles_percent": 0.065
         },
-        "results": {
-          "f_w": 0.94,
-          "f_g": 1.0,
-          "f_HV": 0.939,
-          "f_p": 0.95,
-          "C_base_per_lane": 1880,
-          "V": 2793.0,
-          "C_initial": 3531.0,
-          "VC_ratio": 0.791,
-          "LOS": "D",
-          "Delay_sec": 3.5,
-          "Length_km": 0.6,
-          "id": "L2_B_PED_TO_I3",
-          "name": "Прямой: после Светофора до Перекрестка",
-          "type": "StraightRoad",
-          "Optimization_Proposal": "РАСШИРЕНИЕ: Добавить 0.3 полосы.",
-          "C_optimized": 3990.0,
-          "VC_optimized": 0.7,
-          "LOS_optimized": "C"
-        },
+        "results": {},
         "metadata": {}
       },
       {
         "id": "L3_I3_APPROACH",
-        "name": "Подход к Перекрестку (из S2)",
+        "name": "Подход к западному перекрёстку",
         "start_node_id": "N5",
         "end_node_id": "N6",
         "link_type": "intersection",
@@ -357,10 +325,10 @@
           "other": 14
         },
         "coords": {
-          "lon_start": 82.896459,
-          "lat_start": 55.052318,
-          "lon_end": 82.89609,
-          "lat_end": 55.052758
+          "lon_start": 82.896523,
+          "lat_start": 55.052387,
+          "lon_end": 82.896195,
+          "lat_end": 55.052756
         },
         "parameters": {
           "cycle_time": 100,
@@ -371,38 +339,14 @@
           "lane_width_m": 3.3,
           "grade_percent": 0.0,
           "parking_present": false,
-          "heavy_vehicles_percent": 0.065,
-          "is_ring_approach": false
+          "heavy_vehicles_percent": 0.065
         },
-        "results": {
-          "S_corrected": 1485.0,
-          "f_w": 0.97,
-          "f_g": 1.0,
-          "f_HV": 0.911,
-          "f_p": 1.0,
-          "f_R": 1.0,
-          "Cycle_T": 100,
-          "Green_g": 40,
-          "Green_g_others": 50,
-          "V": 2793.0,
-          "C_initial": 2376.0,
-          "VC_ratio": 1.176,
-          "LOS": "F",
-          "Delay_sec": 95.3,
-          "Length_km": 0.1,
-          "id": "L3_I3_APPROACH",
-          "name": "Подход к Перекрестку (из S2)",
-          "type": "Intersection",
-          "Optimization_Proposal": "КРИТИЧЕСКАЯ ПЕРЕГРУЗКА: Требуется реконструкция или изменение геометрии.",
-          "C_optimized": 2376.0,
-          "VC_optimized": 1.176,
-          "LOS_optimized": "F"
-        },
+        "results": {},
         "metadata": {}
       },
       {
         "id": "L4_A_I3_TO_PED",
-        "name": "Прямой: от Перекрестка до Светофора",
+        "name": "Прямой: от западного перекрёстка до светофора",
         "start_node_id": "N7",
         "end_node_id": "N8",
         "link_type": "straight",
@@ -415,8 +359,8 @@
           "other": 9
         },
         "coords": {
-          "lon_start": 82.895607,
-          "lat_start": 55.052559,
+          "lon_start": 82.895539,
+          "lat_start": 55.052522,
           "lon_end": 82.896095,
           "lat_end": 55.05223
         },
@@ -429,31 +373,12 @@
           "parking_present": true,
           "heavy_vehicles_percent": 0.062
         },
-        "results": {
-          "f_w": 0.97,
-          "f_g": 1.0,
-          "f_HV": 0.942,
-          "f_p": 0.95,
-          "C_base_per_lane": 1680,
-          "V": 2703.0,
-          "C_initial": 3164.0,
-          "VC_ratio": 0.854,
-          "LOS": "D",
-          "Delay_sec": 4.8,
-          "Length_km": 0.6,
-          "id": "L4_A_I3_TO_PED",
-          "name": "Прямой: от Перекрестка до Светофора",
-          "type": "StraightRoad",
-          "Optimization_Proposal": "РАСШИРЕНИЕ: Добавить 0.4 полосы.",
-          "C_optimized": 3861.0,
-          "VC_optimized": 0.7,
-          "LOS_optimized": "C"
-        },
+        "results": {},
         "metadata": {}
       },
       {
         "id": "L4_PED_SIGNAL",
-        "name": "Пешеходный светофор (Направление к Кольцу)",
+        "name": "Пешеходный светофор (обратное направление)",
         "start_node_id": "N8",
         "end_node_id": "N9",
         "link_type": "intersection",
@@ -468,8 +393,8 @@
         "coords": {
           "lon_start": 82.896095,
           "lat_start": 55.05223,
-          "lon_end": 82.896434,
-          "lat_end": 55.05194
+          "lon_end": 82.896653,
+          "lat_end": 55.051699
         },
         "parameters": {
           "cycle_time": 70,
@@ -480,40 +405,16 @@
           "lane_width_m": 3.3,
           "grade_percent": 0.0,
           "parking_present": false,
-          "heavy_vehicles_percent": 0.062,
-          "is_ring_approach": false
+          "heavy_vehicles_percent": 0.062
         },
-        "results": {
-          "S_corrected": 1491.0,
-          "f_w": 0.97,
-          "f_g": 1.0,
-          "f_HV": 0.915,
-          "f_p": 1.0,
-          "f_R": 1.0,
-          "Cycle_T": 70,
-          "Green_g": 35,
-          "Green_g_others": 25,
-          "V": 2703.0,
-          "C_initial": 2982.0,
-          "VC_ratio": 0.906,
-          "LOS": "E",
-          "Delay_sec": 0.2,
-          "Length_km": 0.02,
-          "id": "L4_PED_SIGNAL",
-          "name": "Пешеходный светофор (Направление к Кольцу)",
-          "type": "Intersection",
-          "Optimization_Proposal": "КРИТИЧЕСКАЯ ПЕРЕГРУЗКА: Требуется реконструкция или изменение геометрии.",
-          "C_optimized": 2982.0,
-          "VC_optimized": 0.906,
-          "LOS_optimized": "E"
-        },
+        "results": {},
         "metadata": {}
       },
       {
-        "id": "L4_B_PED_TO_RING",
-        "name": "Прямой: от Светофора до Кольца",
+        "id": "L4_B_PED_TO_EAST_INT",
+        "name": "Прямой: от светофора до восточного перекрёстка",
         "start_node_id": "N9",
-        "end_node_id": "N10",
+        "end_node_id": "N1",
         "link_type": "straight",
         "length_km": 0.4,
         "traffic_counts": {
@@ -524,10 +425,10 @@
           "other": 9
         },
         "coords": {
-          "lon_start": 82.896434,
-          "lat_start": 55.05194,
-          "lon_end": 82.902955,
-          "lat_end": 55.046658
+          "lon_start": 82.896653,
+          "lat_start": 55.051699,
+          "lon_end": 82.90261,
+          "lat_end": 55.04684
         },
         "parameters": {
           "lanes_total": 3,
@@ -538,236 +439,423 @@
           "parking_present": true,
           "heavy_vehicles_percent": 0.062
         },
-        "results": {
-          "f_w": 0.94,
-          "f_g": 1.0,
-          "f_HV": 0.942,
-          "f_p": 0.95,
-          "C_base_per_lane": 1680,
-          "V": 2703.0,
-          "C_initial": 3164.0,
-          "VC_ratio": 0.854,
-          "LOS": "D",
-          "Delay_sec": 3.2,
-          "Length_km": 0.4,
-          "id": "L4_B_PED_TO_RING",
-          "name": "Прямой: от Светофора до Кольца",
-          "type": "StraightRoad",
-          "Optimization_Proposal": "РАСШИРЕНИЕ: Добавить 0.4 полосы.",
-          "C_optimized": 3861.0,
-          "VC_optimized": 0.7,
-          "LOS_optimized": "C"
-        },
+        "results": {},
         "metadata": {}
       },
       {
-        "id": "L5_RING_ENTRY",
-        "name": "Въезд на Кольцо (Регулируемый)",
-        "start_node_id": "N10",
-        "end_node_id": "N11",
-        "link_type": "intersection",
-        "length_km": 0.1,
+        "id": "L7_SOUTH_ARM",
+        "name": "Южное направление от перекрёстка",
+        "start_node_id": "N1",
+        "end_node_id": "N14",
+        "link_type": "straight",
+        "length_km": 0.17,
         "traffic_counts": {
-          "passenger_car": 2432,
-          "truck_lt_3_5t": 108,
-          "truck_lt_10t": 11,
-          "bus": 34,
-          "other": 9
+          "passenger_car": 650,
+          "truck_lt_3_5t": 35,
+          "truck_lt_10t": 8,
+          "bus": 18,
+          "other": 6
         },
         "coords": {
-          "lon_start": 82.902955,
-          "lat_start": 55.046658,
-          "lon_end": 82.902962,
-          "lat_end": 55.046277
+          "lon_start": 82.90261,
+          "lat_start": 55.04684,
+          "lon_end": 82.902824,
+          "lat_end": 55.046489
         },
         "parameters": {
+          "lanes_total": 2,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.06
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L8",
+        "name": "Road L8",
+        "start_node_id": "N2",
+        "end_node_id": "N7",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.894735,
+          "lat_start": 55.05225,
+          "lon_end": 82.895539,
+          "lat_end": 55.052522
+        },
+        "parameters": {
+          "length_km": 0.5,
           "cycle_time": 100,
           "green_time": 30,
-          "g_others": 65,
-          "saturation_flow_base": 1880,
-          "lanes_count": 4,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
           "lane_width_m": 3.5,
           "grade_percent": 0.0,
           "parking_present": false,
-          "heavy_vehicles_percent": 0.062,
-          "is_ring_approach": true
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
         },
-        "results": {
-          "S_corrected": 1533.0,
-          "f_w": 0.99,
-          "f_g": 1.0,
-          "f_HV": 0.915,
-          "f_p": 1.0,
-          "f_R": 0.9,
-          "Cycle_T": 100,
-          "Green_g": 30,
-          "Green_g_others": 65,
-          "V": 2703.0,
-          "C_initial": 1839.0,
-          "VC_ratio": 1.47,
-          "LOS": "F",
-          "Delay_sec": 104.1,
-          "Length_km": 0.1,
-          "id": "L5_RING_ENTRY",
-          "name": "Въезд на Кольцо (Регулируемый)",
-          "type": "Intersection",
-          "Optimization_Proposal": "КРИТИЧЕСКАЯ ПЕРЕГРУЗКА: Требуется реконструкция или изменение геометрии.",
-          "C_optimized": 1839.0,
-          "VC_optimized": 1.47,
-          "LOS_optimized": "F"
-        },
+        "results": {},
         "metadata": {}
       },
       {
-        "id": "L_RING_CIRCULATION",
-        "name": "Движение по кольцу (Насыщенный поток)",
-        "start_node_id": "N11",
-        "end_node_id": "N1",
+        "id": "L9",
+        "name": "Road L9",
+        "start_node_id": "N10",
+        "end_node_id": "N2",
         "link_type": "straight",
-        "length_km": 0.494,
+        "length_km": 0.5,
         "traffic_counts": {
-          "passenger_car": 4127,
-          "truck_lt_3_5t": 286,
-          "truck_lt_10t": 15,
-          "bus": 82,
-          "other": 37
+          "car": 1600
         },
         "coords": {
-          "lon_start": 82.902962,
-          "lat_start": 55.046277,
-          "lon_end": 82.903738,
-          "lat_end": 55.04656
+          "lon_start": 82.890697,
+          "lat_start": 55.050689,
+          "lon_end": 82.894735,
+          "lat_end": 55.05225
         },
         "parameters": {
-          "lanes_total": 4,
+          "length_km": 0.5,
+          "lanes_total": 1,
           "lanes_bus": 0,
-          "capacity_per_lane_base": 2000,
+          "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
           "grade_percent": 0.0,
           "parking_present": false,
-          "heavy_vehicles_percent": 0.082
+          "heavy_vehicles_percent": 0.0
         },
-        "results": {
-          "f_w": 0.99,
-          "f_g": 1.0,
-          "f_HV": 0.924,
-          "f_p": 1.0,
-          "C_base_per_lane": 2000,
-          "V": 4813.0,
-          "C_initial": 7394.0,
-          "VC_ratio": 0.651,
-          "LOS": "C",
-          "Delay_sec": 1.3,
-          "Length_km": 0.494,
-          "id": "L_RING_CIRCULATION",
-          "name": "Движение по кольцу (Насыщенный поток)",
-          "type": "StraightRoad"
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L10",
+        "name": "Road L10",
+        "start_node_id": "N6",
+        "end_node_id": "N11",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
         },
+        "coords": {
+          "lon_start": 82.896195,
+          "lat_start": 55.052756,
+          "lon_end": 82.89685,
+          "lat_end": 55.053018
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "cycle_time": 100,
+          "green_time": 30,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L11",
+        "name": "Road L11",
+        "start_node_id": "N11",
+        "end_node_id": "N12",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.89685,
+          "lat_start": 55.053018,
+          "lon_end": 82.899861,
+          "lat_end": 55.054153
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L13",
+        "name": "Road L13",
+        "start_node_id": "N18",
+        "end_node_id": "N17",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.894528,
+          "lat_start": 55.052437,
+          "lon_end": 82.890476,
+          "lat_end": 55.050918
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L14",
+        "name": "Road L14",
+        "start_node_id": "N19",
+        "end_node_id": "N18",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.895238,
+          "lat_start": 55.052738,
+          "lon_end": 82.894528,
+          "lat_end": 55.052437
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "cycle_time": 100,
+          "green_time": 30,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L15",
+        "name": "Road L15",
+        "start_node_id": "N20",
+        "end_node_id": "N19",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.895033,
+          "lat_start": 55.05308,
+          "lon_end": 82.895238,
+          "lat_end": 55.052738
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "cycle_time": 100,
+          "green_time": 30,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L16",
+        "name": "Road L16",
+        "start_node_id": "N22",
+        "end_node_id": "N20",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.892593,
+          "lat_start": 55.055056,
+          "lon_end": 82.895033,
+          "lat_end": 55.05308
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L17",
+        "name": "Road L17",
+        "start_node_id": "N21",
+        "end_node_id": "N23",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.895489,
+          "lat_start": 55.05323,
+          "lon_end": 82.893087,
+          "lat_end": 55.055248
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L18",
+        "name": "Road L18",
+        "start_node_id": "N13",
+        "end_node_id": "N21",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.895897,
+          "lat_start": 55.053008,
+          "lon_end": 82.895489,
+          "lat_end": 55.05323
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "cycle_time": 100,
+          "green_time": 30,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L19",
+        "name": "Road L19",
+        "start_node_id": "N13",
+        "end_node_id": "N15",
+        "link_type": "intersection",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.895897,
+          "lat_start": 55.053008,
+          "lon_end": 82.896572,
+          "lat_end": 55.053261
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "cycle_time": 100,
+          "green_time": 30,
+          "saturation_flow_base": 1800,
+          "lanes_count": 1,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0,
+          "g_others": 70
+        },
+        "results": {},
+        "metadata": {}
+      },
+      {
+        "id": "L20",
+        "name": "Road L20",
+        "start_node_id": "N16",
+        "end_node_id": "N15",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {
+          "car": 1600
+        },
+        "coords": {
+          "lon_start": 82.899524,
+          "lat_start": 55.054383,
+          "lon_end": 82.896572,
+          "lat_end": 55.053261
+        },
+        "parameters": {
+          "length_km": 0.5,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
         "metadata": {}
       }
     ],
     "routes": [
       {
-        "id": "Route_A_Forward",
-        "name": "Кольцо -> Перекресток",
+        "id": "Route_Main_Forward",
+        "name": "Восточный перекрёсток -> Западный перекрёсток",
         "link_ids": [
-          "L1_RING_EXIT",
-          "L2_A_RING_TO_PED",
           "L2_PED_SIGNAL",
           "L2_B_PED_TO_I3",
           "L3_I3_APPROACH"
         ],
-        "results": {
-          "id": "Route_A_Forward",
-          "name": "Кольцо -> Перекресток",
-          "total_length_km": 1.22,
-          "total_delay_sec": 204.3,
-          "total_travel_time_sec": 277.5,
-          "avg_speed_kph": 15.8,
-          "links_detail": [
-            {
-              "link_id": "L1_RING_EXIT",
-              "LOS": "F",
-              "VC_ratio": 1.426,
-              "Delay_sec": 102.8
-            },
-            {
-              "link_id": "L2_A_RING_TO_PED",
-              "LOS": "D",
-              "VC_ratio": 0.791,
-              "Delay_sec": 2.4
-            },
-            {
-              "link_id": "L2_PED_SIGNAL",
-              "LOS": "E",
-              "VC_ratio": 0.971,
-              "Delay_sec": 0.3
-            },
-            {
-              "link_id": "L2_B_PED_TO_I3",
-              "LOS": "D",
-              "VC_ratio": 0.791,
-              "Delay_sec": 3.5
-            },
-            {
-              "link_id": "L3_I3_APPROACH",
-              "LOS": "F",
-              "VC_ratio": 1.176,
-              "Delay_sec": 95.3
-            }
-          ]
-        }
+        "results": {}
       },
       {
-        "id": "Route_B_Backward",
-        "name": "Перекресток -> Кольцо",
+        "id": "Route_Main_Backward",
+        "name": "Западный перекрёсток -> Восточный перекрёсток",
         "link_ids": [
           "L3_I3_APPROACH",
           "L4_A_I3_TO_PED",
           "L4_PED_SIGNAL",
-          "L4_B_PED_TO_RING",
-          "L5_RING_ENTRY"
+          "L4_B_PED_TO_EAST_INT"
         ],
-        "results": {
-          "id": "Route_B_Backward",
-          "name": "Перекресток -> Кольцо",
-          "total_length_km": 1.22,
-          "total_delay_sec": 207.6,
-          "total_travel_time_sec": 280.8,
-          "avg_speed_kph": 15.6,
-          "links_detail": [
-            {
-              "link_id": "L3_I3_APPROACH",
-              "LOS": "F",
-              "VC_ratio": 1.176,
-              "Delay_sec": 95.3
-            },
-            {
-              "link_id": "L4_A_I3_TO_PED",
-              "LOS": "D",
-              "VC_ratio": 0.854,
-              "Delay_sec": 4.8
-            },
-            {
-              "link_id": "L4_PED_SIGNAL",
-              "LOS": "E",
-              "VC_ratio": 0.906,
-              "Delay_sec": 0.2
-            },
-            {
-              "link_id": "L4_B_PED_TO_RING",
-              "LOS": "D",
-              "VC_ratio": 0.854,
-              "Delay_sec": 3.2
-            },
-            {
-              "link_id": "L5_RING_ENTRY",
-              "LOS": "F",
-              "VC_ratio": 1.47,
-              "Delay_sec": 104.1
-            }
-          ]
-        }
+        "results": {}
       }
     ]
   },

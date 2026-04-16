@@ -4,7 +4,7 @@ import math
 import xml.etree.ElementTree as ET
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtGui import QColor, QBrush, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent
+from PyQt5.QtGui import QColor, QBrush, QFont, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QGraphicsEllipseItem,
@@ -96,10 +96,11 @@ class MapBackgroundItem(QGraphicsItem):
 
 
 class TrafficNode(QGraphicsEllipseItem):
-    def __init__(self, node_id, pos_point):
-        radius = 8
+    def __init__(self, node_id, label, pos_point):
+        radius = 14
         super().__init__(-radius, -radius, radius * 2, radius * 2)
         self.node_id = node_id
+        self.label = label
         self.setPos(pos_point)
         self.setBrush(QBrush(QColor(50, 50, 150)))
         self.setPen(QPen(Qt.black, 2))
@@ -116,6 +117,14 @@ class TrafficNode(QGraphicsEllipseItem):
             for link in self.connected_links:
                 link.update_geometry()
         return super().itemChange(change, value)
+
+    def paint(self, painter, option, widget):
+        super().paint(painter, option, widget)
+        font = QFont("Arial", 8)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.drawText(self.rect(), Qt.AlignCenter, self.label)
 
 
 class TrafficLink(QGraphicsPathItem):
@@ -294,7 +303,10 @@ class MainWindow(QMainWindow):
         self.set_stage(1)
 
     def open_network_editor(self):
-        from network_editor import NetworkEditor
+        try:
+            from network_editor import NetworkEditor
+        except ImportError:
+            from ne_network_editor import NetworkEditor
 
         self.editor_window = NetworkEditor(project_file=self.data_file)
         self.editor_window.show()
@@ -347,7 +359,8 @@ class MainWindow(QMainWindow):
                 point = QPointF(node_model.x, node_model.y)
             else:
                 continue
-            node_item = TrafficNode(node_model.id, point)
+            node_label = node_model.name or node_model.id
+            node_item = TrafficNode(node_model.id, node_label, point)
             self.scene.addItem(node_item)
             node_registry[node_model.id] = node_item
 

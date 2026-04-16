@@ -2,7 +2,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
-from PyQt5.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent
+from PyQt5.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QGraphicsEllipseItem,
@@ -91,10 +91,11 @@ class EditorLink(QGraphicsPathItem):
 
 class EditorNode(QGraphicsEllipseItem):
     def __init__(self, node_model: Node, pos, callback):
-        radius = 10
+        radius = 14
         super().__init__(-radius, -radius, radius * 2, radius * 2)
         self.model = node_model
         self.id = node_model.id
+        self.label = node_model.name or node_model.id
         self.callback = callback
         self._drag_start_pos = None
         self._is_dragging = False
@@ -132,6 +133,14 @@ class EditorNode(QGraphicsEllipseItem):
             self._drag_start_pos = None
             self._is_dragging = False
         super().mouseReleaseEvent(event)
+
+    def paint(self, painter, option, widget):
+        super().paint(painter, option, widget)
+        font = QFont("Arial", 8)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(Qt.white)
+        painter.drawText(self.rect(), Qt.AlignCenter, self.label)
 
 
 class EditorView(QGraphicsView):
@@ -180,7 +189,7 @@ class NetworkEditor(QMainWindow):
         layout.addWidget(self.view, 4)
 
         panel = QVBoxLayout()
-        self.lbl_status = QLabel("ПКМ: создать узел\nЛКМ: выбрать/соединить\nКолесо: зум")
+        self.lbl_status = QLabel("ПКМ: создать узел\nЛКМ: выбрать/соединить\nDel: удалить выбранный узел\nКолесо: зум")
         panel.addWidget(self.lbl_status)
 
         btn_save = QPushButton("Сохранить проект")
@@ -190,6 +199,10 @@ class NetworkEditor(QMainWindow):
         btn_load = QPushButton("Открыть проект")
         btn_load.clicked.connect(lambda: self.load_project(self.project_file))
         panel.addWidget(btn_load)
+
+        btn_delete = QPushButton("Удалить выбранный узел")
+        btn_delete.clicked.connect(self.delete_selected_nodes)
+        panel.addWidget(btn_delete)
 
         panel.addStretch()
         layout.addLayout(panel, 1)
@@ -235,7 +248,7 @@ class NetworkEditor(QMainWindow):
             view_pos = self.view.mapFrom(self, event.pos())
             scene_pos = self.view.mapToScene(view_pos)
 
-            node_id = f"N{len(self.project.network.nodes)}"
+            node_id = self._next_node_id()
             lon, lat = unproject_coords(scene_pos.x(), scene_pos.y())
             node_model = Node(
                 id=node_id,
@@ -250,6 +263,19 @@ class NetworkEditor(QMainWindow):
             self.nodes.append(editor_node)
             self.scene.addItem(editor_node)
         super().mousePressEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Delete:
+            self.delete_selected_nodes()
+            return
+        super().keyPressEvent(event)
+
+    def _next_node_id(self):
+        existing = set(self.project.network.nodes.keys())
+        idx = 1
+        while f"N{idx}" in existing:
+            idx += 1
+        return f"N{idx}"
 
     def handle_node_click(self, node):
         if self.start_node_selection is None:
@@ -280,6 +306,58 @@ class NetworkEditor(QMainWindow):
 
         self.start_node_selection.setBrush(QBrush(QColor(255, 80, 80)))
         self.start_node_selection = None
+
+    def remove_link(self, editor_link):
+        if editor_link in self.links:
+            self.links.remove(editor_link)
+        if editor_link in editor_link.start_node.links:
+            editor_link.start_node.links.remove(editor_link)
+        if editor_link in editor_link.end_node.links:
+            editor_link.end_node.links.remove(editor_link)
+        if editor_link.id in self.project.network.links:
+            del self.project.network.links[editor_link.id]
+        for route in self.project.network.routes.values():
+            route.link_ids = [link_id for link_id in route.link_ids if link_id != editor_link.id]
+        if editor_link.scene() is not None:
+            self.scene.removeItem(editor_link)
+
+    def remove_node(self, editor_node):
+        related_links = list(editor_node.links)
+        for editor_link in related_links:
+            self.remove_link(editor_link)
+
+        if self.start_node_selection is editor_node:
+            self.start_node_selection = None
+            self.lbl_status.setText("Выбор сброшен.")
+
+        if editor_node in self.nodes:
+            self.nodes.remove(editor_node)
+        if editor_node.id in self.project.network.nodes:
+            del self.project.network.nodes[editor_node.id]
+        if editor_node.scene() is not None:
+            self.scene.removeItem(editor_node)
+
+    def delete_selected_nodes(self):
+        selected_nodes = [item for item in self.scene.selectedItems() if isinstance(item, EditorNode)]
+        if not selected_nodes:
+            QMessageBox.information(self, "Удаление", "Выберите узел для удаления.")
+            return
+
+        unique_links = {link.id for node in selected_nodes for link in node.links}
+        reply = QMessageBox.question(
+            self,
+            "Удаление узлов",
+            f"Удалить узлов: {len(selected_nodes)}.\nСвязанных дорог будет удалено: {len(unique_links)}.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        for node in list(selected_nodes):
+            self.remove_node(node)
+
+        self.lbl_status.setText("Узел и связанные дороги удалены.")
 
     def collect_link_model(self, link_id, start_node, end_node):
         name, ok = QInputDialog.getText(self, "Параметры связи", "Название дороги:", text=f"Road {link_id}")
