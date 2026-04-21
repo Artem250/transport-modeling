@@ -20,6 +20,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QStackedWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -29,6 +30,12 @@ from analysis_service import AnalysisService
 from project_loader import ProjectLoader
 from project_saver import ProjectSaver
 from routing_service import RoutingService
+
+try:
+    from PyQt5.QtWebEngineWidgets import QWebEngineProfile, QWebEngineView
+except ImportError:
+    QWebEngineProfile = None
+    QWebEngineView = None
 
 try:
     from pyproj import Transformer
@@ -97,13 +104,13 @@ class MapBackgroundItem(QGraphicsItem):
 
 class TrafficNode(QGraphicsEllipseItem):
     def __init__(self, node_id, label, pos_point):
-        radius = 14
+        radius = 5
         super().__init__(-radius, -radius, radius * 2, radius * 2)
         self.node_id = node_id
         self.label = label
         self.setPos(pos_point)
         self.setBrush(QBrush(QColor(50, 50, 150)))
-        self.setPen(QPen(Qt.black, 2))
+        self.setPen(QPen(Qt.black, 1))
         self.setZValue(100)
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsScenePositionChanges)
         self.connected_links = []
@@ -120,7 +127,7 @@ class TrafficNode(QGraphicsEllipseItem):
 
     def paint(self, painter, option, widget):
         super().paint(painter, option, widget)
-        font = QFont("Arial", 8)
+        font = QFont("Arial", 1)
         font.setBold(True)
         painter.setFont(font)
         painter.setPen(Qt.white)
@@ -233,7 +240,7 @@ class MapViewer(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="network_project.json"):
+    def __init__(self, map_file="map.osm", data_file="osm_network_project.json"):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
@@ -254,7 +261,13 @@ class MainWindow(QMainWindow):
 
         self.scene = QGraphicsScene()
         self.view = MapViewer(self.scene)
-        layout.addWidget(self.view, 4)
+        self.map_stack = QStackedWidget()
+        self.map_stack.addWidget(self.view)
+        self.configure_webengine_profile()
+        self.web_view = QWebEngineView() if QWebEngineView is not None else None
+        if self.web_view is not None:
+            self.map_stack.addWidget(self.web_view)
+        layout.addWidget(self.map_stack, 4)
 
         control_panel = QWidget()
         control_layout = QVBoxLayout(control_panel)
@@ -293,6 +306,10 @@ class MainWindow(QMainWindow):
         self.btn_open_editor.clicked.connect(self.open_network_editor)
         control_layout.addWidget(self.btn_open_editor)
 
+        self.btn_web_map = QPushButton("Открыть web-карту")
+        self.btn_web_map.clicked.connect(self.open_folium_map)
+        control_layout.addWidget(self.btn_web_map)
+
         self.current_stage = 1
         self.viz_links = []
         self.link_index = {}
@@ -302,6 +319,15 @@ class MainWindow(QMainWindow):
         self.draw_network()
         self.set_stage(1)
 
+    def configure_webengine_profile(self):
+        if QWebEngineProfile is None:
+            return
+        cache_dir = os.path.join(os.path.expanduser("~"), ".praktika_qtwebengine_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        profile = QWebEngineProfile.defaultProfile()
+        profile.setCachePath(cache_dir)
+        profile.setPersistentStoragePath(cache_dir)
+
     def open_network_editor(self):
         try:
             from network_editor import NetworkEditor
@@ -310,6 +336,47 @@ class MainWindow(QMainWindow):
 
         self.editor_window = NetworkEditor(project_file=self.data_file)
         self.editor_window.show()
+
+    def open_folium_map(self):
+        if self.project is None:
+            QMessageBox.warning(self, "Web map", "Проект не загружен.")
+            return
+        if QWebEngineView is None:
+            QMessageBox.warning(
+                self,
+                "Web map",
+                "Не удалось открыть web-карту:\n"
+                "PyQtWebEngine не импортируется в Python, которым запущено приложение.\n"
+                f"Python: {sys.executable}\n"
+                f"Команда: \"{sys.executable}\" -m pip install PyQtWebEngine",
+            )
+            return
+
+        if self.web_view is None:
+            QMessageBox.warning(self, "Web map", "Web-компонент не создан.")
+            return
+
+        if self.map_stack.currentWidget() is self.web_view:
+            self.map_stack.setCurrentWidget(self.view)
+            self.btn_web_map.setText("Открыть web-карту")
+            return
+
+        try:
+            from folium_map_viewer import build_project_map_html
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Web map",
+                f"Не удалось открыть web-карту:\n{e}",
+            )
+            return
+
+        try:
+            self.web_view.setHtml(build_project_map_html(self.project))
+            self.map_stack.setCurrentWidget(self.web_view)
+            self.btn_web_map.setText("Вернуться к схеме")
+        except Exception as e:
+            QMessageBox.warning(self, "Web map", f"Не удалось построить web-карту:\n{e}")
 
     def parse_osm(self, path):
         try:
@@ -473,12 +540,28 @@ class MainWindow(QMainWindow):
             p2 = link.end_node.scenePos()
             lon_s, lat_s = unproject_coords(p1.x(), p1.y())
             lon_e, lat_e = unproject_coords(p2.x(), p2.y())
-            link.link_model.coords = {
-                "lon_start": round(lon_s, 6),
-                "lat_start": round(lat_s, 6),
-                "lon_end": round(lon_e, 6),
-                "lat_end": round(lat_e, 6),
-            }
+            coords = link.link_model.coords or {}
+            if coords.get("type") == "polyline" and len(coords.get("points", [])) >= 2:
+                points = coords["points"]
+                link.link_model.coords = {
+                    "type": "polyline",
+                    "points": [
+                        [round(lon_s, 6), round(lat_s, 6)],
+                        *points[1:-1],
+                        [round(lon_e, 6), round(lat_e, 6)],
+                    ],
+                    "lon_start": round(lon_s, 6),
+                    "lat_start": round(lat_s, 6),
+                    "lon_end": round(lon_e, 6),
+                    "lat_end": round(lat_e, 6),
+                }
+            else:
+                link.link_model.coords = {
+                    "lon_start": round(lon_s, 6),
+                    "lat_start": round(lat_s, 6),
+                    "lon_end": round(lon_e, 6),
+                    "lat_end": round(lat_e, 6),
+                }
 
         try:
             self.saver.save(self.project, self.data_file)

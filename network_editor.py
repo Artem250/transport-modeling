@@ -1,7 +1,7 @@
 import sys
 import xml.etree.ElementTree as ET
 
-from PyQt5.QtCore import QPointF, QRectF, Qt
+from PyQt5.QtCore import QPointF, QRectF, QTimer, Qt
 from PyQt5.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent
 from PyQt5.QtWidgets import (
     QApplication,
@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QGraphicsPathItem,
     QGraphicsScene,
     QGraphicsView,
+    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -21,8 +22,14 @@ from PyQt5.QtWidgets import (
 )
 
 from models import Link, Network, Node, Project
+from osm_project_importer import OsmImportError, build_project_from_osm_point, build_project_from_osm_xml
 from project_loader import ProjectLoader
 from project_saver import ProjectSaver
+
+try:
+    from PyQt5.QtWebEngineWidgets import QWebEngineView
+except ImportError:
+    QWebEngineView = None
 
 try:
     from pyproj import Transformer
@@ -78,6 +85,11 @@ class EditorLink(QGraphicsPathItem):
         self.id = link_model.id
         self.start_node = start_node
         self.end_node = end_node
+        self.intermediate_points = []
+        coords = link_model.coords or {}
+        if coords.get("type") == "polyline":
+            for lon, lat in coords.get("points", [])[1:-1]:
+                self.intermediate_points.append(project_coords(lon, lat))
         self.setPen(QPen(QColor(0, 120, 255), 6, Qt.SolidLine, Qt.RoundCap))
         self.setZValue(50)
         self.update_geometry()
@@ -85,13 +97,15 @@ class EditorLink(QGraphicsPathItem):
     def update_geometry(self):
         path = QPainterPath()
         path.moveTo(self.start_node.scenePos())
+        for x, y in self.intermediate_points:
+            path.lineTo(QPointF(x, y))
         path.lineTo(self.end_node.scenePos())
         self.setPath(path)
 
 
 class EditorNode(QGraphicsEllipseItem):
     def __init__(self, node_model: Node, pos, callback):
-        radius = 14
+        radius = 5
         super().__init__(-radius, -radius, radius * 2, radius * 2)
         self.model = node_model
         self.id = node_model.id
@@ -102,7 +116,7 @@ class EditorNode(QGraphicsEllipseItem):
         self._drag_threshold = 5
         self.setPos(pos)
         self.setBrush(QBrush(QColor(255, 80, 80)))
-        self.setPen(QPen(Qt.black, 1.5))
+        self.setPen(QPen(Qt.black, 1))
         self.setZValue(100)
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsGeometryChanges)
         self.links = []
@@ -136,7 +150,7 @@ class EditorNode(QGraphicsEllipseItem):
 
     def paint(self, painter, option, widget):
         super().paint(painter, option, widget)
-        font = QFont("Arial", 8)
+        font = QFont("Arial", 3)
         font.setBold(True)
         painter.setFont(font)
         painter.setPen(Qt.white)
@@ -200,6 +214,18 @@ class NetworkEditor(QMainWindow):
         btn_load.clicked.connect(lambda: self.load_project(self.project_file))
         panel.addWidget(btn_load)
 
+        btn_import_osm = QPushButton("Загрузить участок OSM")
+        btn_import_osm.clicked.connect(self.import_osm_area)
+        panel.addWidget(btn_import_osm)
+
+        btn_import_osm_file = QPushButton("Импорт из OSM-файла")
+        btn_import_osm_file.clicked.connect(self.import_osm_file)
+        panel.addWidget(btn_import_osm_file)
+
+        btn_web_map = QPushButton("Открыть web-карту")
+        btn_web_map.clicked.connect(self.open_folium_map)
+        panel.addWidget(btn_web_map)
+
         btn_delete = QPushButton("Удалить выбранный узел")
         btn_delete.clicked.connect(self.delete_selected_nodes)
         panel.addWidget(btn_delete)
@@ -220,8 +246,23 @@ class NetworkEditor(QMainWindow):
             self.scene.addItem(node)
         for link in self.links:
             self.scene.addItem(link)
-        if self.scene.items():
-            self.view.fitInView(self.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+        self.fit_scene_to_network()
+
+    def fit_scene_to_network(self):
+        items = self.links or self.nodes or self.scene.items()
+        if not items:
+            return
+        rect = QRectF()
+        for item in items:
+            rect = rect.united(item.sceneBoundingRect()) if rect.isValid() else item.sceneBoundingRect()
+        if not rect.isValid() or rect.isEmpty():
+            return
+        margin = max(rect.width(), rect.height(), 100.0) * 0.08
+        rect = rect.adjusted(-margin, -margin, margin, margin)
+        self.scene.setSceneRect(rect)
+        self.view.resetTransform()
+        self.view.fitInView(rect, Qt.KeepAspectRatio)
+        self.view.centerOn(rect.center())
 
     def parse_osm(self, path):
         try:
@@ -242,6 +283,24 @@ class NetworkEditor(QMainWindow):
             return ways
         except Exception:
             return []
+
+    def project_background_ways(self, project):
+        ways = []
+        for link in project.network.links.values():
+            coords = link.coords or {}
+            if coords.get("type") == "polyline":
+                points = [project_coords(lon, lat) for lon, lat in coords.get("points", [])]
+            else:
+                lon_start = coords.get("lon_start")
+                lat_start = coords.get("lat_start")
+                lon_end = coords.get("lon_end")
+                lat_end = coords.get("lat_end")
+                if None in (lon_start, lat_start, lon_end, lat_end):
+                    continue
+                points = [project_coords(lon_start, lat_start), project_coords(lon_end, lat_end)]
+            if len(points) > 1:
+                ways.append(points)
+        return ways
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -434,10 +493,15 @@ class NetworkEditor(QMainWindow):
         )
 
     def load_project(self, project_file):
-        self.project = self.loader.load(project_file)
+        project = self.loader.load(project_file)
+        self.apply_project(project)
         self.project_file = project_file
+
+    def apply_project(self, project):
+        self.project = project
         self.nodes = []
         self.links = []
+        self.start_node_selection = None
 
         node_map = {}
         for node_model in self.project.network.nodes.values():
@@ -463,6 +527,92 @@ class NetworkEditor(QMainWindow):
 
         self.redraw_scene()
 
+    def import_osm_area(self):
+        lat, ok = QInputDialog.getDouble(self, "OSM", "Широта центра:", 54.841, -90.0, 90.0, 6)
+        if not ok:
+            return
+        lon, ok = QInputDialog.getDouble(self, "OSM", "Долгота центра:", 83.106, -180.0, 180.0, 6)
+        if not ok:
+            return
+        dist_m, ok = QInputDialog.getInt(self, "OSM", "Радиус загрузки, м:", 1500, 100, 10000, 100)
+        if not ok:
+            return
+        intensity, ok = QInputDialog.getInt(self, "OSM", "Базовая интенсивность, авто/ч:", 600, 0, 100000, 50)
+        if not ok:
+            return
+
+        try:
+            project = build_project_from_osm_point((lat, lon), dist_m, intensity)
+        except OsmImportError as e:
+            QMessageBox.warning(
+                self,
+                "OSM",
+                str(e),
+            )
+            return
+        except Exception as e:
+            QMessageBox.critical(self, "OSM", f"Не удалось загрузить участок карты:\n{e}")
+            return
+
+        self.map_data = self.project_background_ways(project)
+        self.apply_project(project)
+        QTimer.singleShot(0, self.fit_scene_to_network)
+        self.project_file = "osm_network_project.json"
+        self.lbl_status.setText(
+            f"Загружено из OSM: узлов {len(project.network.nodes)}, дорог {len(project.network.links)}. "
+            "Нажмите сохранение проекта, чтобы записать osm_network_project.json."
+        )
+
+    def import_osm_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "OSM", "", "OSM files (*.osm *.xml);;All files (*)")
+        if not file_path:
+            return
+        intensity, ok = QInputDialog.getInt(self, "OSM", "Базовая интенсивность, авто/ч:", 600, 0, 100000, 50)
+        if not ok:
+            return
+
+        try:
+            project = build_project_from_osm_xml(file_path, intensity)
+        except Exception as e:
+            QMessageBox.critical(self, "OSM", f"Не удалось импортировать OSM-файл:\n{e}")
+            return
+
+        self.map_data = self.project_background_ways(project)
+        self.apply_project(project)
+        QTimer.singleShot(0, self.fit_scene_to_network)
+        self.project_file = "osm_network_project.json"
+        self.lbl_status.setText(
+            f"Импортировано из файла: узлов {len(project.network.nodes)}, дорог {len(project.network.links)}. "
+            "Нажмите сохранение проекта, чтобы записать osm_network_project.json."
+        )
+
+    def open_folium_map(self):
+        if QWebEngineView is None:
+            QMessageBox.warning(
+                self,
+                "Web map",
+                "Не удалось открыть web-карту:\n"
+                "PyQtWebEngine не импортируется в Python, которым запущено приложение.\n"
+                f"Python: {sys.executable}\n"
+                f"Команда: \"{sys.executable}\" -m pip install PyQtWebEngine",
+            )
+            return
+        try:
+            from folium_map_viewer import FoliumMapWindow
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Web map",
+                f"Не удалось открыть web-карту:\n{e}",
+            )
+            return
+
+        try:
+            self.folium_window = FoliumMapWindow(self.project, "Traffic map")
+            self.folium_window.show()
+        except Exception as e:
+            QMessageBox.warning(self, "Web map", f"Не удалось построить web-карту:\n{e}")
+
     def export_json(self):
         for editor_node in self.nodes:
             pos = editor_node.scenePos()
@@ -479,12 +629,28 @@ class NetworkEditor(QMainWindow):
             lon2, lat2 = unproject_coords(p2.x(), p2.y())
             editor_link.model.start_node_id = editor_link.start_node.id
             editor_link.model.end_node_id = editor_link.end_node.id
-            editor_link.model.coords = {
-                "lon_start": round(lon1, 6),
-                "lat_start": round(lat1, 6),
-                "lon_end": round(lon2, 6),
-                "lat_end": round(lat2, 6),
-            }
+            coords = editor_link.model.coords or {}
+            if coords.get("type") == "polyline" and len(coords.get("points", [])) >= 2:
+                points = coords["points"]
+                editor_link.model.coords = {
+                    "type": "polyline",
+                    "points": [
+                        [round(lon1, 6), round(lat1, 6)],
+                        *points[1:-1],
+                        [round(lon2, 6), round(lat2, 6)],
+                    ],
+                    "lon_start": round(lon1, 6),
+                    "lat_start": round(lat1, 6),
+                    "lon_end": round(lon2, 6),
+                    "lat_end": round(lat2, 6),
+                }
+            else:
+                editor_link.model.coords = {
+                    "lon_start": round(lon1, 6),
+                    "lat_start": round(lat1, 6),
+                    "lon_end": round(lon2, 6),
+                    "lat_end": round(lat2, 6),
+                }
 
         self.saver.save(self.project, self.project_file)
         QMessageBox.information(self, "Save", f"Файл {self.project_file} сохранен.")
