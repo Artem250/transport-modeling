@@ -582,8 +582,8 @@ class NetworkEditor(QMainWindow):
         QTimer.singleShot(0, self.fit_scene_to_network)
         self.project_file = "osm_network_project.json"
         self.lbl_status.setText(
-            f"Импортировано из файла: узлов {len(project.network.nodes)}, дорог {len(project.network.links)}. "
-            "Нажмите сохранение проекта, чтобы записать osm_network_project.json."
+            f"Импортировано из файла:\n узлов {len(project.network.nodes)},\n дорог {len(project.network.links)}. "
+            "\nНажмите сохранение проекта,\n чтобы записать osm_network_project.json."
         )
 
     def open_folium_map(self):

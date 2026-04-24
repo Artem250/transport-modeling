@@ -21,14 +21,14 @@ LOS_COLORS = {
 
 
 class FoliumMapWindow(QMainWindow):
-    def __init__(self, project, title="Traffic map"):
+    def __init__(self, project, title="Traffic map", skdf_csv_path: str | None = None):
         super().__init__()
         self.setWindowTitle(title)
         self.resize(1200, 800)
 
         configure_webengine_profile()
         self.browser = QWebEngineView()
-        self.browser.setHtml(build_project_map_html(project))
+        self.browser.setHtml(build_project_map_html(project, skdf_csv_path=skdf_csv_path))
 
         layout = QVBoxLayout()
         layout.addWidget(self.browser)
@@ -45,7 +45,7 @@ def configure_webengine_profile() -> None:
     profile.setPersistentStoragePath(cache_dir)
 
 
-def build_project_map_html(project) -> str:
+def build_project_map_html(project, skdf_csv_path: str | None = None) -> str:
     try:
         import folium
     except ImportError as exc:
@@ -56,26 +56,26 @@ def build_project_map_html(project) -> str:
         ) from exc
 
     center = _project_center(project)
-    m = folium.Map(
-        location=center,
-        zoom_start=14,
-        tiles="CartoDB positron",
-    )
+    m = folium.Map(location=center, zoom_start=14, tiles=None)
+    folium.TileLayer("OpenStreetMap", name="OSM").add_to(m)
+    folium.TileLayer("CartoDB positron", name="CartoDB Positron").add_to(m)
 
-    bounds = []
+    osm_layer = folium.FeatureGroup(name="OSM graph", show=True)
+    node_layer = folium.FeatureGroup(name="Network nodes", show=False)
+    bounds: list[list[float]] = []
+
     for link in project.network.links.values():
         points = _link_latlon_points(link)
         if len(points) < 2:
             continue
         bounds.extend(points)
-        tooltip = _link_tooltip(link)
         folium.PolyLine(
             locations=points,
             color=_link_color(link),
             weight=_link_weight(link),
             opacity=0.85,
-            tooltip=tooltip,
-        ).add_to(m)
+            tooltip=_link_tooltip(link),
+        ).add_to(osm_layer)
 
     for node in project.network.nodes.values():
         if node.lat is None or node.lon is None:
@@ -89,10 +89,20 @@ def build_project_map_html(project) -> str:
             fill_opacity=0.9,
             weight=1,
             tooltip=node.name or node.id,
-        ).add_to(m)
+        ).add_to(node_layer)
+
+    osm_layer.add_to(m)
+    node_layer.add_to(m)
+
+    if skdf_csv_path:
+        skdf_layer = folium.FeatureGroup(name="SKDF roads", show=True)
+        _add_skdf_layer(skdf_layer, skdf_csv_path, bounds)
+        skdf_layer.add_to(m)
 
     if bounds:
         m.fit_bounds(bounds, padding=(20, 20))
+
+    folium.LayerControl(collapsed=False).add_to(m)
 
     data = io.BytesIO()
     m.save(data, close_file=False)
@@ -170,6 +180,51 @@ def _link_tooltip(link) -> str:
         "LOS": results.get("LOS", "-"),
         "V/C": results.get("VC_ratio", "-"),
         "Cars": (link.traffic_counts or {}).get("car", "-"),
+    }
+    if "skdf" in (link.metadata or {}):
+        values["SKDF road"] = link.metadata["skdf"].get("road_name", "-")
+        values["SKDF score"] = link.metadata["skdf"].get("match_score", "-")
+    return "<br>".join(f"<b>{key}:</b> {value}" for key, value in values.items())
+
+
+def _add_skdf_layer(layer, csv_path: str, bounds: list[list[float]]) -> None:
+    try:
+        import folium
+        from pyproj import Transformer
+    except ImportError as exc:
+        raise RuntimeError("Packages folium and pyproj are required for the SKDF overlay.") from exc
+
+    from skdf_matcher import load_skdf_roads
+
+    roads = load_skdf_roads(csv_path)
+    transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+
+    for road in roads:
+        for line in getattr(road.geometry, "geoms", []):
+            points = []
+            for x, y in list(line.coords):
+                lon, lat = transformer.transform(x, y)
+                points.append([lat, lon])
+            if len(points) < 2:
+                continue
+            bounds.extend(points)
+            folium.PolyLine(
+                locations=points,
+                color="#d81b60",
+                weight=5,
+                opacity=0.72,
+                tooltip=_skdf_tooltip(road),
+            ).add_to(layer)
+
+
+def _skdf_tooltip(road) -> str:
+    values: dict[str, Any] = {
+        "SKDF road_id": road.road_id or "-",
+        "Road": road.road_name or road.full_name or "-",
+        "Traffic": road.traffic if road.traffic is not None else "-",
+        "Capacity": road.capacity if road.capacity is not None else "-",
+        "Lanes": road.lanes if road.lanes is not None else "-",
+        "Speed": road.speed_limit if road.speed_limit is not None else "-",
     }
     return "<br>".join(f"<b>{key}:</b> {value}" for key, value in values.items())
 

@@ -46,7 +46,8 @@ def build_project_from_osm_xml(path: str | Path, default_intensity: int = 600) -
     for way in root.findall(".//way"):
         tags = {tag.get("k"): tag.get("v") for tag in way.findall("tag") if tag.get("k")}
         highway = tags.get("highway")
-        if not highway or highway in {"footway", "path", "cycleway", "pedestrian", "steps"}:
+        # if not highway or highway in {"footway", "path", "cycleway", "pedestrian", "steps", "service", "raceway", "unclassified"}:
+        if not highway or highway not in {"primary", "secondary", "tertiary", "residential"}:
             continue
         refs = [nd.get("ref") for nd in way.findall("nd") if nd.get("ref") in osm_nodes]
         if len(refs) > 1:
