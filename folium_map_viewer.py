@@ -173,17 +173,30 @@ def _link_weight(link) -> int:
 
 def _link_tooltip(link) -> str:
     results = link.results or {}
+    skdf = (link.metadata or {}).get("skdf") or {}
     values: dict[str, Any] = {
         "ID": link.id,
         "Name": link.name,
         "Length": f"{link.length_km} km",
         "LOS": results.get("LOS", "-"),
         "V/C": results.get("VC_ratio", "-"),
+        "Hourly mode": results.get("hourly_mode", "-"),
+        "SKDF AADT": skdf.get("traffic_aadt", skdf.get("traffic", "-")),
+        "N_hour_avg": results.get("N_hour_avg", "-"),
+        "N_hour_design": results.get("N_hour_design", "-"),
+        "P_odm": results.get("P_odm", "-"),
         "Cars": (link.traffic_counts or {}).get("car", "-"),
     }
-    if "skdf" in (link.metadata or {}):
-        values["SKDF road"] = link.metadata["skdf"].get("road_name", "-")
-        values["SKDF score"] = link.metadata["skdf"].get("match_score", "-")
+    if skdf:
+        values["SKDF road"] = skdf.get("road_name", "-")
+        values["SKDF score"] = skdf.get("match_score", "-")
+        values["SKDF capacity"] = results.get(
+            "capacity_skdf_reference",
+            skdf.get("capacity_values", skdf.get("capacity_total", skdf.get("capacity", []))),
+        )
+    defaults_used = results.get("odm_defaults_used")
+    if defaults_used:
+        values["ODM defaults"] = ", ".join(defaults_used)
     return "<br>".join(f"<b>{key}:</b> {value}" for key, value in values.items())
 
 
@@ -221,15 +234,20 @@ def _skdf_tooltip(road) -> str:
     values: dict[str, Any] = {
         "SKDF road_id": road.road_id or "-",
         "Road": road.road_name or road.full_name or "-",
-        "Traffic": road.traffic if road.traffic is not None else "-",
-        "Capacity": road.capacity if road.capacity is not None else "-",
-        "Lanes": road.lanes if road.lanes is not None else "-",
-        "Speed": road.speed_limit if road.speed_limit is not None else "-",
+        "AADT": road.traffic_aadt if road.traffic_aadt is not None else "-",
+        "Traffic raw": road.traffic_values or "-",
+        "Capacity raw": road.capacity_values or "-",
+        "Lanes raw": road.lanes_values or "-",
+        "Speed raw": road.speed_limit_values or "-",
     }
     return "<br>".join(f"<b>{key}:</b> {value}" for key, value in values.items())
 
 
 def _capacity(link) -> float | None:
+    results = link.results or {}
+    odm_capacity = _float_value(results.get("P_odm"))
+    if odm_capacity is not None:
+        return odm_capacity
     params = link.parameters or {}
     lanes = _float_value(params.get("lanes_total") or params.get("lanes_count") or 1)
     base = _float_value(params.get("capacity_per_lane_base") or params.get("saturation_flow_base") or 1800)

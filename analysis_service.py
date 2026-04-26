@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from models import Link, Project
+from odm_service import DEFAULT_HOURLY_MODE, analyze_odm_city_link, set_project_hourly_mode
 from road_sections import Intersection, StraightRoad
 
 
 class AnalysisService:
     def analyze_project(self, project: Project) -> dict:
         links_report = []
+        hourly_mode = (project.metadata or {}).get("hourly_mode", DEFAULT_HOURLY_MODE)
 
         for link in project.network.links.values():
+            odm_results = self._build_odm_results(link, project.pcu_coefficients, hourly_mode)
+            if odm_results is not None:
+                link.results = odm_results
+                links_report.append(link.results.copy())
+                continue
+
             section = self._build_section(link, project.pcu_coefficients)
             if section is None:
                 continue
@@ -33,6 +41,8 @@ class AnalysisService:
                 link.results.update(opt_data)
 
             links_report.append(link.results.copy())
+
+        set_project_hourly_mode(project, hourly_mode)
 
         routes_report = []
         for route in project.network.routes.values():
@@ -78,6 +88,21 @@ class AnalysisService:
             "Links_Analysis": links_report,
             "Routes_Analysis": routes_report,
         }
+
+    def _build_odm_results(
+        self,
+        link: Link,
+        pcu_coeffs: dict[str, float],
+        hourly_mode: str,
+    ) -> dict | None:
+        if link.link_type != "straight":
+            return None
+
+        skdf = (link.metadata or {}).get("skdf") or {}
+        if skdf.get("traffic_aadt") is None and skdf.get("traffic") is None and not skdf.get("traffic_values"):
+            return None
+
+        return analyze_odm_city_link(link, pcu_coeffs, hourly_mode)
 
     def _build_section(self, link: Link, pcu_coeffs: dict[str, float]):
         params = link.parameters

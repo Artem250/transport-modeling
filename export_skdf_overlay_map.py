@@ -56,6 +56,23 @@ def build_overlay_html(project, skdf_csv_path: str) -> str:
                     "ID": link.id,
                     "Name": link.name,
                     "Length (km)": link.length_km,
+                    "LOS": (link.results or {}).get("LOS", "-"),
+                    "Hourly mode": (link.results or {}).get("hourly_mode", "-"),
+                    "SKDF AADT": (((link.metadata or {}).get("skdf") or {}).get("traffic_aadt")
+                                   or (((link.metadata or {}).get("skdf") or {}).get("traffic", "-"))),
+                    "N_hour_avg": (link.results or {}).get("N_hour_avg", "-"),
+                    "N_hour_design": (link.results or {}).get("N_hour_design", "-"),
+                    "P_odm": (link.results or {}).get("P_odm", "-"),
+                    "SKDF capacity": (link.results or {}).get(
+                        "capacity_skdf_reference",
+                        ((link.metadata or {}).get("skdf") or {}).get(
+                            "capacity_values",
+                            ((link.metadata or {}).get("skdf") or {}).get(
+                                "capacity_total",
+                                ((link.metadata or {}).get("skdf") or {}).get("capacity", []),
+                            ),
+                        ),
+                    ),
                     "Cars": (link.traffic_counts or {}).get("car", "-"),
                 },
             }
@@ -80,10 +97,11 @@ def build_overlay_html(project, skdf_csv_path: str) -> str:
                     "tooltip": {
                         "SKDF road_id": road.road_id or "-",
                         "Road": road.road_name or road.full_name or "-",
-                        "Traffic": road.traffic if road.traffic is not None else "-",
-                        "Capacity": road.capacity if road.capacity is not None else "-",
-                        "Lanes": road.lanes if road.lanes is not None else "-",
-                        "Speed": road.speed_limit if road.speed_limit is not None else "-",
+                        "AADT": road.traffic_aadt if road.traffic_aadt is not None else "-",
+                        "Traffic raw": road.traffic_values or "-",
+                        "Capacity raw": road.capacity_values or "-",
+                        "Lanes raw": road.lanes_values or "-",
+                        "Speed raw": road.speed_limit_values or "-",
                     },
                 }
             )

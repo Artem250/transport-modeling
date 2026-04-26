@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (
 )
 
 from analysis_service import AnalysisService
+from odm_service import DEFAULT_HOURLY_MODE, HOURLY_MODE_AVG, HOURLY_MODE_DESIGN, set_project_hourly_mode
 from project_loader import ProjectLoader
 from project_saver import ProjectSaver
 from routing_service import RoutingService
@@ -240,7 +241,7 @@ class MapViewer(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="osm_network_project_skdf.json"):
+    def __init__(self, map_file="map.osm", data_file="osm_network_project_skdf_odm_v3.json"):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
@@ -249,8 +250,19 @@ class MainWindow(QMainWindow):
         self.saver = ProjectSaver()
         self.analysis_service = AnalysisService()
         self.routing_service = RoutingService()
-        if not os.path.exists(data_file) and os.path.exists("manual_network.json"):
-            data_file = "manual_network.json"
+        if not os.path.exists(data_file):
+            candidates = [
+                "osm_network_project_skdf_odm_v3.json",
+                "osm_network_project_skdf_odm_v2.json",
+                "osm_network_project_skdf_odm.json",
+                "osm_network_project_skdf.json",
+                "osm_network_project.json",
+                "manual_network.json",
+            ]
+            for candidate in candidates:
+                if os.path.exists(candidate):
+                    data_file = candidate
+                    break
         self.data_file = data_file
         self.project = None
         self.map_data = self.parse_osm(map_file)
@@ -288,6 +300,18 @@ class MainWindow(QMainWindow):
             group_layout.addWidget(rb)
         group_box.setLayout(group_layout)
         control_layout.addWidget(group_box)
+
+        hourly_box = QGroupBox("Hourly mode")
+        hourly_layout = QVBoxLayout()
+        self.rb_hour_design = QRadioButton("Design hour")
+        self.rb_hour_avg = QRadioButton("Average hour")
+        self.rb_hour_design.setChecked(True)
+        self.rb_hour_design.toggled.connect(lambda checked: checked and self.set_hourly_mode(HOURLY_MODE_DESIGN))
+        self.rb_hour_avg.toggled.connect(lambda checked: checked and self.set_hourly_mode(HOURLY_MODE_AVG))
+        hourly_layout.addWidget(self.rb_hour_design)
+        hourly_layout.addWidget(self.rb_hour_avg)
+        hourly_box.setLayout(hourly_layout)
+        control_layout.addWidget(hourly_box)
 
         self.info = QTextEdit()
         self.info.setReadOnly(True)
@@ -401,9 +425,12 @@ class MainWindow(QMainWindow):
     def load_project_data(self, path):
         try:
             self.project = self.loader.load(path)
-            needs_analysis = any(not link.results for link in self.project.network.links.values())
+            hourly_mode = (self.project.metadata or {}).get("hourly_mode", DEFAULT_HOURLY_MODE)
+            self._set_hourly_mode_buttons(hourly_mode)
+            needs_analysis = any(self._link_needs_analysis(link) for link in self.project.network.links.values())
             if needs_analysis:
                 self.analysis_service.analyze_project(self.project)
+            set_project_hourly_mode(self.project, hourly_mode)
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
             self.project = None
@@ -450,29 +477,67 @@ class MainWindow(QMainWindow):
             link.update_visuals(s)
         self.info.clear()
 
+    def set_hourly_mode(self, mode):
+        if self.project is None:
+            return
+        set_project_hourly_mode(self.project, mode)
+        for link in self.viz_links:
+            link.update_visuals(self.current_stage)
+        self.info.clear()
+
+    def _set_hourly_mode_buttons(self, mode):
+        use_avg = mode == HOURLY_MODE_AVG
+        self.rb_hour_avg.blockSignals(True)
+        self.rb_hour_design.blockSignals(True)
+        self.rb_hour_avg.setChecked(use_avg)
+        self.rb_hour_design.setChecked(not use_avg)
+        self.rb_hour_avg.blockSignals(False)
+        self.rb_hour_design.blockSignals(False)
+
+    def _link_needs_analysis(self, link):
+        if not link.results:
+            return True
+        skdf = (link.metadata or {}).get("skdf") or {}
+        if skdf.get("traffic_aadt") is not None or skdf.get("traffic") is not None or skdf.get("traffic_values"):
+            required_keys = {"hourly_mode", "N_hour_avg", "N_hour_design", "P_odm", "LOS_avg", "LOS_design"}
+            return not required_keys.issubset(link.results.keys())
+        return False
+
     def on_link_click(self, link_model):
         res = link_model.results
+        skdf = (link_model.metadata or {}).get("skdf") or {}
         html = f"<h3>{link_model.name}</h3>"
         html += f"<b>ID:</b> {link_model.id}<br><br>"
 
         if self.current_stage == 1:
-            html += f"<b>Уровень обслуживания (LOS):</b> {res.get('LOS', 'Н/Д')}<br>"
-            html += f"<b>Загрузка (V/C):</b> {res.get('VC_ratio', 0)}"
+            defaults_used = res.get("odm_defaults_used", [])
+            html += f"<b>Active LOS:</b> {res.get('LOS', 'N/A')}<br>"
+            html += f"<b>Active V/C:</b> {res.get('VC_ratio', 'N/A')}<br>"
+            html += f"<b>Hourly mode:</b> {res.get('hourly_mode', DEFAULT_HOURLY_MODE)}<br><br>"
+            html += f"<b>SKDF AADT:</b> {skdf.get('traffic_aadt', skdf.get('traffic', 'N/A'))}<br>"
+            html += f"<b>N_hour_avg:</b> {res.get('N_hour_avg', 'N/A')}<br>"
+            html += f"<b>N_hour_design:</b> {res.get('N_hour_design', 'N/A')}<br>"
+            html += f"<b>Design method:</b> {res.get('design_hour_method', 'N/A')}<br>"
+            html += f"<b>P_odm:</b> {res.get('P_odm', 'N/A')}<br>"
+            html += f"<b>LOS_avg:</b> {res.get('LOS_avg', 'N/A')}<br>"
+            html += f"<b>LOS_design:</b> {res.get('LOS_design', 'N/A')}<br>"
+            html += f"<b>SKDF capacity reference:</b> {res.get('capacity_skdf_reference', skdf.get('capacity_values', []))}<br>"
+            html += f"<b>ODM defaults used:</b> {', '.join(defaults_used) if defaults_used else '-'}"
         elif self.current_stage == 2:
             prop = res.get("Optimization_Proposal")
             if prop:
-                html += f"<font color='red'><b>Предложение:</b> {prop}</font><br><br>"
-                html += f"<b>Ожидаемый V/C:</b> {res.get('VC_optimized', 'Н/Д')}<br>"
-                html += f"<b>Ожидаемый LOS:</b> {res.get('LOS_optimized', 'Н/Д')}"
+                html += f"<font color='red'><b>Proposal:</b> {prop}</font><br><br>"
+                html += f"<b>Expected V/C:</b> {res.get('VC_optimized', 'N/A')}<br>"
+                html += f"<b>Expected LOS:</b> {res.get('LOS_optimized', 'N/A')}"
             else:
-                html += "<font color='green'>Оптимизация не требуется</font>"
+                html += "<font color='green'>Optimization is not required.</font>"
         elif self.current_stage == 3:
             delay = res.get("Delay_sec", 0)
-            html += f"<font color='#1976d2' size='4'><b>Доп. задержка:</b> {delay} сек.</font><br>"
-            html += "<small>Время, теряемое из-за загрузки участка</small>"
+            html += f"<font color='#1976d2' size='4'><b>Additional delay:</b> {delay} sec.</font><br>"
+            html += "<small>Extra travel time caused by the current load of the link.</small>"
         else:
-            html += f"<b>Длина:</b> {link_model.length_km} км<br>"
-            html += f"<b>Поток:</b> {link_model.traffic_counts}"
+            html += f"<b>Length:</b> {link_model.length_km} km<br>"
+            html += f"<b>Traffic counts:</b> {link_model.traffic_counts}"
 
         self.info.setHtml(html)
 

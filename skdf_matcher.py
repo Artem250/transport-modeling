@@ -35,10 +35,14 @@ class SkdfRoad:
     road_part_id: str
     road_name: str
     full_name: str
-    traffic: float | None
+    traffic_aadt: float | None
+    traffic_values: list[float]
     capacity: float | None
+    capacity_values: list[float]
     lanes: int | None
+    lanes_values: list[int]
     speed_limit: float | None
+    speed_limit_values: list[float]
     geometry: Any
     normalized_name: str
 
@@ -91,10 +95,14 @@ def load_skdf_roads(csv_path: str | Path) -> list[SkdfRoad]:
                     road_part_id=_text(row.get("road_part_id")),
                     road_name=road_name,
                     full_name=full_name,
-                    traffic=_number(row.get("traffic_1")),
+                    traffic_aadt=_number(row.get("traffic_1")),
+                    traffic_values=_number_list(row.get("traffic")),
                     capacity=_number(row.get("capacity_1")),
+                    capacity_values=_number_list(row.get("capacity")),
                     lanes=_int_number(row.get("lanes_1")),
+                    lanes_values=_int_number_list(row.get("lanes")),
                     speed_limit=_number(row.get("speed_limit_1")),
+                    speed_limit_values=_number_list(row.get("speed_limit")),
                     geometry=geometry,
                     normalized_name=normalize_road_name(name),
                 )
@@ -293,22 +301,27 @@ def _apply_match(link: Link, match: LinkMatch) -> tuple[bool, bool]:
     updated_traffic = False
     updated_capacity = False
 
-    if road.traffic is not None:
-        link.traffic_counts = {**(link.traffic_counts or {}), "car": road.traffic}
+    if road.traffic_aadt is not None:
+        link.traffic_counts = {**(link.traffic_counts or {}), "car": road.traffic_aadt}
         updated_traffic = True
 
     link.parameters = dict(link.parameters or {})
     if road.lanes is not None:
-        link.parameters["lanes_total"] = max(road.lanes, 1)
+        link.parameters["lanes_total_skdf"] = max(road.lanes, 1)
 
-    lanes = _int_number(link.parameters.get("lanes_total")) or 1
     if road.capacity is not None:
-        link.parameters["capacity_per_lane_base"] = round(road.capacity / max(lanes, 1), 3)
         link.parameters["capacity_total_skdf"] = road.capacity
+        updated_capacity = True
+    if road.capacity_values:
+        link.parameters["capacity_values_skdf"] = list(road.capacity_values)
         updated_capacity = True
 
     if road.speed_limit is not None:
         link.parameters["speed_limit_skdf"] = road.speed_limit
+    if road.lanes_values:
+        link.parameters["lanes_values_skdf"] = list(road.lanes_values)
+    if road.speed_limit_values:
+        link.parameters["speed_limit_values_skdf"] = list(road.speed_limit_values)
 
     link.metadata = {
         **(link.metadata or {}),
@@ -317,10 +330,16 @@ def _apply_match(link: Link, match: LinkMatch) -> tuple[bool, bool]:
             "road_part_id": road.road_part_id,
             "road_name": road.road_name,
             "full_name": road.full_name,
-            "traffic": road.traffic,
+            "traffic": road.traffic_aadt,
+            "traffic_aadt": road.traffic_aadt,
+            "traffic_values": road.traffic_values,
+            "capacity": road.capacity,
             "capacity_total": road.capacity,
+            "capacity_values": road.capacity_values,
             "lanes": road.lanes,
+            "lanes_values": road.lanes_values,
             "speed_limit": road.speed_limit,
+            "speed_limit_values": road.speed_limit_values,
             "match_score": round(match.score, 4),
             "match_distance_m": round(match.distance_m, 2),
             "match_overlap_ratio": round(match.overlap_ratio, 4),
@@ -648,7 +667,7 @@ def _report_row(link: Link, match: LinkMatch | None, best_candidate: LinkMatch |
             "distance_m": round(match.distance_m, 2),
             "overlap_ratio": round(match.overlap_ratio, 4),
             "name_similarity": round(match.name_similarity, 4),
-            "traffic": road.traffic if road.traffic is not None else "",
+            "traffic": road.traffic_aadt if road.traffic_aadt is not None else "",
             "capacity": road.capacity if road.capacity is not None else "",
             "lanes": road.lanes if road.lanes is not None else "",
             "speed_limit": road.speed_limit if road.speed_limit is not None else "",
@@ -719,11 +738,35 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _number_list(value: Any) -> list[float]:
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [parsed for item in value if (parsed := _number(item)) is not None]
+
+    text = str(value).strip()
+    if not text:
+        return []
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = ast.literal_eval(text)
+        except (SyntaxError, ValueError):
+            return []
+        if isinstance(parsed, list):
+            return [item for item in (_number(raw) for raw in parsed) if item is not None]
+    parsed = _number(text)
+    return [parsed] if parsed is not None else []
+
+
 def _int_number(value: Any) -> int | None:
     number = _number(value)
     if number is None:
         return None
     return max(int(round(number)), 1)
+
+
+def _int_number_list(value: Any) -> list[int]:
+    return [item for item in (_int_number(raw) for raw in _number_list(value)) if item is not None]
 
 
 def _text(value: Any) -> str:
