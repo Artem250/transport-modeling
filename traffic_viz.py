@@ -80,27 +80,82 @@ LOS_COLORS = {
 
 
 class MapBackgroundItem(QGraphicsItem):
-    def __init__(self, ways_data):
+    def __init__(self, map_data):
         super().__init__()
-        self.ways = ways_data
-        self.pen = QPen(QColor(220, 220, 220), 2)
-        if not self.ways:
+
+        self.roads = map_data.get("roads", [])
+        self.buildings = map_data.get("buildings", [])
+
+        self.building_pen = QPen(QColor(190, 190, 190), 0.8)
+        self.building_brush = QBrush(QColor(235, 235, 235))
+
+        self.road_styles = {
+            "motorway": QPen(QColor(180, 180, 180), 5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "trunk": QPen(QColor(185, 185, 185), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "primary": QPen(QColor(170, 170, 170), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "secondary": QPen(QColor(185, 185, 185), 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "tertiary": QPen(QColor(200, 200, 200), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "residential": QPen(QColor(215, 215, 215), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "service": QPen(QColor(225, 225, 225), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "living_street": QPen(QColor(225, 225, 225), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "unclassified": QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+        }
+
+        all_points = []
+
+        for road in self.roads:
+            all_points.extend(road["coords"])
+
+        for building in self.buildings:
+            all_points.extend(building["coords"])
+
+        if not all_points:
             self.rect = QRectF(0, 0, 100, 100)
         else:
-            all_x = [p[0] for w in self.ways for p in w]
-            all_y = [p[1] for w in self.ways for p in w]
-            self.rect = QRectF(min(all_x), min(all_y), max(all_x) - min(all_x), max(all_y) - min(all_y))
+            all_x = [p[0] for p in all_points]
+            all_y = [p[1] for p in all_points]
+            self.rect = QRectF(
+                min(all_x),
+                min(all_y),
+                max(all_x) - min(all_x),
+                max(all_y) - min(all_y)
+            )
+
+        self.setZValue(-100)
 
     def boundingRect(self):
         return self.rect
 
     def paint(self, painter, option, widget):
-        painter.setPen(self.pen)
-        for way_points in self.ways:
-            if len(way_points) > 1:
-                poly = QPolygonF([QPointF(x, y) for x, y in way_points])
-                painter.drawPolyline(poly)
+        painter.setRenderHint(QPainter.Antialiasing)
 
+        # 1. Сначала здания, чтобы они были под дорогами
+        painter.setPen(self.building_pen)
+        painter.setBrush(self.building_brush)
+
+        for building in self.buildings:
+            points = building["coords"]
+            if len(points) >= 3:
+                polygon = QPolygonF([QPointF(x, y) for x, y in points])
+                painter.drawPolygon(polygon)
+
+        # 2. Потом дороги поверх зданий
+        painter.setBrush(Qt.NoBrush)
+
+        for road in self.roads:
+            points = road["coords"]
+            road_type = road["type"]
+
+            pen = self.road_styles.get(
+                road_type,
+                QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            )
+
+            painter.setPen(pen)
+
+            if len(points) > 1:
+                polyline = QPolygonF([QPointF(x, y) for x, y in points])
+                painter.drawPolyline(polyline)
 
 class TrafficNode(QGraphicsEllipseItem):
     def __init__(self, node_id, label, pos_point):
@@ -240,7 +295,7 @@ class MapViewer(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="osm_network_project_skdf.json"):
+    def __init__(self, map_file="map.osm", data_file="network_project.json"):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
@@ -381,22 +436,67 @@ class MainWindow(QMainWindow):
     def parse_osm(self, path):
         try:
             tree = ET.parse(path)
+
             nodes = {}
             for n in tree.findall(".//node"):
-                nodes[n.get("id")] = project_coords(float(n.get("lon")), float(n.get("lat")))
-            ways = []
+                node_id = n.get("id")
+                lon = float(n.get("lon"))
+                lat = float(n.get("lat"))
+                nodes[node_id] = project_coords(lon, lat)
+
+            roads = []
+            buildings = []
+
+            allowed_highways = {
+                # "motorway",
+                # "trunk",
+                "primary",
+                "secondary",
+                "tertiary",
+                # "unclassified",
+                "residential",
+                # "service",
+                # "living_street",
+            }
+
             for w in tree.findall(".//way"):
-                if any(t.get("k") == "highway" for t in w.findall("tag")):
-                    coords = []
-                    for nd in w.findall("nd"):
-                        ref = nd.get("ref")
-                        if ref in nodes:
-                            coords.append(nodes[ref])
-                    if len(coords) > 1:
-                        ways.append(coords)
-            return ways
-        except Exception:
-            return []
+                tags = {t.get("k"): t.get("v") for t in w.findall("tag")}
+
+                coords = []
+                for nd in w.findall("nd"):
+                    ref = nd.get("ref")
+                    if ref in nodes:
+                        coords.append(nodes[ref])
+
+                if len(coords) < 2:
+                    continue
+
+                highway_type = tags.get("highway")
+                building_type = tags.get("building")
+
+                if highway_type in allowed_highways:
+                    roads.append({
+                        "type": highway_type,
+                        "coords": coords,
+                    })
+
+                if building_type is not None and len(coords) >= 3:
+                    buildings.append({
+                        "type": building_type,
+                        "coords": coords,
+                    })
+
+            return {
+                "roads": roads,
+                "buildings": buildings,
+            }
+
+        except Exception as e:
+            print(f"OSM parse error: {e}")
+            return {
+                "roads": [],
+                "buildings": [],
+            }
 
     def load_project_data(self, path):
         try:

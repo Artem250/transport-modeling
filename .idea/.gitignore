@@ -1,3 +1,12 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+
+map1.osm
+map2.osm
+
+nsk_roads_bbox — копия.csv
+nsk_roads_bbox_1.csv
+nsk_roads_bbox_2.csv
+nsk_roads_bbox_3.csv
+nsk_roads_bbox_fast.csv
