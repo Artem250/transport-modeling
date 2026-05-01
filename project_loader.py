@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from models import Link, Network, Node, Project, Route, Scenario
+from models import Link, Movement, Network, Node, Project, Route, Scenario, SimulationConfig, Sink, Source
+from network_migration import ensure_dynamic_schema
 
 
 class ProjectLoader:
@@ -25,18 +26,23 @@ class ProjectLoader:
             data = json.load(f)
 
         if "network" in data:
-            return self._load_modern_project(data)
-        return self._load_legacy_project(data)
+            project = self._load_modern_project(data)
+        else:
+            project = self._load_legacy_project(data)
+
+        ensure_dynamic_schema(project)
+        return project
 
     def _load_modern_project(self, data: dict) -> Project:
         project = Project(
             project_name=data.get("project_name", "Unnamed Project"),
             pcu_coefficients=data.get("pcu_coefficients", {}),
+            simulation=self._build_simulation(data.get("simulation", {})),
+            analysis_mode=data.get("analysis_mode", "compare"),
             metadata=data.get("metadata", {}),
         )
 
-        network_data = data.get("network", {})
-        project.network = self._build_network(network_data)
+        project.network = self._build_network(data.get("network", {}))
         project.scenarios = [
             Scenario(
                 id=item["id"],
@@ -72,15 +78,7 @@ class ProjectLoader:
             parameters = {
                 key: value
                 for key, value in item.items()
-                if key
-                not in {
-                    "id",
-                    "name",
-                    "type",
-                    "length_km",
-                    "traffic_counts",
-                    "coords",
-                }
+                if key not in {"id", "name", "type", "length_km", "traffic_counts", "coords"}
             }
 
             network.add_link(
@@ -137,14 +135,13 @@ class ProjectLoader:
                     link_type=item.get("link_type", "straight"),
                     length_km=item.get("length_km", 0.0),
                     traffic_counts=item.get("traffic_counts", {}),
+                    observed_counts=item.get("observed_counts", item.get("metadata", {}).get("observed_counts", {})),
                     coords=item.get("coords", {}),
                     parameters=item.get("parameters", {}),
                     results=item.get("results", {}),
                     metadata=item.get("metadata", {}),
                 )
             )
-
-        self._backfill_nodes_from_links(network)
 
         for item in network_data.get("routes", []):
             network.add_route(
@@ -156,15 +153,67 @@ class ProjectLoader:
                 )
             )
 
+        for item in network_data.get("sources", []):
+            network.add_source(
+                Source(
+                    id=item["id"],
+                    link_id=item["link_id"],
+                    demand_by_type=item.get("demand_by_type", {}),
+                    start_time_s=item.get("start_time_s", 0),
+                    end_time_s=item.get("end_time_s"),
+                    inferred=item.get("inferred", False),
+                    metadata=item.get("metadata", {}),
+                )
+            )
+
+        for item in network_data.get("sinks", []):
+            network.add_sink(
+                Sink(
+                    id=item["id"],
+                    link_id=item["link_id"],
+                    capacity_pcu_h=item.get("capacity_pcu_h"),
+                    inferred=item.get("inferred", False),
+                    metadata=item.get("metadata", {}),
+                )
+            )
+
+        for item in network_data.get("movements", []):
+            network.add_movement(
+                Movement(
+                    id=item["id"],
+                    node_id=item["node_id"],
+                    from_link_id=item["from_link_id"],
+                    to_link_id=item["to_link_id"],
+                    split_ratio=item.get("split_ratio", 1.0),
+                    capacity_pcu_h=item.get("capacity_pcu_h"),
+                    control=item.get("control", {}),
+                    inferred=item.get("inferred", False),
+                    metadata=item.get("metadata", {}),
+                )
+            )
+
+        self._backfill_nodes_from_links(network)
         self._assign_default_node_names(network)
         return network
 
-    def _extract_nodes_and_coords(
-        self,
-        item: dict,
-        coords: dict | None = None,
-        node_ids_by_coord: dict | None = None,
-    ) -> tuple[str, str, dict]:
+    def _build_simulation(self, data: dict) -> SimulationConfig:
+        return SimulationConfig(
+            horizon_seconds=data.get("horizon_seconds", 3600),
+            dt_seconds=data.get("dt_seconds", 1),
+            min_dt_seconds=data.get("min_dt_seconds", 1),
+            max_dt_seconds=data.get("max_dt_seconds", 5),
+            target_cell_length_m=data.get("target_cell_length_m", 25.0),
+            adaptive_dt_enabled=data.get("adaptive_dt_enabled", True),
+            free_flow_speed_kph=data.get("free_flow_speed_kph", 60.0),
+            wave_speed_kph=data.get("wave_speed_kph", 20.0),
+            jam_density_pcu_per_km_lane=data.get("jam_density_pcu_per_km_lane", 150.0),
+            capacity_per_lane_base=data.get("capacity_per_lane_base", 1800.0),
+            group_overrides=data.get("group_overrides", {}),
+            link_overrides=data.get("link_overrides", {}),
+            metadata=data.get("metadata", {}),
+        )
+
+    def _extract_nodes_and_coords(self, item: dict, coords: dict | None = None, node_ids_by_coord: dict | None = None) -> tuple[str, str, dict]:
         coords = coords or item.get("coords", {})
         if coords.get("type") == "polyline":
             points = coords.get("points", [])
@@ -177,14 +226,8 @@ class ProjectLoader:
                     "lon_end": points[-1][0],
                     "lat_end": points[-1][1],
                 }
-        start_key = (
-            round(coords.get("lon_start", 0.0), 6),
-            round(coords.get("lat_start", 0.0), 6),
-        )
-        end_key = (
-            round(coords.get("lon_end", 0.0), 6),
-            round(coords.get("lat_end", 0.0), 6),
-        )
+        start_key = (round(coords.get("lon_start", 0.0), 6), round(coords.get("lat_start", 0.0), 6))
+        end_key = (round(coords.get("lon_end", 0.0), 6), round(coords.get("lat_end", 0.0), 6))
         if node_ids_by_coord is None:
             return f"N_{start_key[0]}_{start_key[1]}", f"N_{end_key[0]}_{end_key[1]}", coords
 
@@ -192,7 +235,6 @@ class ProjectLoader:
             node_ids_by_coord[start_key] = f"N{len(node_ids_by_coord) + 1}"
         if end_key not in node_ids_by_coord:
             node_ids_by_coord[end_key] = f"N{len(node_ids_by_coord) + 1}"
-
         return node_ids_by_coord[start_key], node_ids_by_coord[end_key], coords
 
     def _load_legacy_coords_source(self) -> dict:
@@ -213,7 +255,6 @@ class ProjectLoader:
                     "lon_end": raw[2],
                     "lat_end": raw[3],
                 }
-
         return coords_source
 
     def _resolve_legacy_coords(self, item: dict, coords_source: dict) -> dict:

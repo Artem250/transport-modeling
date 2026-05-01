@@ -1,124 +1,71 @@
 from __future__ import annotations
 
-from models import Link, Project
-from road_sections import Intersection, StraightRoad
+from copy import deepcopy
+
+from dynamic_analysis import DynamicAnalysisService
+from models import Project
+from static_analysis import StaticAnalysisService
 
 
 class AnalysisService:
-    def analyze_project(self, project: Project) -> dict:
-        links_report = []
+    def __init__(self):
+        self.static_service = StaticAnalysisService()
+        self.dynamic_service = DynamicAnalysisService()
 
-        for link in project.network.links.values():
-            section = self._build_section(link, project.pcu_coefficients)
-            if section is None:
-                continue
+    def analyze_project(self, project: Project, mode: str | None = None) -> dict:
+        selected_mode = (mode or project.analysis_mode or "compare").lower()
 
-            section.analyze_performance()
-            optimization_result = section.optimize()
+        if selected_mode == "static":
+            return self.static_service.analyze_project(project)
+        if selected_mode == "dynamic":
+            return self.dynamic_service.analyze_project(project)
+        if selected_mode != "compare":
+            raise ValueError(f"Unsupported analysis mode: {selected_mode}")
 
-            link.results = {
-                **section.analysis_data,
-                "id": section.id,
-                "name": section.name,
-                "type": section.__class__.__name__,
+        static_project = deepcopy(project)
+        static_report = self.static_service.analyze_project(static_project)
+        dynamic_report = self.dynamic_service.analyze_project(project)
+        comparison = self._build_comparison(static_report, dynamic_report)
+
+        dynamic_report["comparison"] = {"static_vs_dynamic": comparison}
+        dynamic_report["Static_Analysis"] = static_report
+
+        comparison_by_link_id = {item["link_id"]: item for item in comparison["links"]}
+        for link_entry in dynamic_report["Links_Analysis"]:
+            link_entry["comparison"] = {
+                "static_vs_dynamic": comparison_by_link_id.get(link_entry["id"], {})
             }
+            if link_entry["id"] in project.network.links:
+                project.network.links[link_entry["id"]].results["comparison"] = link_entry["comparison"]
 
-            if optimization_result:
-                opt_data = {
-                    "Optimization_Proposal": optimization_result["proposal"],
-                    "C_optimized": round(optimization_result["C_new"], 0),
-                    "VC_optimized": round(optimization_result["vc_new"], 3),
-                    "LOS_optimized": optimization_result["los_new"],
+        return dynamic_report
+
+    def _build_comparison(self, static_report: dict, dynamic_report: dict) -> dict:
+        static_links = {item["id"]: item for item in static_report.get("Links_Analysis", [])}
+        dynamic_links = {item["id"]: item for item in dynamic_report.get("Links_Analysis", [])}
+        link_comparison = []
+
+        for link_id in sorted(set(static_links) | set(dynamic_links)):
+            static_link = static_links.get(link_id, {})
+            dynamic_link = dynamic_links.get(link_id, {})
+            link_comparison.append(
+                {
+                    "link_id": link_id,
+                    "static_los": static_link.get("LOS"),
+                    "dynamic_los": dynamic_link.get("LOS"),
+                    "static_vc": static_link.get("VC_ratio"),
+                    "dynamic_vc": dynamic_link.get("VC_ratio"),
+                    "static_delay_sec": static_link.get("Delay_sec"),
+                    "dynamic_delay_sec": dynamic_link.get("Delay_sec"),
+                    "delta_vc": _round_delta(dynamic_link.get("VC_ratio"), static_link.get("VC_ratio")),
+                    "delta_delay_sec": _round_delta(dynamic_link.get("Delay_sec"), static_link.get("Delay_sec")),
                 }
-                link.results.update(opt_data)
-
-            links_report.append(link.results.copy())
-
-        routes_report = []
-        for route in project.network.routes.values():
-            route_links = [
-                project.network.links[link_id]
-                for link_id in route.link_ids
-                if link_id in project.network.links
-            ]
-            if not route_links:
-                continue
-
-            total_length_km = sum(link.length_km for link in route_links)
-            total_delay_sec = sum(link.results.get("Delay_sec", 0.0) for link in route_links)
-            base_speed_kph = 60.0
-            base_travel_time_sec = (total_length_km / base_speed_kph) * 3600 if total_length_km else 0.0
-            total_travel_time_sec = base_travel_time_sec + total_delay_sec
-            avg_speed_kph = (
-                total_length_km / (total_travel_time_sec / 3600)
-                if total_travel_time_sec > 0
-                else base_speed_kph
-            )
-            route.results = {
-                "id": route.id,
-                "name": route.name,
-                "total_length_km": round(total_length_km, 2),
-                "total_delay_sec": round(total_delay_sec, 1),
-                "total_travel_time_sec": round(total_travel_time_sec, 1),
-                "avg_speed_kph": round(avg_speed_kph, 1),
-                "links_detail": [
-                    {
-                        "link_id": link.id,
-                        "LOS": link.results.get("LOS", "UNDEFINED"),
-                        "VC_ratio": round(link.results.get("VC_ratio", 0.0), 3),
-                        "Delay_sec": round(link.results.get("Delay_sec", 0.0), 1),
-                    }
-                    for link in route_links
-                ],
-            }
-            routes_report.append(route.results.copy())
-
-        return {
-            "Project_Name": project.project_name,
-            "Links_Analysis": links_report,
-            "Routes_Analysis": routes_report,
-        }
-
-    def _build_section(self, link: Link, pcu_coeffs: dict[str, float]):
-        params = link.parameters
-        link_type = link.link_type
-
-        if link_type == "straight":
-            return StraightRoad(
-                link.id,
-                link.name,
-                link.traffic_counts,
-                pcu_coeffs,
-                link.length_km,
-                params.get("lanes_total", 1),
-                params.get("lanes_bus", 0),
-                params.get("capacity_per_lane_base", 1800),
-                params.get("lane_width_m", 3.5),
-                params.get("grade_percent", 0.0),
-                params.get("parking_present", False),
-                params.get("heavy_vehicles_percent", 0.0),
             )
 
-        if link_type == "intersection":
-            section = Intersection(
-                link.id,
-                link.name,
-                link.traffic_counts,
-                pcu_coeffs,
-                link.length_km,
-                params.get("cycle_time", 100),
-                params.get("green_time", 30),
-                params.get("saturation_flow_base", 1800),
-                params.get("lanes_count", 1),
-                params.get("lane_width_m", 3.5),
-                params.get("grade_percent", 0.0),
-                params.get("parking_present", False),
-                params.get("heavy_vehicles_percent", 0.0),
-                params.get("is_ring_approach", False),
-                params.get("g_others", 0),
-            )
-            if "g_others" in params:
-                section.g_others = params["g_others"]
-            return section
+        return {"links": link_comparison}
 
+
+def _round_delta(new_value, old_value) -> float | None:
+    if new_value is None or old_value is None:
         return None
+    return round(float(new_value) - float(old_value), 3)

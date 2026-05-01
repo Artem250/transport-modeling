@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
 )
 
 from models import Link, Network, Node, Project
+from network_migration import ensure_dynamic_schema
 from osm_project_importer import OsmImportError, build_project_from_osm_point, build_project_from_osm_xml
 from project_loader import ProjectLoader
 from project_saver import ProjectSaver
@@ -188,6 +189,7 @@ class NetworkEditor(QMainWindow):
             network=Network(),
             metadata={"source": "network_editor"},
         )
+        ensure_dynamic_schema(self.project)
 
         self.nodes = []
         self.links = []
@@ -355,6 +357,7 @@ class NetworkEditor(QMainWindow):
             if link_model is not None:
                 editor_link = EditorLink(link_model, self.start_node_selection, node)
                 self.project.network.add_link(link_model)
+                ensure_dynamic_schema(self.project)
                 self.links.append(editor_link)
                 self.start_node_selection.links.append(editor_link)
                 node.links.append(editor_link)
@@ -375,6 +378,22 @@ class NetworkEditor(QMainWindow):
             editor_link.end_node.links.remove(editor_link)
         if editor_link.id in self.project.network.links:
             del self.project.network.links[editor_link.id]
+        self.project.network.sources = {
+            source_id: source
+            for source_id, source in self.project.network.sources.items()
+            if source.link_id != editor_link.id
+        }
+        self.project.network.sinks = {
+            sink_id: sink
+            for sink_id, sink in self.project.network.sinks.items()
+            if sink.link_id != editor_link.id
+        }
+        self.project.network.movements = {
+            movement_id: movement
+            for movement_id, movement in self.project.network.movements.items()
+            if movement.from_link_id != editor_link.id and movement.to_link_id != editor_link.id
+        }
+        ensure_dynamic_schema(self.project)
         for route in self.project.network.routes.values():
             route.link_ids = [link_id for link_id in route.link_ids if link_id != editor_link.id]
         if editor_link.scene() is not None:
@@ -499,6 +518,7 @@ class NetworkEditor(QMainWindow):
 
     def apply_project(self, project):
         self.project = project
+        ensure_dynamic_schema(self.project)
         self.nodes = []
         self.links = []
         self.start_node_selection = None

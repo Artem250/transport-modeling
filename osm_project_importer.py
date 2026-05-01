@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from models import Link, Network, Node, Project
+from network_migration import ensure_dynamic_schema
 
 
 class OsmImportError(RuntimeError):
@@ -86,12 +87,14 @@ def build_project_from_osm_xml(path: str | Path, default_intensity: int = 600) -
                 },
             )
 
-    return Project(
+    project = Project(
         project_name=f"OSM File Import: {Path(path).name}",
         pcu_coefficients={"car": 1.0, "truck": 2.5, "bus": 2.0},
         network=network,
         metadata={"source": "osm_xml", "path": str(path)},
     )
+    ensure_dynamic_schema(project)
+    return project
 
 
 def build_project_from_osmnx_graph(graph: Any, default_intensity: int = 600) -> Project:
@@ -154,12 +157,14 @@ def build_project_from_osmnx_graph(graph: Any, default_intensity: int = 600) -> 
                 },
             )
 
-    return Project(
+    project = Project(
         project_name="OSM Imported Network",
         pcu_coefficients={"car": 1.0, "truck": 2.5, "bus": 2.0},
         network=network,
         metadata={"source": "osmnx"},
     )
+    ensure_dynamic_schema(project)
+    return project
 
 
 def _node_id(osm_id: Any) -> str:

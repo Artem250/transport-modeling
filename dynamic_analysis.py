@@ -1,0 +1,304 @@
+from __future__ import annotations
+
+import math
+
+from calibration import CalibrationDiagnosticsService
+from ctm import CTMSimulator
+from los import TARGET_LOS_VC, determine_los
+from models import Link, Movement, Project, SimulationConfig
+from network_dynamic import Cell, DynamicLink, DynamicNetwork
+from network_migration import ensure_dynamic_schema
+
+
+BASE_SPEED_KPH = 60.0
+B_COEFFICIENT = 4.0
+
+
+class DynamicAnalysisService:
+    def __init__(self):
+        self.calibration_service = CalibrationDiagnosticsService()
+
+    def analyze_project(self, project: Project) -> dict:
+        migration_diagnostics = ensure_dynamic_schema(project)
+        runtime_network = self._build_runtime_network(project)
+        simulator = CTMSimulator(runtime_network, project.simulation)
+        sim_results = simulator.simulate(project.simulation.horizon_seconds)
+
+        links_report = []
+        for link in project.network.links.values():
+            result = self._build_link_result(project, link, sim_results.get(link.id, {}))
+            link.results = result
+            links_report.append(result.copy())
+
+        routes_report = self._build_routes_report(project)
+        calibration_diagnostics = self.calibration_service.build_diagnostics(project)
+        project.metadata["calibration_diagnostics"] = calibration_diagnostics
+
+        return {
+            "Project_Name": project.project_name,
+            "Links_Analysis": links_report,
+            "Routes_Analysis": routes_report,
+            "Diagnostics": {
+                "migration": migration_diagnostics,
+                "calibration": calibration_diagnostics,
+                "runtime": runtime_network.diagnostics,
+            },
+        }
+
+    def _build_runtime_network(self, project: Project) -> DynamicNetwork:
+        diagnostics: list[str] = []
+        dynamic_links: dict[str, DynamicLink] = {}
+        dt_seconds = self._resolve_dt_seconds(project)
+
+        for link in project.network.links.values():
+            params = self._resolve_link_params(project.simulation, link)
+            length_m = max(link.length_km * 1000.0, 1.0)
+            vf_mps = params["free_flow_speed_kph"] / 3.6
+            w_mps = params["wave_speed_kph"] / 3.6
+            cfl_length_m = max(vf_mps, w_mps) * dt_seconds
+            target_cell_length_m = max(params["target_cell_length_m"], cfl_length_m, 1.0)
+            cell_count = max(int(math.floor(length_m / target_cell_length_m)), 1)
+            cell_length_m = length_m / cell_count
+            if cell_length_m < cfl_length_m:
+                diagnostics.append(
+                    f"Link {link.id}: CFL condition cannot be satisfied with dt={dt_seconds}s and physical length."
+                )
+
+            dynamic_links[link.id] = DynamicLink(
+                id=link.id,
+                name=link.name,
+                start_node_id=link.start_node_id,
+                end_node_id=link.end_node_id,
+                link_type=link.link_type,
+                length_m=length_m,
+                lanes=params["lanes"],
+                dt_seconds=dt_seconds,
+                free_flow_speed_kph=params["free_flow_speed_kph"],
+                wave_speed_kph=params["wave_speed_kph"],
+                jam_density_pcu_per_km_lane=params["jam_density_pcu_per_km_lane"],
+                capacity_pcu_h=params["capacity_pcu_h"],
+                cell_length_m=cell_length_m,
+                parameters=params,
+                metadata=dict(link.metadata),
+                cells=[Cell() for _ in range(cell_count)],
+            )
+
+        return DynamicNetwork(
+            nodes=project.network.nodes,
+            links=dynamic_links,
+            sources=project.network.sources,
+            sinks=project.network.sinks,
+            movements=self._prepare_movements(project.network.movements),
+            diagnostics=diagnostics,
+        )
+
+    def _resolve_dt_seconds(self, project: Project) -> int:
+        config = project.simulation
+        dt_seconds = max(config.min_dt_seconds, min(config.dt_seconds, config.max_dt_seconds))
+        if not config.adaptive_dt_enabled:
+            return dt_seconds
+
+        for link in project.network.links.values():
+            params = self._resolve_link_params(config, link)
+            max_speed_mps = max(params["free_flow_speed_kph"], params["wave_speed_kph"]) / 3.6
+            if max_speed_mps <= 0:
+                continue
+            max_dt_for_link = int(math.floor(max(link.length_km * 1000.0, 1.0) / max_speed_mps))
+            if max_dt_for_link >= config.min_dt_seconds:
+                dt_seconds = min(dt_seconds, max_dt_for_link)
+
+        return max(config.min_dt_seconds, dt_seconds)
+
+    def _prepare_movements(self, movements: dict[str, Movement]) -> dict[str, Movement]:
+        prepared: dict[str, Movement] = {}
+        for movement_id, movement in movements.items():
+            control = dict(movement.control or {})
+            if control.get("control_type") == "signalized":
+                phases = []
+                for phase in control.get("phases", []):
+                    phase_copy = dict(phase)
+                    green_for = list(phase_copy.get("green_for_movements", []))
+                    if not green_for:
+                        green_for = [movement.id]
+                    phase_copy["green_for_movements"] = green_for
+                    phases.append(phase_copy)
+                control["phases"] = phases
+
+            prepared[movement_id] = Movement(
+                id=movement.id,
+                node_id=movement.node_id,
+                from_link_id=movement.from_link_id,
+                to_link_id=movement.to_link_id,
+                split_ratio=movement.split_ratio,
+                capacity_pcu_h=movement.capacity_pcu_h,
+                control=control,
+                inferred=movement.inferred,
+                metadata=dict(movement.metadata),
+            )
+        return prepared
+
+    def _resolve_link_params(self, config: SimulationConfig, link: Link) -> dict:
+        params = {
+            "free_flow_speed_kph": config.free_flow_speed_kph,
+            "wave_speed_kph": config.wave_speed_kph,
+            "jam_density_pcu_per_km_lane": config.jam_density_pcu_per_km_lane,
+            "capacity_per_lane_base": config.capacity_per_lane_base,
+            "target_cell_length_m": config.target_cell_length_m,
+        }
+
+        for field_name in (
+            "free_flow_speed_kph",
+            "wave_speed_kph",
+            "jam_density_pcu_per_km_lane",
+            "capacity_per_lane_base",
+            "target_cell_length_m",
+        ):
+            if field_name in link.parameters:
+                params[field_name] = link.parameters[field_name]
+
+        for group_key in self._group_keys(link):
+            params.update(config.group_overrides.get(group_key, {}))
+        params.update(config.link_overrides.get(link.id, {}))
+
+        lanes = self._effective_lanes(link)
+        params["lanes"] = lanes
+        if link.link_type == "intersection":
+            saturation = float(link.parameters.get("saturation_flow_base", params["capacity_per_lane_base"]))
+            cycle_time = float(link.parameters.get("cycle_time", 0) or 0)
+            green_time = float(link.parameters.get("green_time", 0) or 0)
+            green_ratio = green_time / cycle_time if cycle_time > 0 and green_time > 0 else 1.0
+            params["capacity_pcu_h"] = saturation * lanes * max(green_ratio, 0.1)
+        else:
+            params["capacity_pcu_h"] = float(params["capacity_per_lane_base"]) * lanes
+
+        return params
+
+    def _group_keys(self, link: Link) -> list[str]:
+        keys = [f"link_type:{link.link_type}"]
+        for key, value in (link.metadata or {}).items():
+            keys.append(f"metadata:{key}={value}")
+        return keys
+
+    def _effective_lanes(self, link: Link) -> float:
+        params = link.parameters or {}
+        lanes = params.get("lanes_count", params.get("lanes_total", 1))
+        lanes_bus = params.get("lanes_bus", 0)
+        try:
+            return max(float(lanes) - float(lanes_bus), 1.0)
+        except (TypeError, ValueError):
+            return 1.0
+
+    def _build_link_result(self, project: Project, link: Link, sim_result: dict) -> dict:
+        avg_flow = float(sim_result.get("avg_flow_pcu_h", 0.0))
+        peak_flow = float(sim_result.get("peak_flow_pcu_h", 0.0))
+        capacity = max(float(self._resolve_link_params(project.simulation, link)["capacity_pcu_h"]), 1.0)
+        vc_ratio = avg_flow / capacity if capacity > 0 else 99.0
+        los = determine_los(vc_ratio)
+
+        base_time_sec = (link.length_km / BASE_SPEED_KPH) * 3600.0 if link.length_km else 0.0
+        if vc_ratio < 0.99:
+            delay_sec = base_time_sec * 0.25 * (vc_ratio ** B_COEFFICIENT)
+        else:
+            delay_sec = base_time_sec * (10.0 + (vc_ratio * 5.0))
+        travel_time_sec = base_time_sec + delay_sec
+
+        result = {
+            "id": link.id,
+            "name": link.name,
+            "type": link.link_type,
+            "avg_flow_pcu_h": round(avg_flow, 2),
+            "peak_flow_pcu_h": round(peak_flow, 2),
+            "avg_density": round(float(sim_result.get("avg_density_pcu_km", 0.0)), 2),
+            "max_queue_pcu": round(float(sim_result.get("max_queue_pcu", 0.0)), 2),
+            "travel_time_sec": round(travel_time_sec, 2),
+            "throughput_pcu": round(float(sim_result.get("throughput_pcu", 0.0)), 2),
+            "V": round(avg_flow, 0),
+            "C_initial": round(capacity, 0),
+            "VC_ratio": round(vc_ratio, 3),
+            "LOS": los,
+            "Delay_sec": round(delay_sec, 1),
+            "Length_km": link.length_km,
+        }
+
+        optimization = self._build_optimization(link, avg_flow, capacity, vc_ratio, los)
+        if optimization:
+            result.update(optimization)
+        return result
+
+    def _build_optimization(self, link: Link, avg_flow: float, capacity: float, vc_ratio: float, los: str) -> dict | None:
+        if vc_ratio <= TARGET_LOS_VC:
+            return None
+
+        required_capacity = avg_flow / TARGET_LOS_VC if TARGET_LOS_VC > 0 else capacity
+        if link.link_type == "intersection":
+            cycle_time = float(link.parameters.get("cycle_time", 0) or 0)
+            green_time = float(link.parameters.get("green_time", 0) or 0)
+            saturation = float(link.parameters.get("saturation_flow_base", 1800))
+            lanes = self._effective_lanes(link)
+            if saturation * lanes > 0 and cycle_time > 0:
+                required_green = required_capacity / (saturation * lanes) * cycle_time
+                return {
+                    "Optimization_Proposal": (
+                        f"СВЕТОФОРНОЕ РЕГУЛИРОВАНИЕ: увеличить зелёное время "
+                        f"с {green_time:.0f} до {required_green:.1f} сек."
+                    ),
+                    "C_optimized": round(required_capacity, 0),
+                    "VC_optimized": round(TARGET_LOS_VC, 3),
+                    "LOS_optimized": determine_los(TARGET_LOS_VC),
+                }
+        else:
+            lanes = self._effective_lanes(link)
+            lane_capacity = max(capacity / lanes, 1.0)
+            additional_lanes = max(required_capacity / lane_capacity - lanes, 0.1)
+            return {
+                "Optimization_Proposal": f"РАСШИРЕНИЕ: добавить {additional_lanes:.1f} полосы.",
+                "C_optimized": round(required_capacity, 0),
+                "VC_optimized": round(TARGET_LOS_VC, 3),
+                "LOS_optimized": determine_los(TARGET_LOS_VC),
+            }
+
+        return {
+            "Optimization_Proposal": "ТРЕБУЕТСЯ РУЧНАЯ КАЛИБРОВКА УПРАВЛЕНИЯ УЗЛОМ.",
+            "C_optimized": round(capacity, 0),
+            "VC_optimized": round(vc_ratio, 3),
+            "LOS_optimized": los,
+        }
+
+    def _build_routes_report(self, project: Project) -> list[dict]:
+        routes_report = []
+        for route in project.network.routes.values():
+            route_links = [
+                project.network.links[link_id]
+                for link_id in route.link_ids
+                if link_id in project.network.links
+            ]
+            if not route_links:
+                continue
+
+            total_length_km = sum(link.length_km for link in route_links)
+            total_delay_sec = sum(link.results.get("Delay_sec", 0.0) for link in route_links)
+            total_travel_time_sec = sum(link.results.get("travel_time_sec", 0.0) for link in route_links)
+            avg_speed_kph = (
+                total_length_km / (total_travel_time_sec / 3600.0)
+                if total_travel_time_sec > 0
+                else BASE_SPEED_KPH
+            )
+            route.results = {
+                "id": route.id,
+                "name": route.name,
+                "total_length_km": round(total_length_km, 2),
+                "total_delay_sec": round(total_delay_sec, 1),
+                "total_travel_time_sec": round(total_travel_time_sec, 1),
+                "avg_speed_kph": round(avg_speed_kph, 1),
+                "links_detail": [
+                    {
+                        "link_id": link.id,
+                        "LOS": link.results.get("LOS", "UNDEFINED"),
+                        "VC_ratio": round(link.results.get("VC_ratio", 0.0), 3),
+                        "Delay_sec": round(link.results.get("Delay_sec", 0.0), 1),
+                    }
+                    for link in route_links
+                ],
+            }
+            routes_report.append(route.results.copy())
+        return routes_report

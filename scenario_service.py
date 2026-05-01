@@ -18,7 +18,32 @@ class ScenarioService:
         link = project.network.links.get(link_id) if link_id else None
 
         if change_type == "update_traffic" and link is not None:
-            link.traffic_counts.update(change.get("traffic_counts", {}))
+            source = next((item for item in project.network.sources.values() if item.link_id == link.id), None)
+            if source is not None:
+                source.demand_by_type.update(change.get("traffic_counts", {}))
+            else:
+                link.traffic_counts.update(change.get("traffic_counts", {}))
+            return
+
+        if change_type == "update_source_demand":
+            source_id = change.get("source_id")
+            source = project.network.sources.get(source_id) if source_id else None
+            if source is not None:
+                source.demand_by_type.update(change.get("demand_by_type", {}))
+            return
+
+        if change_type == "update_movement_split":
+            movement_id = change.get("movement_id")
+            movement = project.network.movements.get(movement_id) if movement_id else None
+            if movement is not None and "split_ratio" in change:
+                movement.split_ratio = change["split_ratio"]
+            return
+
+        if change_type == "update_signal_control":
+            movement_id = change.get("movement_id")
+            movement = project.network.movements.get(movement_id) if movement_id else None
+            if movement is not None:
+                movement.control.update(change.get("control", {}))
             return
 
         if change_type == "update_parameters" and link is not None:
