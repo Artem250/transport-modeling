@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import math
 import sys
 import xml.etree.ElementTree as ET
@@ -8,6 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from models import Link, Network, Node, Project
+
+
+ALLOWED_HIGHWAYS = {"primary", "secondary", "tertiary", "residential"}
+ANGLE_TOLERANCE_DEG = 3.0
+DISTANCE_TOLERANCE_M = 1.5
+EARTH_RADIUS_M = 6371008.8
 
 
 class OsmImportError(RuntimeError):
@@ -28,7 +35,7 @@ def build_project_from_osm_point(
             f"Команда установки: \"{sys.executable}\" -m pip install osmnx"
         ) from exc
 
-    graph = ox.graph_from_point(location_point, dist=dist_m, network_type="drive", simplify=False)
+    graph = ox.graph_from_point(location_point, dist=dist_m, network_type="drive", simplify=True)
     return build_project_from_osmnx_graph(graph, default_intensity)
 
 
@@ -47,35 +54,36 @@ def build_project_from_osm_xml(path: str | Path, default_intensity: int = 600) -
         tags = {tag.get("k"): tag.get("v") for tag in way.findall("tag") if tag.get("k")}
         highway = tags.get("highway")
         # if not highway or highway in {"footway", "path", "cycleway", "pedestrian", "steps", "service", "raceway", "unclassified"}:
-        if not highway or highway not in {"primary", "secondary", "tertiary", "residential"}:
+        if not highway or highway not in ALLOWED_HIGHWAYS:
             continue
         refs = [nd.get("ref") for nd in way.findall("nd") if nd.get("ref") in osm_nodes]
         if len(refs) > 1:
             highway_ways.append({"refs": refs, "tags": tags, "osm_id": way.get("id")})
 
+    anchor_refs = _xml_anchor_refs(highway_ways, osm_nodes)
     network = Network()
     link_index = 1
 
     for way in highway_ways:
-        refs = way["refs"]
-        for start_ref, end_ref in zip(refs, refs[1:]):
-            start_point = osm_nodes[start_ref]
-            end_point = osm_nodes[end_ref]
-            if start_point == end_point:
+        tags = way["tags"]
+        for refs in _split_refs_at_anchors(way["refs"], anchor_refs):
+            points = [osm_nodes[ref] for ref in refs]
+            if len(points) < 2 or _is_zero_length_polyline(points):
                 continue
 
+            start_ref = refs[0]
+            end_ref = refs[-1]
             start_node_id = _node_id(start_ref)
             end_node_id = _node_id(end_ref)
-            _add_osm_node(network, start_node_id, start_ref, start_point)
-            _add_osm_node(network, end_node_id, end_ref, end_point)
+            _add_osm_node(network, start_node_id, start_ref, points[0])
+            _add_osm_node(network, end_node_id, end_ref, points[-1])
 
-            tags = way["tags"]
             link_index = _add_segment_link(
                 network,
                 link_index,
                 start_node_id,
                 end_node_id,
-                [start_point, end_point],
+                points,
                 tags,
                 default_intensity,
                 {
@@ -86,6 +94,7 @@ def build_project_from_osm_xml(path: str | Path, default_intensity: int = 600) -
                 },
             )
 
+    _merge_degree_two_continuations(network)
     return Project(
         project_name=f"OSM File Import: {Path(path).name}",
         pcu_coefficients={"car": 1.0, "truck": 2.5, "bus": 2.0},
@@ -124,35 +133,22 @@ def build_project_from_osmnx_graph(graph: Any, default_intensity: int = 600) -> 
         if len(points) < 2:
             continue
 
-        segment_node_ids = [start_node_id]
-        for point_index, point in enumerate(points[1:-1], start=1):
-            segment_node_id = f"OSM_GEOM_{u}_{v}_{key}_{point_index}"
-            _add_osm_node(network, segment_node_id, segment_node_id, point)
-            segment_node_ids.append(segment_node_id)
-        segment_node_ids.append(end_node_id)
-
-        for segment_start_id, segment_end_id, point_a, point_b in zip(
-            segment_node_ids,
-            segment_node_ids[1:],
+        link_index = _add_segment_link(
+            network,
+            link_index,
+            start_node_id,
+            end_node_id,
             points,
-            points[1:],
-        ):
-            link_index = _add_segment_link(
-                network,
-                link_index,
-                segment_start_id,
-                segment_end_id,
-                [point_a, point_b],
-                data,
-                default_intensity,
-                {
-                    "source": "osm",
-                    "osm_u": u,
-                    "osm_v": v,
-                    "osm_key": key,
-                    "oneway": data.get("oneway", False),
-                },
-            )
+            data,
+            default_intensity,
+            {
+                "source": "osm",
+                "osm_u": u,
+                "osm_v": v,
+                "osm_key": key,
+                "oneway": data.get("oneway", False),
+            },
+        )
 
     return Project(
         project_name="OSM Imported Network",
@@ -181,6 +177,55 @@ def _add_osm_node(network: Network, node_id: str, osm_ref: Any, point: tuple[flo
     )
 
 
+def _xml_anchor_refs(
+    highway_ways: list[dict[str, Any]],
+    osm_nodes: dict[str, tuple[float, float]],
+) -> set[str]:
+    ref_counts: dict[str, int] = {}
+    anchor_refs: set[str] = set()
+    for way in highway_ways:
+        refs = way["refs"]
+        if not refs:
+            continue
+        anchor_refs.add(refs[0])
+        anchor_refs.add(refs[-1])
+        for ref in refs:
+            ref_counts[ref] = ref_counts.get(ref, 0) + 1
+
+    for ref, count in ref_counts.items():
+        if count > 1:
+            anchor_refs.add(ref)
+
+    for way in highway_ways:
+        refs = way["refs"]
+        for previous_ref, current_ref, next_ref in zip(refs, refs[1:], refs[2:]):
+            previous_point = osm_nodes[previous_ref]
+            current_point = osm_nodes[current_ref]
+            next_point = osm_nodes[next_ref]
+            if not _is_redundant_geometry_point(previous_point, current_point, next_point):
+                anchor_refs.add(current_ref)
+    return anchor_refs
+
+
+def _split_refs_at_anchors(refs: list[str], anchor_refs: set[str]) -> list[list[str]]:
+    if len(refs) < 2:
+        return []
+
+    chunks = []
+    start_index = 0
+    for index in range(1, len(refs)):
+        if index == len(refs) - 1 or refs[index] in anchor_refs:
+            chunk = refs[start_index : index + 1]
+            if len(chunk) >= 2:
+                chunks.append(chunk)
+            start_index = index
+    return chunks
+
+
+def _is_zero_length_polyline(points: list[tuple[float, float]]) -> bool:
+    return all(point == points[0] for point in points[1:])
+
+
 def _add_segment_link(
     network: Network,
     link_index: int,
@@ -193,6 +238,7 @@ def _add_segment_link(
 ) -> int:
     lanes = _parse_lanes(tags.get("lanes"))
     length_km = _polyline_length_km(points)
+    geometry_points = _simplify_hidden_geometry_points(points)
     link_id = f"L{link_index}"
     network.add_link(
         Link(
@@ -204,10 +250,12 @@ def _add_segment_link(
             length_km=round(length_km, 4),
             traffic_counts={"car": default_intensity},
             coords={
-                "lon_start": round(points[0][0], 6),
-                "lat_start": round(points[0][1], 6),
-                "lon_end": round(points[-1][0], 6),
-                "lat_end": round(points[-1][1], 6),
+                "type": "polyline",
+                "points": [[round(lon, 6), round(lat, 6)] for lon, lat in geometry_points],
+                "lon_start": round(geometry_points[0][0], 6),
+                "lat_start": round(geometry_points[0][1], 6),
+                "lon_end": round(geometry_points[-1][0], 6),
+                "lat_end": round(geometry_points[-1][1], 6),
             },
             parameters={
                 "length_km": round(length_km, 4),
@@ -227,6 +275,236 @@ def _add_segment_link(
         )
     )
     return link_index + 1
+
+
+def _dedupe_consecutive_points(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    deduped = []
+    for point in points:
+        if not deduped or point != deduped[-1]:
+            deduped.append(point)
+    return deduped
+
+
+def _merge_degree_two_continuations(network: Network) -> None:
+    changed = True
+    while changed:
+        changed = False
+        for node_id in list(network.nodes):
+            incident_links = [
+                link
+                for link in network.links.values()
+                if link.start_node_id == node_id or link.end_node_id == node_id
+            ]
+            if len(incident_links) != 2:
+                continue
+
+            first_link, second_link = incident_links
+            if first_link.start_node_id == first_link.end_node_id or second_link.start_node_id == second_link.end_node_id:
+                continue
+            if not _links_can_merge(first_link, second_link):
+                continue
+            if not _is_straight_continuation(first_link, second_link, node_id):
+                continue
+
+            merged_link = _merged_link_through_node(first_link, second_link, node_id)
+            del network.links[first_link.id]
+            del network.links[second_link.id]
+            network.links[merged_link.id] = merged_link
+            del network.nodes[node_id]
+            changed = True
+            break
+
+
+def _links_can_merge(first_link: Link, second_link: Link) -> bool:
+    if first_link.metadata.get("disabled") or second_link.metadata.get("disabled"):
+        return False
+
+    comparable_metadata_keys = ("source",)
+    for key in comparable_metadata_keys:
+        if first_link.metadata.get(key) != second_link.metadata.get(key):
+            return False
+
+    return first_link.traffic_counts == second_link.traffic_counts
+
+
+def _is_straight_continuation(first_link: Link, second_link: Link, node_id: str) -> bool:
+    _, _, points, join_index = _merged_points_through_node(first_link, second_link, node_id)
+    if join_index <= 0 or join_index >= len(points) - 1:
+        return False
+    return _is_redundant_geometry_point(points[join_index - 1], points[join_index], points[join_index + 1])
+
+
+def _merged_link_through_node(first_link: Link, second_link: Link, node_id: str) -> Link:
+    start_node_id, end_node_id, points, _ = _merged_points_through_node(first_link, second_link, node_id)
+    length_km = _polyline_length_km(points)
+    geometry_points = _simplify_hidden_geometry_points(points)
+    name = first_link.name if first_link.name == second_link.name else f"{first_link.name} / {second_link.name}"
+    coords = {
+        "type": "polyline",
+        "points": [[round(lon, 6), round(lat, 6)] for lon, lat in geometry_points],
+        "lon_start": round(geometry_points[0][0], 6),
+        "lat_start": round(geometry_points[0][1], 6),
+        "lon_end": round(geometry_points[-1][0], 6),
+        "lat_end": round(geometry_points[-1][1], 6),
+    }
+    metadata = {
+        **first_link.metadata,
+        "merged_link_ids": _merged_link_ids(first_link) + _merged_link_ids(second_link),
+    }
+
+    return Link(
+        id=first_link.id,
+        name=name,
+        start_node_id=start_node_id,
+        end_node_id=end_node_id,
+        link_type=first_link.link_type,
+        length_km=round(length_km, 4),
+        traffic_counts=dict(first_link.traffic_counts),
+        coords=coords,
+        parameters={**first_link.parameters, "length_km": round(length_km, 4)},
+        results=dict(first_link.results),
+        metadata=metadata,
+    )
+
+
+def _merged_points_through_node(
+    first_link: Link,
+    second_link: Link,
+    node_id: str,
+) -> tuple[str, str, list[tuple[float, float]], int]:
+    first_points = _link_lon_lat_points(first_link)
+    second_points = _link_lon_lat_points(second_link)
+
+    if first_link.end_node_id == node_id and second_link.start_node_id == node_id:
+        start_node_id = first_link.start_node_id
+        end_node_id = second_link.end_node_id
+        points = first_points + second_points[1:]
+        join_index = len(first_points) - 1
+    elif first_link.start_node_id == node_id and second_link.end_node_id == node_id:
+        start_node_id = second_link.start_node_id
+        end_node_id = first_link.end_node_id
+        points = second_points + first_points[1:]
+        join_index = len(second_points) - 1
+    elif first_link.start_node_id == node_id and second_link.start_node_id == node_id:
+        start_node_id = first_link.end_node_id
+        end_node_id = second_link.end_node_id
+        reversed_first_points = list(reversed(first_points))
+        points = reversed_first_points + second_points[1:]
+        join_index = len(reversed_first_points) - 1
+    else:
+        start_node_id = first_link.start_node_id
+        end_node_id = second_link.start_node_id
+        reversed_second_points = list(reversed(second_points))
+        points = first_points + reversed_second_points[1:]
+        join_index = len(first_points) - 1
+
+    points = _dedupe_consecutive_points([(float(lon), float(lat)) for lon, lat in points])
+    join_index = max(1, min(join_index, len(points) - 2))
+    return start_node_id, end_node_id, points, join_index
+
+
+def _link_lon_lat_points(link: Link) -> list[tuple[float, float]]:
+    coords = link.coords or {}
+    if coords.get("type") == "polyline" and len(coords.get("points", [])) >= 2:
+        return [(float(lon), float(lat)) for lon, lat in coords["points"]]
+
+    return [
+        (float(coords["lon_start"]), float(coords["lat_start"])),
+        (float(coords["lon_end"]), float(coords["lat_end"])),
+    ]
+
+
+def _merged_link_ids(link: Link) -> list[str]:
+    return list(link.metadata.get("merged_link_ids") or [link.id])
+
+
+def _simplify_hidden_geometry_points(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    simplified = _dedupe_consecutive_points(points)
+    if len(simplified) <= 2:
+        return simplified
+
+    changed = True
+    while changed and len(simplified) > 2:
+        changed = False
+        next_points = [simplified[0]]
+        for previous_point, current_point, next_point in zip(simplified, simplified[1:], simplified[2:]):
+            if _is_redundant_geometry_point(previous_point, current_point, next_point):
+                changed = True
+                continue
+            next_points.append(current_point)
+        next_points.append(simplified[-1])
+        simplified = next_points
+    return simplified
+
+
+def _is_redundant_geometry_point(
+    previous_point: tuple[float, float],
+    current_point: tuple[float, float],
+    next_point: tuple[float, float],
+) -> bool:
+    if previous_point == current_point or current_point == next_point:
+        return True
+
+    angle = _turn_angle_deg(previous_point, current_point, next_point)
+    if abs(180.0 - angle) > ANGLE_TOLERANCE_DEG:
+        return False
+
+    return _point_to_segment_distance_m(current_point, previous_point, next_point) <= DISTANCE_TOLERANCE_M
+
+
+def _turn_angle_deg(
+    previous_point: tuple[float, float],
+    current_point: tuple[float, float],
+    next_point: tuple[float, float],
+) -> float:
+    vector_a = _meter_vector(current_point, previous_point)
+    vector_b = _meter_vector(current_point, next_point)
+    length_a = math.hypot(vector_a[0], vector_a[1])
+    length_b = math.hypot(vector_b[0], vector_b[1])
+    if length_a == 0.0 or length_b == 0.0:
+        return 180.0
+
+    cos_angle = (vector_a[0] * vector_b[0] + vector_a[1] * vector_b[1]) / (length_a * length_b)
+    cos_angle = max(-1.0, min(1.0, cos_angle))
+    return math.degrees(math.acos(cos_angle))
+
+
+def _point_to_segment_distance_m(
+    point: tuple[float, float],
+    segment_start: tuple[float, float],
+    segment_end: tuple[float, float],
+) -> float:
+    point_xy = _local_xy_m(point, point[1])
+    start_xy = _local_xy_m(segment_start, point[1])
+    end_xy = _local_xy_m(segment_end, point[1])
+
+    segment_x = end_xy[0] - start_xy[0]
+    segment_y = end_xy[1] - start_xy[1]
+    segment_length_sq = segment_x * segment_x + segment_y * segment_y
+    if segment_length_sq == 0.0:
+        return math.hypot(point_xy[0] - start_xy[0], point_xy[1] - start_xy[1])
+
+    point_x = point_xy[0] - start_xy[0]
+    point_y = point_xy[1] - start_xy[1]
+    projection = (point_x * segment_x + point_y * segment_y) / segment_length_sq
+    projection = max(0.0, min(1.0, projection))
+    closest_x = start_xy[0] + projection * segment_x
+    closest_y = start_xy[1] + projection * segment_y
+    return math.hypot(point_xy[0] - closest_x, point_xy[1] - closest_y)
+
+
+def _meter_vector(origin: tuple[float, float], target: tuple[float, float]) -> tuple[float, float]:
+    origin_xy = _local_xy_m(origin, origin[1])
+    target_xy = _local_xy_m(target, origin[1])
+    return target_xy[0] - origin_xy[0], target_xy[1] - origin_xy[1]
+
+
+def _local_xy_m(point: tuple[float, float], origin_lat: float) -> tuple[float, float]:
+    lon, lat = point
+    return (
+        math.radians(lon) * EARTH_RADIUS_M * math.cos(math.radians(origin_lat)),
+        math.radians(lat) * EARTH_RADIUS_M,
+    )
 
 
 def _edge_points(data: dict[str, Any], start_node: Node, end_node: Node) -> list[tuple[float, float]]:
@@ -291,3 +569,25 @@ def _text_value(value: Any, default: str) -> str:
     if value is None or value == "":
         return default
     return str(value)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Import OSM XML into osm_network_project.json.")
+    parser.add_argument("--input", default="map.osm", help="Input OSM XML file.")
+    parser.add_argument("--output", default="osm_network_project.json", help="Output project JSON file.")
+    parser.add_argument("--intensity", type=int, default=600, help="Default car intensity per link.")
+    args = parser.parse_args(argv)
+
+    from project_saver import ProjectSaver
+
+    project = build_project_from_osm_xml(args.input, args.intensity)
+    ProjectSaver().save(project, args.output)
+    print(
+        f"Saved {args.output}: "
+        f"{len(project.network.nodes)} nodes, {len(project.network.links)} links."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

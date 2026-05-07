@@ -3,7 +3,7 @@ from project_manager import TrafficProject
 
 if __name__ == "__main__":
     file_path = "novosibirsk_analysis.json"
-    modern_export_path = "network_project.json"
+    modern_export_path = "network_project_test.json"
 
     project = TrafficProject(file_path)
     if project.load_data():
