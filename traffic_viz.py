@@ -129,7 +129,6 @@ class MapBackgroundItem(QGraphicsItem):
     def paint(self, painter, option, widget):
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # 1. Сначала здания, чтобы они были под дорогами
         painter.setPen(self.building_pen)
         painter.setBrush(self.building_brush)
 
@@ -139,7 +138,6 @@ class MapBackgroundItem(QGraphicsItem):
                 polygon = QPolygonF([QPointF(x, y) for x, y in points])
                 painter.drawPolygon(polygon)
 
-        # 2. Потом дороги поверх зданий
         painter.setBrush(Qt.NoBrush)
 
         for road in self.roads:
@@ -156,6 +154,7 @@ class MapBackgroundItem(QGraphicsItem):
             if len(points) > 1:
                 polyline = QPolygonF([QPointF(x, y) for x, y in points])
                 painter.drawPolyline(polyline)
+
 
 class TrafficNode(QGraphicsEllipseItem):
     def __init__(self, node_id, label, pos_point):
@@ -309,6 +308,7 @@ class MainWindow(QMainWindow):
         self.data_file = data_file
         self.project = None
         self.map_data = self.parse_osm(map_file)
+        self.demand_report_text = ""
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -448,15 +448,10 @@ class MainWindow(QMainWindow):
             buildings = []
 
             allowed_highways = {
-                # "motorway",
-                # "trunk",
                 "primary",
                 "secondary",
                 "tertiary",
-                # "unclassified",
                 "residential",
-                # "service",
-                # "living_street",
             }
 
             for w in tree.findall(".//way"):
@@ -513,43 +508,59 @@ class MainWindow(QMainWindow):
 
     def _show_demand_report(self, report):
         status = report.get("Analysis_Status")
+        assignment_report = report.get("Demand_Assignment", {})
+        text = self._format_demand_summary(status, assignment_report, report)
+        self.demand_report_text = text
+        self.info.setPlainText(text)
+
         if status in {"Validation failed", "Demand assignment failed"}:
-            self._show_demand_report_if_failed(report)
+            QMessageBox.critical(self, "Demand assignment", text)
             return
-        assignment_report = report.get("Demand_Assignment", {})
-        if assignment_report.get("success"):
-            self.info.setPlainText(self._format_demand_summary(status, assignment_report))
 
-    def _show_demand_report_if_failed(self, report):
-        status = report.get("Analysis_Status")
-        assignment_report = report.get("Demand_Assignment", {})
-        errors = report.get("Validation_Errors", []) or assignment_report.get("errors", [])
-        warnings = assignment_report.get("warnings", [])
-        lines = self._demand_summary_lines(status, assignment_report)
-        if errors:
-            lines.append("errors:")
-            lines.extend(f"- {error}" for error in errors)
-        if warnings:
-            lines.append("warnings:")
-            lines.extend(f"- {warning}" for warning in warnings)
-        QMessageBox.critical(self, "Demand assignment", "\n".join(lines))
+        warnings = assignment_report.get("warnings", []) or []
+        scenario_warnings = self._scenario_warnings()
+        if warnings or scenario_warnings:
+            QMessageBox.warning(self, "Demand assignment warnings", text)
 
-    def _format_demand_summary(self, status, assignment_report):
-        return "\n".join(self._demand_summary_lines(status, assignment_report))
+    def _format_demand_summary(self, status, assignment_report, analysis_report=None):
+        return "\n".join(self._demand_summary_lines(status, assignment_report, analysis_report or {}))
 
-    def _demand_summary_lines(self, status, assignment_report):
+    def _demand_summary_lines(self, status, assignment_report, analysis_report):
         demand_model = self.project.demand_model or {}
         lines = [
+            "Demand assignment",
             f"demand_model.type: {demand_model.get('type')}",
             f"status: {status}",
             f"assigned_routes: {assignment_report.get('assigned_routes', 0)}",
         ]
         for origin, summary in assignment_report.get("boundary_flow_summary", {}).items():
             lines.append(
-                f"{origin}: assigned={summary.get('assigned_flow')}, "
+                f"{origin}: boundary={summary.get('boundary_flow')}, "
+                f"assigned={summary.get('assigned_flow')}, "
                 f"unassigned={summary.get('unassigned_flow')}"
             )
+
+        validation_errors = analysis_report.get("Validation_Errors", []) or []
+        assignment_errors = assignment_report.get("errors", []) or []
+        warnings = assignment_report.get("warnings", []) or []
+        scenario_warnings = self._scenario_warnings()
+
+        if validation_errors or assignment_errors:
+            lines.append("")
+            lines.append("errors:")
+            lines.extend(f"- {error}" for error in validation_errors)
+            lines.extend(f"- {error}" for error in assignment_errors)
+        if warnings or scenario_warnings:
+            lines.append("")
+            lines.append("warnings:")
+            lines.extend(f"- {warning}" for warning in warnings)
+            lines.extend(f"- {warning}" for warning in scenario_warnings)
         return lines
+
+    def _scenario_warnings(self):
+        if self.project is None:
+            return []
+        return self.project.metadata.get("scenario_warnings", []) or []
 
     def _has_demand_model(self):
         if self.project is None:
@@ -596,7 +607,10 @@ class MainWindow(QMainWindow):
         self.current_stage = s
         for link in self.viz_links:
             link.update_visuals(s)
-        self.info.clear()
+        if self.demand_report_text:
+            self.info.setPlainText(self.demand_report_text)
+        else:
+            self.info.clear()
 
     def on_link_click(self, link_model):
         res = link_model.results
