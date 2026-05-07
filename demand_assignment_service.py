@@ -19,6 +19,7 @@ class DemandAssignmentService:
     MODE_ROUTES = "routes"
     MODE_ROUTE_SPLITS = "route_split_coefficients"
     BALANCE_POLICY_ALLOW_UNASSIGNED = "allow_unassigned"
+    COEFFICIENT_TOLERANCE = 1e-5
 
     def assign(self, project: Project) -> dict[str, Any]:
         warnings: list[str] = []
@@ -211,7 +212,7 @@ class DemandAssignmentService:
             errors,
         )
         for origin, boundary_flow in boundary_values.items():
-            coefficient_sum = coefficient_sums.get(origin, 0.0)
+            coefficient_sum = self._normalized_coefficient_sum(coefficient_sums.get(origin, 0.0))
             assigned_flow = boundary_flow * coefficient_sum
             flow_summary[origin] = {
                 "boundary_flow": boundary_flow,
@@ -238,15 +239,11 @@ class DemandAssignmentService:
                 assigned_by_origin[origin] += float(route.get("demand_value", 0.0) or 0.0)
 
         for origin, raw_boundary_flow in boundary_flows.items():
-            boundary_flow = as_float(
-                raw_boundary_flow,
-                f"Boundary flow {origin}",
-                [],
-            )
+            boundary_flow = as_float(raw_boundary_flow, f"Boundary flow {origin}", [])
             if boundary_flow is None:
                 continue
             assigned_flow = assigned_by_origin.get(origin, 0.0)
-            if abs(assigned_flow - boundary_flow) > 1e-9:
+            if abs(assigned_flow - boundary_flow) > self.COEFFICIENT_TOLERANCE:
                 warnings.append(
                     f"Boundary node {origin}: boundary_flow={boundary_flow}, "
                     f"route demand assigned={assigned_flow}."
@@ -260,7 +257,7 @@ class DemandAssignmentService:
         warnings: list[str],
         errors: list[str],
     ) -> None:
-        tolerance = 1e-9
+        tolerance = self.COEFFICIENT_TOLERANCE
         for origin in boundary_values:
             coefficient_sum = coefficient_sums.get(origin, 0.0)
             if coefficient_sum > 1.0 + tolerance:
@@ -277,6 +274,11 @@ class DemandAssignmentService:
                     warnings.append(message)
                 else:
                     errors.append(message)
+
+    def _normalized_coefficient_sum(self, coefficient_sum: float) -> float:
+        if abs(coefficient_sum - 1.0) <= self.COEFFICIENT_TOLERANCE:
+            return 1.0
+        return coefficient_sum
 
     def _compute_link_assignments(
         self,
