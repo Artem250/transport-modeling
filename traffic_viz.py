@@ -181,11 +181,15 @@ class TrafficNode(QGraphicsEllipseItem):
 
     def paint(self, painter, option, widget):
         super().paint(painter, option, widget)
-        font = QFont("Arial", 1)
-        font.setBold(True)
+
+        font = QFont("Arial", 1)  # Нормальный размер шрифта
         painter.setFont(font)
-        painter.setPen(Qt.white)
-        painter.drawText(self.rect(), Qt.AlignCenter, self.label)
+        painter.setPen(Qt.black)
+
+        # Рисуем текст чуть ниже круга (y = radius + 2)
+        text_rect = QRectF(-20, self.rect().top() - 2, 40, 2)
+        painter.drawText(text_rect, Qt.AlignCenter, self.label)
+
 
 
 class TrafficLink(QGraphicsPathItem):
@@ -294,7 +298,7 @@ class MapViewer(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="osm_network_project.json"):
+    def __init__(self, map_file="map.osm", data_file="osm_network_project_map1.json"):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
