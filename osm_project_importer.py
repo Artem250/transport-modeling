@@ -573,8 +573,8 @@ def _text_value(value: Any, default: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Import OSM XML into osm_network_project.json.")
-    parser.add_argument("--input", default="map.osm", help="Input OSM XML file.")
-    parser.add_argument("--output", default="osm_network_project.json", help="Output project JSON file.")
+    parser.add_argument("--input", default="map1.osm", help="Input OSM XML file.")
+    parser.add_argument("--output", default="osm_network_project_map1.json", help="Output project JSON file.")
     parser.add_argument("--intensity", type=int, default=600, help="Default car intensity per link.")
     args = parser.parse_args(argv)
 

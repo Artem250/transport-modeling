@@ -32,6 +32,7 @@ class ProjectLoader:
         project = Project(
             project_name=data.get("project_name", "Unnamed Project"),
             pcu_coefficients=data.get("pcu_coefficients", {}),
+            demand_model=data.get("demand_model", {}),
             metadata=data.get("metadata", {}),
         )
 
@@ -102,7 +103,13 @@ class ProjectLoader:
                 Route(
                     id=route_data["id"],
                     name=route_data.get("name", route_data["id"]),
-                    link_ids=route_data.get("links", []),
+                    link_ids=route_data.get("link_ids", route_data.get("links", [])),
+                    origin_node_id=route_data.get("origin_node_id", route_data.get("from")),
+                    destination_node_id=route_data.get("destination_node_id", route_data.get("to")),
+                    demand_veh_h=route_data.get("demand_veh_h", route_data.get("demand", 0.0)),
+                    vehicle_type=route_data.get("vehicle_type", "car"),
+                    results=route_data.get("results", {}),
+                    metadata=route_data.get("metadata", {}),
                 )
             )
 
@@ -151,8 +158,13 @@ class ProjectLoader:
                 Route(
                     id=item["id"],
                     name=item.get("name", item["id"]),
-                    link_ids=item.get("link_ids", []),
+                    link_ids=item.get("link_ids", item.get("links", [])),
+                    origin_node_id=item.get("origin_node_id", item.get("from")),
+                    destination_node_id=item.get("destination_node_id", item.get("to")),
+                    demand_veh_h=item.get("demand_veh_h", item.get("demand", 0.0)),
+                    vehicle_type=item.get("vehicle_type", "car"),
                     results=item.get("results", {}),
+                    metadata=item.get("metadata", {}),
                 )
             )
 

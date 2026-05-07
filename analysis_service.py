@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+from demand_assignment_service import DemandAssignmentService
 from models import Link, Project
 from road_sections import Intersection, StraightRoad
 
 
 class AnalysisService:
-    def analyze_project(self, project: Project) -> dict:
+    def __init__(self) -> None:
+        self.demand_assignment_service = DemandAssignmentService()
+
+    def analyze_project(self, project: Project, assign_demand: bool = True) -> dict:
+        assignment_report = {}
+        if assign_demand and self._has_demand_model(project):
+            assignment_report = self.demand_assignment_service.assign(project)
+
         links_report = []
 
         for link in project.network.links.values():
@@ -75,9 +83,17 @@ class AnalysisService:
 
         return {
             "Project_Name": project.project_name,
+            "Demand_Assignment": assignment_report,
             "Links_Analysis": links_report,
             "Routes_Analysis": routes_report,
         }
+
+    def _has_demand_model(self, project: Project) -> bool:
+        if project.demand_model.get("routes"):
+            return True
+        if project.demand_model.get("turning_coefficients"):
+            return True
+        return any(route.demand_veh_h > 0 for route in project.network.routes.values())
 
     def _build_section(self, link: Link, pcu_coeffs: dict[str, float]):
         params = link.parameters

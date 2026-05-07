@@ -11,6 +11,7 @@ class ProjectSaver:
         data = {
             "project_name": project.project_name,
             "pcu_coefficients": project.pcu_coefficients,
+            "demand_model": project.demand_model,
             "metadata": project.metadata,
             "network": {
                 "nodes": [
@@ -47,7 +48,12 @@ class ProjectSaver:
                         "id": route.id,
                         "name": route.name,
                         "link_ids": route.link_ids,
+                        "origin_node_id": route.origin_node_id,
+                        "destination_node_id": route.destination_node_id,
+                        "demand_veh_h": route.demand_veh_h,
+                        "vehicle_type": route.vehicle_type,
                         "results": route.results,
+                        "metadata": route.metadata,
                     }
                     for route in project.network.routes.values()
                 ],

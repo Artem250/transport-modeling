@@ -36,7 +36,12 @@ class Route:
     id: str
     name: str
     link_ids: list[str] = field(default_factory=list)
+    origin_node_id: str | None = None
+    destination_node_id: str | None = None
+    demand_veh_h: float = 0.0
+    vehicle_type: str = "car"
     results: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -76,5 +81,6 @@ class Project:
     pcu_coefficients: dict[str, float] = field(default_factory=dict)
     network: Network = field(default_factory=Network)
     scenarios: list[Scenario] = field(default_factory=list)
+    demand_model: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
