@@ -506,25 +506,26 @@ class MainWindow(QMainWindow):
             )
             if needs_analysis:
                 report = self.analysis_service.analyze_project(self.project)
-                self._show_demand_report_if_failed(report)
+                self._show_demand_report(report)
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
             self.project = None
 
+    def _show_demand_report(self, report):
+        status = report.get("Analysis_Status")
+        if status in {"Validation failed", "Demand assignment failed"}:
+            self._show_demand_report_if_failed(report)
+            return
+        assignment_report = report.get("Demand_Assignment", {})
+        if assignment_report.get("success"):
+            self.info.setPlainText(self._format_demand_summary(status, assignment_report))
+
     def _show_demand_report_if_failed(self, report):
         status = report.get("Analysis_Status")
-        if status not in {"Validation failed", "Demand assignment failed"}:
-            return
-
-        demand_model = self.project.demand_model or {}
         assignment_report = report.get("Demand_Assignment", {})
         errors = report.get("Validation_Errors", []) or assignment_report.get("errors", [])
         warnings = assignment_report.get("warnings", [])
-        lines = [
-            f"demand_model.type: {demand_model.get('type')}",
-            f"status: {status}",
-            f"assigned_routes: {assignment_report.get('assigned_routes', 0)}",
-        ]
+        lines = self._demand_summary_lines(status, assignment_report)
         if errors:
             lines.append("errors:")
             lines.extend(f"- {error}" for error in errors)
@@ -532,6 +533,23 @@ class MainWindow(QMainWindow):
             lines.append("warnings:")
             lines.extend(f"- {warning}" for warning in warnings)
         QMessageBox.critical(self, "Demand assignment", "\n".join(lines))
+
+    def _format_demand_summary(self, status, assignment_report):
+        return "\n".join(self._demand_summary_lines(status, assignment_report))
+
+    def _demand_summary_lines(self, status, assignment_report):
+        demand_model = self.project.demand_model or {}
+        lines = [
+            f"demand_model.type: {demand_model.get('type')}",
+            f"status: {status}",
+            f"assigned_routes: {assignment_report.get('assigned_routes', 0)}",
+        ]
+        for origin, summary in assignment_report.get("boundary_flow_summary", {}).items():
+            lines.append(
+                f"{origin}: assigned={summary.get('assigned_flow')}, "
+                f"unassigned={summary.get('unassigned_flow')}"
+            )
+        return lines
 
     def _has_demand_model(self):
         if self.project is None:

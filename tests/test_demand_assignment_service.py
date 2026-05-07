@@ -5,8 +5,10 @@ import unittest
 
 from analysis_service import AnalysisService
 from demand_assignment_service import DemandAssignmentService
-from models import Link, Network, Node, Project, Scenario
+from models import Link, Network, Node, Project, Route, Scenario
+from project_saver import ProjectSaver
 from scenario_service import ScenarioService
+from validation_service import ValidationService
 
 
 def build_project(demand_model: dict | None = None) -> Project:
@@ -254,7 +256,11 @@ class DemandAssignmentServiceTest(unittest.TestCase):
 
         self.assertEqual(report["Analysis_Status"], "Validation failed")
         self.assertEqual(report["Links_Analysis"], [])
-        self.assertEqual(project.network.links["L_W_IN"].results, {"LOS": "OLD"})
+        self.assertEqual(project.network.links["L_W_IN"].results["LOS"], "UNDEFINED")
+        self.assertEqual(
+            project.network.links["L_W_IN"].results["Analysis_Status"],
+            "Validation failed",
+        )
 
     def test_analysis_assignment_failed_skips_link_analysis(self):
         project = build_project(routes_model())
@@ -265,7 +271,11 @@ class DemandAssignmentServiceTest(unittest.TestCase):
 
         self.assertEqual(report["Analysis_Status"], "Demand assignment failed")
         self.assertEqual(report["Links_Analysis"], [])
-        self.assertEqual(project.network.links["L_W_IN"].results, {"LOS": "OLD"})
+        self.assertEqual(project.network.links["L_W_IN"].results["LOS"], "UNDEFINED")
+        self.assertEqual(
+            project.network.links["L_W_IN"].results["Analysis_Status"],
+            "Demand assignment failed",
+        )
 
     def test_analysis_successful_assignment_fills_link_and_demand_route_reports(self):
         project = build_project(routes_model())
@@ -309,8 +319,7 @@ class DemandAssignmentServiceTest(unittest.TestCase):
         self.assertEqual(coefficients, [0.7, 0.3])
 
     def test_scenario_updates_route_split_coefficient_only(self):
-        project = build_project(split_model())
-        project.demand_model["route_split_coefficients"][0]["demand_value"] = 999
+        project = build_project(split_model(0.7, 0.2))
         scenario = Scenario(
             id="split",
             name="Split",
@@ -327,7 +336,8 @@ class DemandAssignmentServiceTest(unittest.TestCase):
 
         split = scenario_project.demand_model["route_split_coefficients"][0]
         self.assertEqual(split["coefficient"], 0.8)
-        self.assertEqual(split["demand_value"], 999)
+        self.assertNotIn("demand_value", split)
+        self.assertEqual(ValidationService().validate_project(scenario_project), [])
 
     def test_scenario_update_traffic_with_demand_model_adds_warning(self):
         project = build_project(routes_model())
@@ -347,6 +357,68 @@ class DemandAssignmentServiceTest(unittest.TestCase):
 
         self.assertEqual(scenario_project.network.links["L_W_IN"].traffic_counts, {"car": 999})
         self.assertTrue(scenario_project.metadata["scenario_warnings"])
+
+    def test_scenario_warns_when_change_is_ignored(self):
+        project = build_project(routes_model())
+        scenario = Scenario(
+            id="bad",
+            name="Bad",
+            changes=[{"type": "update_route_demand", "route_id": "MISSING", "demand_value": 100}],
+        )
+
+        scenario_project = ScenarioService().apply_scenario(project, scenario)
+
+        self.assertTrue(
+            any("route_id MISSING not found" in warning for warning in scenario_project.metadata["scenario_warnings"])
+        )
+
+    def test_scenario_scales_string_boundary_flow_as_number(self):
+        project = build_project(split_model())
+        project.demand_model["boundary_flows"]["B_WEST"] = "1200"
+        scenario = Scenario(
+            id="growth",
+            name="Growth",
+            changes=[{"type": "scale_all_route_demand", "factor": 1.2}],
+        )
+
+        scenario_project = ScenarioService().apply_scenario(project, scenario)
+
+        self.assertEqual(scenario_project.demand_model["boundary_flows"]["B_WEST"], 1440)
+
+    def test_route_split_allow_unassigned_reports_unassigned_flow(self):
+        project = build_project(split_model(0.7, 0.0, policy="allow_unassigned"))
+
+        report = DemandAssignmentService().assign(project)
+
+        summary = report["boundary_flow_summary"]["B_WEST"]
+        self.assertEqual(summary["assigned_flow"], 840)
+        self.assertEqual(summary["unassigned_flow"], 360)
+
+    def test_routes_mode_warns_when_boundary_flow_balance_differs(self):
+        model = routes_model()
+        model["boundary_flows"] = {"B_WEST": 1200}
+        model["routes"] = [model["routes"][0]]
+        project = build_project(model)
+
+        report = DemandAssignmentService().assign(project)
+
+        self.assertTrue(report["success"])
+        self.assertTrue(any("boundary_flow=1200.0" in warning for warning in report["warnings"]))
+
+    def test_project_saver_serializes_visual_routes_without_demand_value(self):
+        project = build_project()
+        project.network.add_route(
+            Route(
+                id="VISUAL",
+                name="Visual route",
+                link_ids=["L_W_IN"],
+                demand_value=500,
+            )
+        )
+
+        serialized = ProjectSaver()._serialize_route(project.network.routes["VISUAL"])
+
+        self.assertNotIn("demand_value", serialized)
 
 
 if __name__ == "__main__":

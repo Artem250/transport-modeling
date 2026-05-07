@@ -17,6 +17,7 @@ class AnalysisService:
         if assign_demand and self._has_demand_model(project):
             validation_errors = self.validation_service.validate_project(project)
             if validation_errors:
+                self._mark_analysis_failed(project, "Validation failed")
                 return {
                     "Project_Name": project.project_name,
                     "Analysis_Status": "Validation failed",
@@ -28,6 +29,7 @@ class AnalysisService:
 
             assignment_report = self.demand_assignment_service.assign(project)
             if not assignment_report.get("success"):
+                self._mark_analysis_failed(project, "Demand assignment failed")
                 return {
                     "Project_Name": project.project_name,
                     "Analysis_Status": "Demand assignment failed",
@@ -169,6 +171,17 @@ class AnalysisService:
 
     def _has_demand_model(self, project: Project) -> bool:
         return bool(project.demand_model)
+
+    def _mark_analysis_failed(self, project: Project, status: str) -> None:
+        for link in project.network.links.values():
+            link.results = {
+                "id": link.id,
+                "name": link.name,
+                "LOS": "UNDEFINED",
+                "Analysis_Status": status,
+            }
+        for route in project.network.routes.values():
+            route.results = {}
 
     def _build_section(self, link: Link, pcu_coeffs: dict[str, float]):
         params = link.parameters

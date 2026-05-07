@@ -8,6 +8,8 @@ from demand_model_utils import (
     VALID_DEMAND_TYPES,
     VALID_DEMAND_UNITS,
     as_float,
+    build_route_report,
+    read_required_nonnegative,
     validate_route_path,
 )
 from models import Project
@@ -35,18 +37,30 @@ class DemandAssignmentService:
             errors.append("demand_model.unit must be 'veh/h' or 'pcu/h'.")
 
         prepared_routes: list[dict[str, Any]] = []
+        flow_summary: dict[str, dict[str, float]] = {}
         if not errors and model_type == self.MODE_ROUTES:
             prepared_routes = self._prepare_routes(project, unit, errors)
+            self._warn_routes_boundary_balance(project, prepared_routes, warnings)
         if not errors and model_type == self.MODE_ROUTE_SPLITS:
-            prepared_routes = self._prepare_route_splits(project, unit, warnings, errors)
+            prepared_routes, flow_summary = self._prepare_route_splits(
+                project, unit, warnings, errors
+            )
 
         if errors:
-            return self._report(model_type, unit, [], {}, warnings, errors)
+            return self._report(model_type, unit, [], {}, warnings, errors, flow_summary)
 
         link_assignments = self._compute_link_assignments(prepared_routes)
 
         self._apply_assignments(project, link_assignments)
-        return self._report(model_type, unit, prepared_routes, link_assignments, warnings, errors)
+        return self._report(
+            model_type,
+            unit,
+            prepared_routes,
+            link_assignments,
+            warnings,
+            errors,
+            flow_summary,
+        )
 
     def _prepare_routes(
         self,
@@ -63,7 +77,7 @@ class DemandAssignmentService:
         for index, route in enumerate(routes, start=1):
             route_id = route.get("id") or f"route_{index}"
             label = f"Route {route_id}"
-            demand = self._read_required_nonnegative(
+            demand = read_required_nonnegative(
                 route.get("demand_value"), f"{label} demand_value", errors
             )
             link_ids = list(route.get("link_ids") or [])
@@ -82,7 +96,7 @@ class DemandAssignmentService:
             if demand is None:
                 continue
             prepared.append(
-                self._route_report(
+                build_route_report(
                     route,
                     route_id,
                     origin,
@@ -100,18 +114,19 @@ class DemandAssignmentService:
         unit: str,
         warnings: list[str],
         errors: list[str],
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]:
         prepared = []
+        flow_summary: dict[str, dict[str, float]] = {}
         demand_model = project.demand_model
         boundary_flows = demand_model.get("boundary_flows", {})
         route_splits = demand_model.get(self.MODE_ROUTE_SPLITS, [])
 
         if not isinstance(boundary_flows, dict):
             errors.append("demand_model.boundary_flows must be an object.")
-            return prepared
+            return prepared, flow_summary
         if not isinstance(route_splits, list) or not route_splits:
             errors.append("demand_model.route_split_coefficients must contain at least one split.")
-            return prepared
+            return prepared, flow_summary
 
         boundary_values: dict[str, float] = {}
         for boundary_id, raw_volume in boundary_flows.items():
@@ -149,7 +164,7 @@ class DemandAssignmentService:
             if destination and destination not in project.network.nodes:
                 errors.append(f"{label}: to node {destination} is missing.")
 
-            coefficient = self._read_required_nonnegative(
+            coefficient = read_required_nonnegative(
                 split.get("coefficient"), f"{label} coefficient", errors
             )
             if coefficient is not None and coefficient > 1:
@@ -173,7 +188,7 @@ class DemandAssignmentService:
                 continue
             demand = boundary_values.get(origin, 0.0) * coefficient
             prepared.append(
-                self._route_report(
+                build_route_report(
                     split,
                     split_id,
                     origin,
@@ -192,7 +207,47 @@ class DemandAssignmentService:
             warnings,
             errors,
         )
-        return prepared
+        for origin, boundary_flow in boundary_values.items():
+            coefficient_sum = coefficient_sums.get(origin, 0.0)
+            assigned_flow = boundary_flow * coefficient_sum
+            flow_summary[origin] = {
+                "boundary_flow": boundary_flow,
+                "assigned_flow": assigned_flow,
+                "unassigned_flow": max(boundary_flow - assigned_flow, 0.0),
+                "coefficient_sum": coefficient_sum,
+            }
+        return prepared, flow_summary
+
+    def _warn_routes_boundary_balance(
+        self,
+        project: Project,
+        routes: list[dict[str, Any]],
+        warnings: list[str],
+    ) -> None:
+        boundary_flows = project.demand_model.get("boundary_flows", {})
+        if not isinstance(boundary_flows, dict) or not boundary_flows:
+            return
+
+        assigned_by_origin: dict[str, float] = defaultdict(float)
+        for route in routes:
+            origin = route.get("origin_node_id")
+            if origin:
+                assigned_by_origin[origin] += float(route.get("demand_value", 0.0) or 0.0)
+
+        for origin, raw_boundary_flow in boundary_flows.items():
+            boundary_flow = as_float(
+                raw_boundary_flow,
+                f"Boundary flow {origin}",
+                [],
+            )
+            if boundary_flow is None:
+                continue
+            assigned_flow = assigned_by_origin.get(origin, 0.0)
+            if abs(assigned_flow - boundary_flow) > 1e-9:
+                warnings.append(
+                    f"Boundary node {origin}: boundary_flow={boundary_flow}, "
+                    f"route demand assigned={assigned_flow}."
+                )
 
     def _validate_coefficient_sums(
         self,
@@ -252,51 +307,6 @@ class DemandAssignmentService:
                 link.metadata.pop("traffic_counts_source", None)
             link.results = {}
 
-    def _route_report(
-        self,
-        source: dict[str, Any],
-        route_id: str,
-        origin: str | None,
-        destination: str | None,
-        demand: float,
-        unit: str,
-        link_ids: list[str],
-        coefficient: float | None = None,
-        boundary_flow: float | None = None,
-    ) -> dict[str, Any]:
-        report = {
-            "id": route_id,
-            "name": source.get("name", route_id),
-            "origin_node_id": origin,
-            "destination_node_id": destination,
-            "demand_value": demand,
-            "unit": unit,
-            "vehicle_type": "pcu" if unit == "pcu/h" else source.get("vehicle_type", "car"),
-            "link_ids": list(link_ids),
-        }
-        if coefficient is not None:
-            report["coefficient"] = coefficient
-        if boundary_flow is not None:
-            report["boundary_flow"] = boundary_flow
-        return report
-
-    def _read_required_nonnegative(
-        self,
-        value: Any,
-        label: str,
-        errors: list[str],
-    ) -> float | None:
-        if value is None:
-            errors.append(f"{label}: is required.")
-            return None
-        number = as_float(value, label, errors)
-        if number is None:
-            return None
-        if number < 0:
-            errors.append(f"{label}: cannot be negative.")
-            return None
-        return number
-
     def _report(
         self,
         model_type: str | None,
@@ -305,6 +315,7 @@ class DemandAssignmentService:
         link_assignments: dict[str, dict[str, float]],
         warnings: list[str],
         errors: list[str],
+        flow_summary: dict[str, dict[str, float]] | None = None,
     ) -> dict[str, Any]:
         return {
             "success": not errors,
@@ -313,6 +324,7 @@ class DemandAssignmentService:
             "assigned_routes": 0 if errors else len(routes),
             "routes": [] if errors else routes,
             "link_assignments": {} if errors else link_assignments,
+            "boundary_flow_summary": flow_summary or {},
             "warnings": warnings,
             "errors": errors,
         }

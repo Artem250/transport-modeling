@@ -92,7 +92,6 @@ class ProjectSaver:
             "link_ids": route.link_ids,
             "origin_node_id": route.origin_node_id,
             "destination_node_id": route.destination_node_id,
-            "demand_value": route.demand_value,
             "vehicle_type": route.vehicle_type,
             "metadata": self._clean_runtime_fields(route.metadata),
         }

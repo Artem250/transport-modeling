@@ -33,7 +33,7 @@ class ProjectLoader:
         project = Project(
             project_name=data.get("project_name", "Unnamed Project"),
             pcu_coefficients=data.get("pcu_coefficients", {}),
-            demand_model=self._normalize_demand_model(data.get("demand_model", {})),
+            demand_model=self._normalize_demand_routes_in_model(data.get("demand_model", {})),
             metadata=data.get("metadata", {}),
         )
 
@@ -282,7 +282,7 @@ class ProjectLoader:
     def _looks_like_coordinate_node_id(self, value: str) -> bool:
         return value.startswith("N_") and "_" in value[2:]
 
-    def _normalize_demand_model(self, demand_model: dict) -> dict:
+    def _normalize_demand_routes_in_model(self, demand_model: dict) -> dict:
         normalized = deepcopy(demand_model or {})
         routes = normalized.get("routes")
         if isinstance(routes, list):
