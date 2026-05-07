@@ -18,6 +18,7 @@ from models import Project
 class DemandAssignmentService:
     MODE_ROUTES = "routes"
     MODE_ROUTE_SPLITS = "route_split_coefficients"
+    BALANCE_POLICY_ALLOW_UNASSIGNED = "allow_unassigned"
 
     def assign(self, project: Project) -> dict[str, Any]:
         warnings: list[str] = []
@@ -41,7 +42,7 @@ class DemandAssignmentService:
         if not errors and model_type == self.MODE_ROUTES:
             prepared_routes = self._prepare_routes(project, unit, errors)
             self._warn_routes_boundary_balance(project, prepared_routes, warnings)
-        if not errors and model_type == self.MODE_ROUTE_SPLITS:
+        elif not errors and model_type == self.MODE_ROUTE_SPLITS:
             prepared_routes, flow_summary = self._prepare_route_splits(
                 project, unit, warnings, errors
             )
@@ -50,8 +51,8 @@ class DemandAssignmentService:
             return self._report(model_type, unit, [], {}, warnings, errors, flow_summary)
 
         link_assignments = self._compute_link_assignments(prepared_routes)
-
         self._apply_assignments(project, link_assignments)
+
         return self._report(
             model_type,
             unit,
@@ -115,11 +116,12 @@ class DemandAssignmentService:
         warnings: list[str],
         errors: list[str],
     ) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]]]:
-        prepared = []
+        prepared: list[dict[str, Any]] = []
         flow_summary: dict[str, dict[str, float]] = {}
         demand_model = project.demand_model
         boundary_flows = demand_model.get("boundary_flows", {})
         route_splits = demand_model.get(self.MODE_ROUTE_SPLITS, [])
+        balance_policy = demand_model.get("split_balance_policy")
 
         if not isinstance(boundary_flows, dict):
             errors.append("demand_model.boundary_flows must be an object.")
@@ -202,8 +204,9 @@ class DemandAssignmentService:
             )
 
         self._validate_coefficient_sums(
+            boundary_values,
             coefficient_sums,
-            demand_model.get("split_balance_policy"),
+            balance_policy,
             warnings,
             errors,
         )
@@ -251,13 +254,15 @@ class DemandAssignmentService:
 
     def _validate_coefficient_sums(
         self,
+        boundary_values: dict[str, float],
         coefficient_sums: dict[str, float],
         policy: str | None,
         warnings: list[str],
         errors: list[str],
     ) -> None:
         tolerance = 1e-9
-        for origin, coefficient_sum in coefficient_sums.items():
+        for origin in boundary_values:
+            coefficient_sum = coefficient_sums.get(origin, 0.0)
             if coefficient_sum > 1.0 + tolerance:
                 errors.append(
                     f"Boundary node {origin}: route split coefficient sum "
@@ -268,7 +273,7 @@ class DemandAssignmentService:
                     f"Boundary node {origin}: route split coefficient sum "
                     f"{coefficient_sum} is less than 1."
                 )
-                if policy == "allow_unassigned":
+                if policy == self.BALANCE_POLICY_ALLOW_UNASSIGNED:
                     warnings.append(message)
                 else:
                     errors.append(message)
@@ -280,6 +285,8 @@ class DemandAssignmentService:
         assignments: dict[str, dict[str, float]] = {}
         for route in routes:
             demand = float(route["demand_value"])
+            if demand <= 0:
+                continue
             vehicle_key = route["vehicle_type"]
             for link_id in route["link_ids"]:
                 link_counts = assignments.setdefault(link_id, {})
@@ -299,8 +306,12 @@ class DemandAssignmentService:
             ):
                 link.metadata["observed_traffic_counts"] = dict(link.traffic_counts)
 
-            assigned_counts = link_assignments.get(link.id, {})
-            link.traffic_counts = dict(assigned_counts)
+            assigned_counts = {
+                vehicle_type: volume
+                for vehicle_type, volume in link_assignments.get(link.id, {}).items()
+                if volume > 0
+            }
+            link.traffic_counts = assigned_counts
             if assigned_counts:
                 link.metadata["traffic_counts_source"] = "assigned_demand"
             elif link.metadata.get("traffic_counts_source") == "assigned_demand":
@@ -317,11 +328,14 @@ class DemandAssignmentService:
         errors: list[str],
         flow_summary: dict[str, dict[str, float]] | None = None,
     ) -> dict[str, Any]:
+        active_routes = [
+            route for route in routes if float(route.get("demand_value", 0.0) or 0.0) > 0
+        ]
         return {
             "success": not errors,
             "demand_model_type": model_type,
             "unit": unit,
-            "assigned_routes": 0 if errors else len(routes),
+            "assigned_routes": 0 if errors else len(active_routes),
             "routes": [] if errors else routes,
             "link_assignments": {} if errors else link_assignments,
             "boundary_flow_summary": flow_summary or {},
