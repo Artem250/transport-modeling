@@ -1,6 +1,6 @@
+import math
 import os
 import sys
-import math
 import xml.etree.ElementTree as ET
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
@@ -78,34 +78,33 @@ LOS_COLORS = {
     "UNDEFINED": QColor(200, 200, 200),
 }
 
+NODE_COLORS = {
+    "boundary": QColor(220, 40, 40),
+    "intersection": QColor(45, 90, 210),
+    "roundabout_part": QColor(150, 70, 210),
+    "ordinary": QColor(80, 80, 80),
+}
+
 
 class MapBackgroundItem(QGraphicsItem):
     def __init__(self, map_data):
         super().__init__()
-
         self.roads = map_data.get("roads", [])
         self.buildings = map_data.get("buildings", [])
-
         self.building_pen = QPen(QColor(190, 190, 190), 0.8)
         self.building_brush = QBrush(QColor(235, 235, 235))
-
         self.road_styles = {
-            "motorway": QPen(QColor(180, 180, 180), 5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "trunk": QPen(QColor(185, 185, 185), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "primary": QPen(QColor(170, 170, 170), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "secondary": QPen(QColor(185, 185, 185), 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "tertiary": QPen(QColor(200, 200, 200), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "residential": QPen(QColor(215, 215, 215), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "service": QPen(QColor(225, 225, 225), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "living_street": QPen(QColor(225, 225, 225), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "unclassified": QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
         }
 
         all_points = []
-
         for road in self.roads:
             all_points.extend(road["coords"])
-
         for building in self.buildings:
             all_points.extend(building["coords"])
 
@@ -114,13 +113,7 @@ class MapBackgroundItem(QGraphicsItem):
         else:
             all_x = [p[0] for p in all_points]
             all_y = [p[1] for p in all_points]
-            self.rect = QRectF(
-                min(all_x),
-                min(all_y),
-                max(all_x) - min(all_x),
-                max(all_y) - min(all_y)
-            )
-
+            self.rect = QRectF(min(all_x), min(all_y), max(all_x) - min(all_x), max(all_y) - min(all_y))
         self.setZValue(-100)
 
     def boundingRect(self):
@@ -128,42 +121,35 @@ class MapBackgroundItem(QGraphicsItem):
 
     def paint(self, painter, option, widget):
         painter.setRenderHint(QPainter.Antialiasing)
-
         painter.setPen(self.building_pen)
         painter.setBrush(self.building_brush)
-
         for building in self.buildings:
             points = building["coords"]
             if len(points) >= 3:
-                polygon = QPolygonF([QPointF(x, y) for x, y in points])
-                painter.drawPolygon(polygon)
+                painter.drawPolygon(QPolygonF([QPointF(x, y) for x, y in points]))
 
         painter.setBrush(Qt.NoBrush)
-
         for road in self.roads:
             points = road["coords"]
-            road_type = road["type"]
-
             pen = self.road_styles.get(
-                road_type,
-                QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                road["type"],
+                QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             )
-
             painter.setPen(pen)
-
             if len(points) > 1:
-                polyline = QPolygonF([QPointF(x, y) for x, y in points])
-                painter.drawPolyline(polyline)
+                painter.drawPolyline(QPolygonF([QPointF(x, y) for x, y in points]))
 
 
 class TrafficNode(QGraphicsEllipseItem):
-    def __init__(self, node_id, label, pos_point):
-        radius = 5
+    def __init__(self, node_model, label, pos_point, app_callback=None):
+        radius = 6
         super().__init__(-radius, -radius, radius * 2, radius * 2)
-        self.node_id = node_id
+        self.node_model = node_model
+        self.node_id = node_model.id
         self.label = label
+        self.app_callback = app_callback
         self.setPos(pos_point)
-        self.setBrush(QBrush(QColor(50, 50, 150)))
+        self.setBrush(QBrush(NODE_COLORS.get(node_model.node_type, NODE_COLORS["ordinary"])))
         self.setPen(QPen(Qt.black, 1))
         self.setZValue(100)
         self.setFlags(QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsScenePositionChanges)
@@ -179,17 +165,18 @@ class TrafficNode(QGraphicsEllipseItem):
                 link.update_geometry()
         return super().itemChange(change, value)
 
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if self.app_callback:
+            self.app_callback(self.node_model)
+
     def paint(self, painter, option, widget):
         super().paint(painter, option, widget)
-
-        font = QFont("Arial", 1)  # Нормальный размер шрифта
+        font = QFont("Arial", 1)
         painter.setFont(font)
         painter.setPen(Qt.black)
-
-        # Рисуем текст чуть ниже круга (y = radius + 2)
-        text_rect = QRectF(-20, self.rect().top() - 2, 40, 2)
+        text_rect = QRectF(-40, self.rect().bottom() + 1, 80, 3)
         painter.drawText(text_rect, Qt.AlignCenter, self.label)
-
 
 
 class TrafficLink(QGraphicsPathItem):
@@ -202,11 +189,8 @@ class TrafficLink(QGraphicsPathItem):
         self.app_callback = app_callback
         self.is_route_highlighted = False
         self.intermediate_points = []
-        res = link_model.results or {}
-        self.is_ring = res.get("is_ring", False) or ("RING" in self.id and "CIRCULATION" in self.id)
-
         coords = link_model.coords or {}
-        if not self.is_ring and coords.get("type") == "polyline":
+        if coords.get("type") == "polyline":
             raw_points = coords.get("points", [])
             if len(raw_points) > 2:
                 for p in raw_points[1:-1]:
@@ -221,37 +205,16 @@ class TrafficLink(QGraphicsPathItem):
 
     def update_geometry(self):
         path = QPainterPath()
-        p1 = self.start_node.scenePos()
-        p2 = self.end_node.scenePos()
-
-        if self.is_ring:
-            vec = p2 - p1
-            dist = math.sqrt(vec.x() ** 2 + vec.y() ** 2)
-            if dist > 1.0:
-                radius = dist / math.sqrt(2)
-                mid = (p1 + p2) / 2
-                perp_x = -(p2.y() - p1.y()) / dist
-                perp_y = (p2.x() - p1.x()) / dist
-                h = dist / 2
-                center_x = mid.x() + perp_x * h
-                center_y = mid.y() + perp_y * h
-                rect = QRectF(center_x - radius, center_y - radius, radius * 2, radius * 2)
-                path.addEllipse(rect)
-            else:
-                path.moveTo(p1)
-                path.lineTo(p2)
-        else:
-            path.moveTo(p1)
-            for pt in self.intermediate_points:
-                path.lineTo(QPointF(pt[0], pt[1]))
-            path.lineTo(p2)
+        path.moveTo(self.start_node.scenePos())
+        for pt in self.intermediate_points:
+            path.lineTo(QPointF(pt[0], pt[1]))
+        path.lineTo(self.end_node.scenePos())
         self.setPath(path)
 
     def update_visuals(self, stage):
-        res = self.link_model.results
+        res = self.link_model.results or {}
         color = Qt.gray
         width = self.base_width
-
         if stage == 1:
             color = LOS_COLORS.get(res.get("LOS", "UNDEFINED"), Qt.gray)
         elif stage == 2:
@@ -273,7 +236,6 @@ class TrafficLink(QGraphicsPathItem):
             if self.is_route_highlighted:
                 color = QColor(0, 170, 255)
                 width = 12
-
         self.setPen(QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
 
     def mousePressEvent(self, event):
@@ -291,14 +253,11 @@ class MapViewer(QGraphicsView):
 
     def wheelEvent(self, event: QWheelEvent):
         factor = 1.15
-        if event.angleDelta().y() > 0:
-            self.scale(factor, factor)
-        else:
-            self.scale(1 / factor, 1 / factor)
+        self.scale(factor, factor) if event.angleDelta().y() > 0 else self.scale(1 / factor, 1 / factor)
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="osm_network_project_map1.json"):
+    def __init__(self, map_file="map.osm", data_file="osm_network_project.json"):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
@@ -313,6 +272,10 @@ class MainWindow(QMainWindow):
         self.project = None
         self.map_data = self.parse_osm(map_file)
         self.demand_report_text = ""
+        self.viz_links = []
+        self.link_index = {}
+        self.node_index = {}
+        self.current_stage = 1
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -357,6 +320,10 @@ class MainWindow(QMainWindow):
         self.btn_find_route.clicked.connect(self.find_route)
         control_layout.addWidget(self.btn_find_route)
 
+        self.btn_demand_wizard = QPushButton("Автогенерация demand_model")
+        self.btn_demand_wizard.clicked.connect(self.open_demand_model_wizard)
+        control_layout.addWidget(self.btn_demand_wizard)
+
         self.btn_save_coords = QPushButton("Сохранить координаты в проект")
         self.btn_save_coords.clicked.connect(self.save_current_positions_to_project)
         control_layout.addWidget(self.btn_save_coords)
@@ -369,14 +336,7 @@ class MainWindow(QMainWindow):
         self.btn_web_map.clicked.connect(self.open_folium_map)
         control_layout.addWidget(self.btn_web_map)
 
-        self.current_stage = 1
-        self.viz_links = []
-        self.link_index = {}
-
-        self.draw_map()
-        self.load_project_data(data_file)
-        self.draw_network()
-        self.set_stage(1)
+        self.reload_project_and_redraw()
 
     def configure_webengine_profile(self):
         if QWebEngineProfile is None:
@@ -387,12 +347,21 @@ class MainWindow(QMainWindow):
         profile.setCachePath(cache_dir)
         profile.setPersistentStoragePath(cache_dir)
 
+    def open_demand_model_wizard(self):
+        try:
+            from demand_model_wizard import DemandModelWizard
+        except Exception as exc:
+            QMessageBox.critical(self, "Demand model", f"Не удалось открыть мастер:\n{exc}")
+            return
+        dialog = DemandModelWizard(self.data_file, self)
+        if dialog.exec_():
+            self.reload_project_and_redraw()
+
     def open_network_editor(self):
         try:
             from network_editor import NetworkEditor
         except ImportError:
             from ne_network_editor import NetworkEditor
-
         self.editor_window = NetworkEditor(project_file=self.data_file)
         self.editor_window.show()
 
@@ -401,113 +370,66 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Web map", "Проект не загружен.")
             return
         if QWebEngineView is None:
-            QMessageBox.warning(
-                self,
-                "Web map",
-                "Не удалось открыть web-карту:\n"
-                "PyQtWebEngine не импортируется в Python, которым запущено приложение.\n"
-                f"Python: {sys.executable}\n"
-                f"Команда: \"{sys.executable}\" -m pip install PyQtWebEngine",
-            )
+            QMessageBox.warning(self, "Web map", f"PyQtWebEngine не импортируется.\nPython: {sys.executable}")
             return
-
         if self.web_view is None:
             QMessageBox.warning(self, "Web map", "Web-компонент не создан.")
             return
-
         if self.map_stack.currentWidget() is self.web_view:
             self.map_stack.setCurrentWidget(self.view)
             self.btn_web_map.setText("Открыть web-карту")
             return
-
         try:
             from folium_map_viewer import build_project_map_html
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                "Web map",
-                f"Не удалось открыть web-карту:\n{e}",
-            )
-            return
-
-        try:
             self.web_view.setHtml(build_project_map_html(self.project))
             self.map_stack.setCurrentWidget(self.web_view)
             self.btn_web_map.setText("Вернуться к схеме")
-        except Exception as e:
-            QMessageBox.warning(self, "Web map", f"Не удалось построить web-карту:\n{e}")
+        except Exception as exc:
+            QMessageBox.warning(self, "Web map", f"Не удалось построить web-карту:\n{exc}")
+
+    def reload_project_and_redraw(self):
+        self.scene.clear()
+        self.viz_links = []
+        self.link_index = {}
+        self.node_index = {}
+        self.demand_report_text = ""
+        self.draw_map()
+        self.load_project_data(self.data_file)
+        self.draw_network()
+        self.set_stage(1)
 
     def parse_osm(self, path):
         try:
             tree = ET.parse(path)
-
             nodes = {}
             for n in tree.findall(".//node"):
-                node_id = n.get("id")
-                lon = float(n.get("lon"))
-                lat = float(n.get("lat"))
-                nodes[node_id] = project_coords(lon, lat)
-
+                nodes[n.get("id")] = project_coords(float(n.get("lon")), float(n.get("lat")))
             roads = []
             buildings = []
-
-            allowed_highways = {
-                "primary",
-                "secondary",
-                "tertiary",
-                "residential",
-            }
-
+            allowed_highways = {"primary", "secondary", "tertiary", "residential"}
             for w in tree.findall(".//way"):
                 tags = {t.get("k"): t.get("v") for t in w.findall("tag")}
-
-                coords = []
-                for nd in w.findall("nd"):
-                    ref = nd.get("ref")
-                    if ref in nodes:
-                        coords.append(nodes[ref])
-
+                coords = [nodes[nd.get("ref")] for nd in w.findall("nd") if nd.get("ref") in nodes]
                 if len(coords) < 2:
                     continue
-
-                highway_type = tags.get("highway")
-                building_type = tags.get("building")
-
-                if highway_type in allowed_highways:
-                    roads.append({
-                        "type": highway_type,
-                        "coords": coords,
-                    })
-
-                if building_type is not None and len(coords) >= 3:
-                    buildings.append({
-                        "type": building_type,
-                        "coords": coords,
-                    })
-
-            return {
-                "roads": roads,
-                "buildings": buildings,
-            }
-
-        except Exception as e:
-            print(f"OSM parse error: {e}")
-            return {
-                "roads": [],
-                "buildings": [],
-            }
+                if tags.get("highway") in allowed_highways:
+                    roads.append({"type": tags["highway"], "coords": coords})
+                if tags.get("building") is not None and len(coords) >= 3:
+                    buildings.append({"type": tags["building"], "coords": coords})
+            return {"roads": roads, "buildings": buildings}
+        except Exception as exc:
+            print(f"OSM parse error: {exc}")
+            return {"roads": [], "buildings": []}
 
     def load_project_data(self, path):
         try:
             self.project = self.loader.load(path)
-            needs_analysis = self._has_demand_model() or any(
-                not link.results for link in self.project.network.links.values()
-            )
+            needs_analysis = self._has_demand_model() or any(not link.results for link in self.project.network.links.values())
             if needs_analysis:
                 report = self.analysis_service.analyze_project(self.project)
                 self._show_demand_report(report)
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {exc}")
             self.project = None
 
     def _show_demand_report(self, report):
@@ -516,11 +438,9 @@ class MainWindow(QMainWindow):
         text = self._format_demand_summary(status, assignment_report, report)
         self.demand_report_text = text
         self.info.setPlainText(text)
-
         if status in {"Validation failed", "Demand assignment failed"}:
             QMessageBox.critical(self, "Demand assignment", text)
             return
-
         warnings = assignment_report.get("warnings", []) or []
         scenario_warnings = self._scenario_warnings()
         if warnings or scenario_warnings:
@@ -540,15 +460,12 @@ class MainWindow(QMainWindow):
         for origin, summary in assignment_report.get("boundary_flow_summary", {}).items():
             lines.append(
                 f"{origin}: boundary={summary.get('boundary_flow')}, "
-                f"assigned={summary.get('assigned_flow')}, "
-                f"unassigned={summary.get('unassigned_flow')}"
+                f"assigned={summary.get('assigned_flow')}, unassigned={summary.get('unassigned_flow')}"
             )
-
         validation_errors = analysis_report.get("Validation_Errors", []) or []
         assignment_errors = assignment_report.get("errors", []) or []
         warnings = assignment_report.get("warnings", []) or []
         scenario_warnings = self._scenario_warnings()
-
         if validation_errors or assignment_errors:
             lines.append("")
             lines.append("errors:")
@@ -567,9 +484,7 @@ class MainWindow(QMainWindow):
         return self.project.metadata.get("scenario_warnings", []) or []
 
     def _has_demand_model(self):
-        if self.project is None:
-            return False
-        return bool(self.project.demand_model)
+        return bool(self.project and self.project.demand_model)
 
     def draw_map(self):
         self.scene.addItem(MapBackgroundItem(self.map_data))
@@ -577,11 +492,7 @@ class MainWindow(QMainWindow):
     def draw_network(self):
         if self.project is None:
             return
-
-        self.viz_links = []
-        self.link_index = {}
         node_registry = {}
-
         for node_model in self.project.network.nodes.values():
             if node_model.lon is not None and node_model.lat is not None:
                 point = QPointF(*project_coords(node_model.lon, node_model.lat))
@@ -590,9 +501,10 @@ class MainWindow(QMainWindow):
             else:
                 continue
             node_label = node_model.name or node_model.id
-            node_item = TrafficNode(node_model.id, node_label, point)
+            node_item = TrafficNode(node_model, node_label, point, self.on_node_click)
             self.scene.addItem(node_item)
             node_registry[node_model.id] = node_item
+            self.node_index[node_model.id] = node_item
 
         for link_model in self.project.network.links.values():
             start_node = node_registry.get(link_model.start_node_id)
@@ -603,55 +515,63 @@ class MainWindow(QMainWindow):
             self.scene.addItem(link_item)
             self.viz_links.append(link_item)
             self.link_index[link_model.id] = link_item
-
         if self.viz_links:
             self.view.fitInView(self.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
 
-    def set_stage(self, s):
-        self.current_stage = s
+    def set_stage(self, stage):
+        self.current_stage = stage
         for link in self.viz_links:
-            link.update_visuals(s)
+            link.update_visuals(stage)
         if self.demand_report_text:
             self.info.setPlainText(self.demand_report_text)
         else:
             self.info.clear()
 
+    def on_node_click(self, node_model):
+        incoming = self.project.network.get_incoming_links(node_model.id)
+        outgoing = self.project.network.get_outgoing_links(node_model.id)
+        html = f"<h3>{node_model.name or node_model.id}</h3>"
+        html += f"<b>ID:</b> {node_model.id}<br>"
+        html += f"<b>Тип:</b> {node_model.node_type}<br>"
+        html += f"<b>lon/lat:</b> {node_model.lon}, {node_model.lat}<br>"
+        html += f"<b>Входящих link:</b> {len(incoming)}<br>"
+        html += f"<b>Исходящих link:</b> {len(outgoing)}<br>"
+        if node_model.metadata:
+            html += "<br><b>metadata:</b><br>"
+            for key, value in sorted(node_model.metadata.items()):
+                html += f"{key}: {value}<br>"
+        html += "<br><b>incoming:</b><br>" + "<br>".join(link.id for link in incoming[:20])
+        html += "<br><br><b>outgoing:</b><br>" + "<br>".join(link.id for link in outgoing[:20])
+        self.info.setHtml(html)
+
     def on_link_click(self, link_model):
-        res = link_model.results
+        res = link_model.results or {}
         html = f"<h3>{link_model.name}</h3>"
-        html += f"<b>ID:</b> {link_model.id}<br><br>"
-
+        html += f"<b>ID:</b> {link_model.id}<br>"
+        html += f"<b>from → to:</b> {link_model.start_node_id} → {link_model.end_node_id}<br>"
+        html += f"<b>Тип:</b> {link_model.link_type}<br>"
+        html += f"<b>Длина:</b> {link_model.length_km} км<br>"
+        html += f"<b>Поток:</b> {link_model.traffic_counts}<br><br>"
         if self.current_stage == 1:
-            html += f"<b>Уровень обслуживания (LOS):</b> {res.get('LOS', 'Н/Д')}<br>"
-            html += f"<b>Загрузка (V/C):</b> {res.get('VC_ratio', 0)}"
+            html += f"<b>LOS:</b> {res.get('LOS', 'Н/Д')}<br>"
+            html += f"<b>V/C:</b> {res.get('VC_ratio', 0)}<br>"
+            html += f"<b>V:</b> {res.get('V', 'Н/Д')}<br>"
+            html += f"<b>C:</b> {res.get('C_initial', 'Н/Д')}<br>"
         elif self.current_stage == 2:
-            prop = res.get("Optimization_Proposal")
-            if prop:
-                html += f"<font color='red'><b>Предложение:</b> {prop}</font><br><br>"
-                html += f"<b>Ожидаемый V/C:</b> {res.get('VC_optimized', 'Н/Д')}<br>"
-                html += f"<b>Ожидаемый LOS:</b> {res.get('LOS_optimized', 'Н/Д')}"
-            else:
-                html += "<font color='green'>Оптимизация не требуется</font>"
+            html += f"<b>Optimization:</b> {res.get('Optimization_Proposal') or 'не требуется'}<br>"
         elif self.current_stage == 3:
-            delay = res.get("Delay_sec", 0)
-            html += f"<font color='#1976d2' size='4'><b>Доп. задержка:</b> {delay} сек.</font><br>"
-            html += "<small>Время, теряемое из-за загрузки участка</small>"
+            html += f"<b>Delay_sec:</b> {res.get('Delay_sec', 0)}<br>"
         else:
-            html += f"<b>Длина:</b> {link_model.length_km} км<br>"
-            html += f"<b>Поток:</b> {link_model.traffic_counts}"
-
+            html += "<b>metadata:</b><br>"
+            for key, value in sorted((link_model.metadata or {}).items()):
+                html += f"{key}: {value}<br>"
         self.info.setHtml(html)
 
     def find_route(self):
         if self.project is None or not self.project.network.nodes:
             QMessageBox.warning(self, "Маршрут", "Проект не загружен.")
             return
-
         node_display = self._get_node_display_pairs()
-        if not node_display:
-            QMessageBox.warning(self, "Маршрут", "В проекте нет узлов.")
-            return
-
         display_names = [display for display, _ in node_display]
         start_display, ok = QInputDialog.getItem(self, "Маршрут", "Начальный узел:", display_names, 0, False)
         if not ok:
@@ -662,19 +582,19 @@ class MainWindow(QMainWindow):
         weight, ok = QInputDialog.getItem(self, "Маршрут", "Критерий:", ["length_km", "travel_time_sec", "delay_sec"], 0, False)
         if not ok:
             return
-
         display_to_id = {display: node_id for display, node_id in node_display}
-        start_node_id = display_to_id[start_display]
-        end_node_id = display_to_id[end_display]
-        path_link_ids = self.routing_service.find_shortest_path(self.project.network, start_node_id, end_node_id, weight)
+        path_link_ids = self.routing_service.find_shortest_path(
+            self.project.network,
+            display_to_id[start_display],
+            display_to_id[end_display],
+            weight,
+        )
         for link in self.viz_links:
             link.is_route_highlighted = link.id in path_link_ids
-
         self.set_stage(4)
         if not path_link_ids:
             self.info.setHtml("<b>Маршрут не найден.</b>")
             return
-
         total_length = sum(self.project.network.links[link_id].length_km for link_id in path_link_ids if link_id in self.project.network.links)
         total_delay = sum(self.project.network.links[link_id].results.get("Delay_sec", 0.0) for link_id in path_link_ids if link_id in self.project.network.links)
         self.info.setHtml(
@@ -685,10 +605,7 @@ class MainWindow(QMainWindow):
         )
 
     def _get_node_display_pairs(self):
-        ordered_nodes = sorted(
-            self.project.network.nodes.values(),
-            key=lambda node: node.name or node.id,
-        )
+        ordered_nodes = sorted(self.project.network.nodes.values(), key=lambda node: node.name or node.id)
         result = []
         for node in ordered_nodes:
             label = node.name or node.id
@@ -700,7 +617,6 @@ class MainWindow(QMainWindow):
     def save_current_positions_to_project(self):
         if self.project is None:
             return
-
         for link in self.viz_links:
             p1 = link.start_node.scenePos()
             p2 = link.end_node.scenePos()
@@ -711,11 +627,7 @@ class MainWindow(QMainWindow):
                 points = coords["points"]
                 link.link_model.coords = {
                     "type": "polyline",
-                    "points": [
-                        [round(lon_s, 6), round(lat_s, 6)],
-                        *points[1:-1],
-                        [round(lon_e, 6), round(lat_e, 6)],
-                    ],
+                    "points": [[round(lon_s, 6), round(lat_s, 6)], *points[1:-1], [round(lon_e, 6), round(lat_e, 6)]],
                     "lon_start": round(lon_s, 6),
                     "lat_start": round(lat_s, 6),
                     "lon_end": round(lon_e, 6),
@@ -728,12 +640,11 @@ class MainWindow(QMainWindow):
                     "lon_end": round(lon_e, 6),
                     "lat_end": round(lat_e, 6),
                 }
-
         try:
             self.saver.save(self.project, self.data_file)
             QMessageBox.information(self, "Успех", f"Координаты сохранены в {self.data_file}")
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить проект: {e}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить проект: {exc}")
 
 
 if __name__ == "__main__":
