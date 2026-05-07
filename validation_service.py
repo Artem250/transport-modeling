@@ -14,6 +14,8 @@ from models import Network, Project
 
 
 class ValidationService:
+    BALANCE_POLICY_ALLOW_UNASSIGNED = "allow_unassigned"
+
     def validate_project(self, project: Project) -> list[str]:
         errors: list[str] = []
         network = project.network
@@ -118,7 +120,10 @@ class ValidationService:
         boundary_flows = demand_model.get("boundary_flows", {})
         route_splits = demand_model.get("route_split_coefficients", [])
         coefficient_sums: dict[str, float] = defaultdict(float)
+        policy = demand_model.get("split_balance_policy")
 
+        if not isinstance(boundary_flows, dict):
+            return ["demand_model.boundary_flows must be an object."]
         if not isinstance(route_splits, list) or not route_splits:
             return ["demand_model.route_split_coefficients must contain at least one split."]
 
@@ -165,7 +170,8 @@ class ValidationService:
                 )
             )
 
-        for origin, coefficient_sum in coefficient_sums.items():
+        for origin in boundary_flows:
+            coefficient_sum = coefficient_sums.get(origin, 0.0)
             if coefficient_sum > 1.0 + 1e-9:
                 errors.append(
                     f"Boundary node {origin}: route split coefficient sum "
@@ -173,7 +179,7 @@ class ValidationService:
                 )
             elif (
                 coefficient_sum < 1.0 - 1e-9
-                and demand_model.get("split_balance_policy") != "allow_unassigned"
+                and policy != self.BALANCE_POLICY_ALLOW_UNASSIGNED
             ):
                 errors.append(
                     f"Boundary node {origin}: route split coefficient sum "
