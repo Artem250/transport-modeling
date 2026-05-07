@@ -34,7 +34,6 @@ class RoadSection(ABC):
         return 'F'
 
     def analyze_performance(self):
-        """Полный цикл анализа: пропускная способность -> загрузка -> LOS -> задержка"""
         self.calculate_capacity()
         if self.C <= 0:
             self.vc_ratio = 99.0
@@ -53,7 +52,8 @@ class RoadSection(ABC):
         })
 
     def calculate_delay(self):
-        if self.C <= 0: return float('inf')
+        if self.C <= 0:
+            return float('inf')
         T0 = (self.length / BASE_SPEED_KPH) * 3600
         if self.vc_ratio < 0.99:
             return T0 * 0.25 * (self.vc_ratio ** B_COEFFICIENT)
@@ -89,8 +89,7 @@ class StraightRoad(RoadSection):
         f_HV = 1.0 / (1.0 + self.P_HV * (2.0 - 1))
         f_p = 0.95 if self.P_exist else 1.0
         effective_lanes = max(0, self.lanes_total - self.lanes_bus)
-        # Пропускная способность = Полосы * База * Коэффициенты
-        self.C = effective_lanes * self.capacity_base_per_lane * f_w * f_g * f_HV * f_p
+        self.C = max(0.0, effective_lanes * self.capacity_base_per_lane * f_w * f_g * f_HV * f_p)
 
         self.analysis_data.update({
             'f_w': round(f_w, 3), 'f_g': round(f_g, 3), 'f_HV': round(f_HV, 3), 'f_p': round(f_p, 3),
@@ -98,7 +97,8 @@ class StraightRoad(RoadSection):
         })
 
     def optimize(self):
-        if self.vc_ratio <= TARGET_LOS_VC: return None
+        if self.vc_ratio <= TARGET_LOS_VC:
+            return None
         if self.C <= 0:
             return {
                 'proposal': "CRITICAL: capacity is zero; check closure, lanes, or base capacity.",
@@ -107,10 +107,15 @@ class StraightRoad(RoadSection):
                 'los_new': self.los
             }
 
-        # РАСЧЕТ ИЗ ОРИГИНАЛА: Сколько полос нужно добавить?
         required_C = self.V / TARGET_LOS_VC
         effective_lanes = self.lanes_total - self.lanes_bus
-        # Требуемое кол-во полос = (Требуемая C / Текущая C) * Текущие полосы
+        if effective_lanes <= 0:
+            return {
+                'proposal': "CRITICAL: no effective lanes are available.",
+                'C_new': self.C,
+                'vc_new': self.vc_ratio,
+                'los_new': self.los
+            }
         required_lanes = (required_C / self.C) * effective_lanes
         additional_lanes = required_lanes - effective_lanes
 
@@ -132,6 +137,7 @@ class Intersection(RoadSection):
         self.S0, self.N = saturation_flow_base, lanes_count
         self.w, self.G, self.P_exist, self.P_HV = lane_width_m, grade_percent, parking_present, heavy_vehicles_percent
         self.is_ring = is_ring_approach
+        self.S = 0.0
 
     def calculate_capacity(self):
         f_w = 1.0 + 0.1 * (self.w - 3.6)
@@ -140,8 +146,11 @@ class Intersection(RoadSection):
         f_p = 0.90 if self.P_exist else 1.0
         f_R = 0.90 if self.is_ring or "ENTRY" in self.id.upper() else 1.0
 
-        self.S = self.S0 * f_w * f_g * f_HV * f_p * f_R
-        self.C = self.S * self.N * (self.g / self.T)
+        self.S = max(0.0, self.S0 * f_w * f_g * f_HV * f_p * f_R)
+        if self.T <= 0 or self.g <= 0 or self.N <= 0 or self.S <= 0:
+            self.C = 0.0
+        else:
+            self.C = self.S * self.N * (self.g / self.T)
 
         self.analysis_data.update({
             'S_corrected': round(self.S, 0),
@@ -151,13 +160,19 @@ class Intersection(RoadSection):
         })
 
     def optimize(self):
-        if self.vc_ratio <= TARGET_LOS_VC: return None
+        if self.vc_ratio <= TARGET_LOS_VC:
+            return None
+        if self.S <= 0 or self.N <= 0 or self.T <= 0:
+            return {
+                'proposal': "CRITICAL: signal capacity cannot be optimized with zero saturation flow, lanes, or cycle time.",
+                'C_new': self.C,
+                'vc_new': self.vc_ratio,
+                'los_new': self.los
+            }
 
-        # РАСЧЕТ ИЗ ОРИГИНАЛА: Сколько секунд зеленого нужно?
         required_C = self.V / TARGET_LOS_VC
         required_g = (required_C / (self.S * self.N)) * self.T
 
-        # Проверка на критическую перегрузку (нельзя дать больше зеленого, чем весь цикл минус другие фазы)
         if required_g >= (self.T - self.g_others):
             return {
                 'proposal': "КРИТИЧЕСКАЯ ПЕРЕГРУЗКА: Требуется реконструкция или изменение геометрии.",
