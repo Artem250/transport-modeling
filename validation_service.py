@@ -15,6 +15,7 @@ from models import Network, Project
 
 class ValidationService:
     BALANCE_POLICY_ALLOW_UNASSIGNED = "allow_unassigned"
+    COEFFICIENT_TOLERANCE = 1e-5
 
     def validate_project(self, project: Project) -> list[str]:
         errors: list[str] = []
@@ -172,13 +173,13 @@ class ValidationService:
 
         for origin in boundary_flows:
             coefficient_sum = coefficient_sums.get(origin, 0.0)
-            if coefficient_sum > 1.0 + 1e-9:
+            if coefficient_sum > 1.0 + self.COEFFICIENT_TOLERANCE:
                 errors.append(
                     f"Boundary node {origin}: route split coefficient sum "
                     f"{coefficient_sum} is greater than 1."
                 )
             elif (
-                coefficient_sum < 1.0 - 1e-9
+                coefficient_sum < 1.0 - self.COEFFICIENT_TOLERANCE
                 and policy != self.BALANCE_POLICY_ALLOW_UNASSIGNED
             ):
                 errors.append(
