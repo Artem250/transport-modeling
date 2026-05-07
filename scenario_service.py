@@ -48,10 +48,10 @@ class ScenarioService:
             return
 
         if change_type == "update_length":
-            if "length_km" not in change:
-                self._warn(project, f"Scenario change update_length ignored for {link.id}: length_km missing.")
+            length = self._float_value(project, change.get("length_km"), f"update_length {link.id} length_km")
+            if length is None:
                 return
-            link.length_km = change["length_km"]
+            link.length_km = length
             return
 
         handlers = {
@@ -69,9 +69,9 @@ class ScenarioService:
 
     def _update_route_demand(self, project: Project, change: dict) -> None:
         route_id = change.get("route_id")
-        demand = change.get("demand_value")
+        demand = self._float_value(project, change.get("demand_value"), "update_route_demand demand_value")
         if route_id is None or demand is None:
-            self._warn(project, "Scenario change update_route_demand ignored: route_id or demand_value missing.")
+            self._warn(project, "Scenario change update_route_demand ignored: route_id or demand_value missing or invalid.")
             return
 
         for demand_route in project.demand_model.get("routes", []):
@@ -115,9 +115,13 @@ class ScenarioService:
 
     def _update_boundary_flow(self, project: Project, change: dict) -> None:
         boundary_id = change.get("boundary_id")
-        volume = change.get("volume", change.get("volume_veh_h"))
+        volume = self._float_value(
+            project,
+            change.get("volume", change.get("volume_veh_h")),
+            "update_boundary_flow volume",
+        )
         if boundary_id is None or volume is None:
-            self._warn(project, "Scenario change update_boundary_flow ignored: boundary_id or volume missing.")
+            self._warn(project, "Scenario change update_boundary_flow ignored: boundary_id or volume missing or invalid.")
             return
         if boundary_id not in project.network.nodes:
             self._warn(project, f"Scenario change update_boundary_flow ignored: boundary node {boundary_id} not found.")
@@ -126,9 +130,9 @@ class ScenarioService:
 
     def _update_route_split_coefficient(self, project: Project, change: dict) -> None:
         movement_id = change.get("movement_id")
-        coefficient = change.get("coefficient")
+        coefficient = self._float_value(project, change.get("coefficient"), "update_route_split_coefficient coefficient")
         if movement_id is None or coefficient is None:
-            self._warn(project, "Scenario change update_route_split_coefficient ignored: movement_id or coefficient missing.")
+            self._warn(project, "Scenario change update_route_split_coefficient ignored: movement_id or coefficient missing or invalid.")
             return
 
         for movement in project.demand_model.get("route_split_coefficients", []):
@@ -143,6 +147,9 @@ class ScenarioService:
             self._warn(project, "Scenario change reroute ignored: route_id or link_ids missing.")
             return
         new_link_ids = change["link_ids"]
+        if not isinstance(new_link_ids, list):
+            self._warn(project, f"Scenario change reroute ignored for {route_id}: link_ids must be a list.")
+            return
 
         for demand_route in project.demand_model.get("routes", []):
             if demand_route.get("id") == route_id:
