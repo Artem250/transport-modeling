@@ -50,6 +50,7 @@ class ProjectSaver:
                         "link_ids": route.link_ids,
                         "origin_node_id": route.origin_node_id,
                         "destination_node_id": route.destination_node_id,
+                        "demand_value": route.demand_value,
                         "demand_veh_h": route.demand_veh_h,
                         "vehicle_type": route.vehicle_type,
                         "results": route.results,

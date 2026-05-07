@@ -13,6 +13,15 @@ class AnalysisService:
         assignment_report = {}
         if assign_demand and self._has_demand_model(project):
             assignment_report = self.demand_assignment_service.assign(project)
+            if assignment_report.get("errors"):
+                return {
+                    "Project_Name": project.project_name,
+                    "Demand_Assignment": assignment_report,
+                    "Analysis_Status": "Demand assignment failed; link analysis skipped.",
+                    "Links_Analysis": [],
+                    "Routes_Analysis": [],
+                    "Demand_Routes_Analysis": [],
+                }
 
         links_report = []
 
@@ -44,48 +53,88 @@ class AnalysisService:
 
         routes_report = []
         for route in project.network.routes.values():
-            route_links = [
-                project.network.links[link_id]
-                for link_id in route.link_ids
-                if link_id in project.network.links
-            ]
-            if not route_links:
-                continue
-
-            total_length_km = sum(link.length_km for link in route_links)
-            total_delay_sec = sum(link.results.get("Delay_sec", 0.0) for link in route_links)
-            base_speed_kph = 60.0
-            base_travel_time_sec = (total_length_km / base_speed_kph) * 3600 if total_length_km else 0.0
-            total_travel_time_sec = base_travel_time_sec + total_delay_sec
-            avg_speed_kph = (
-                total_length_km / (total_travel_time_sec / 3600)
-                if total_travel_time_sec > 0
-                else base_speed_kph
+            route_report = self._analyze_route(
+                project,
+                route.id,
+                route.name,
+                route.link_ids,
             )
-            route.results = {
-                "id": route.id,
-                "name": route.name,
-                "total_length_km": round(total_length_km, 2),
-                "total_delay_sec": round(total_delay_sec, 1),
-                "total_travel_time_sec": round(total_travel_time_sec, 1),
-                "avg_speed_kph": round(avg_speed_kph, 1),
-                "links_detail": [
-                    {
-                        "link_id": link.id,
-                        "LOS": link.results.get("LOS", "UNDEFINED"),
-                        "VC_ratio": round(link.results.get("VC_ratio", 0.0), 3),
-                        "Delay_sec": round(link.results.get("Delay_sec", 0.0), 1),
-                    }
-                    for link in route_links
-                ],
-            }
+            if route_report is None:
+                continue
+            route.results = route_report.copy()
             routes_report.append(route.results.copy())
+
+        demand_routes_report = []
+        for route in assignment_report.get("routes", []):
+            route_report = self._analyze_route(
+                project,
+                route.get("id"),
+                route.get("name", route.get("id", "")),
+                route.get("link_ids", []),
+            )
+            if route_report is None:
+                continue
+            route_report.update(
+                {
+                    "demand_value": route.get("demand_value"),
+                    "unit": route.get("unit"),
+                    "vehicle_type": route.get("vehicle_type"),
+                    "origin_node_id": route.get("origin_node_id"),
+                    "destination_node_id": route.get("destination_node_id"),
+                }
+            )
+            demand_routes_report.append(route_report)
 
         return {
             "Project_Name": project.project_name,
             "Demand_Assignment": assignment_report,
+            "Analysis_Status": "OK",
             "Links_Analysis": links_report,
             "Routes_Analysis": routes_report,
+            "Demand_Routes_Analysis": demand_routes_report,
+        }
+
+    def _analyze_route(
+        self,
+        project: Project,
+        route_id: str,
+        route_name: str,
+        link_ids: list[str],
+    ) -> dict | None:
+        route_links = [
+            project.network.links[link_id]
+            for link_id in link_ids
+            if link_id in project.network.links
+        ]
+        if not route_links:
+            return None
+
+        total_length_km = sum(link.length_km for link in route_links)
+        total_delay_sec = sum(link.results.get("Delay_sec", 0.0) for link in route_links)
+        base_speed_kph = 60.0
+        base_travel_time_sec = (total_length_km / base_speed_kph) * 3600 if total_length_km else 0.0
+        total_travel_time_sec = base_travel_time_sec + total_delay_sec
+        avg_speed_kph = (
+            total_length_km / (total_travel_time_sec / 3600)
+            if total_travel_time_sec > 0
+            else base_speed_kph
+        )
+        return {
+            "id": route_id,
+            "name": route_name,
+            "total_length_km": round(total_length_km, 2),
+            "total_delay_sec": round(total_delay_sec, 1),
+            "total_travel_time_sec": round(total_travel_time_sec, 1),
+            "avg_speed_kph": round(avg_speed_kph, 1),
+            "links_detail": [
+                {
+                    "link_id": link.id,
+                    "LOS": link.results.get("LOS", "UNDEFINED"),
+                    "VC_ratio": round(link.results.get("VC_ratio", 0.0), 3),
+                    "Delay_sec": round(link.results.get("Delay_sec", 0.0), 1),
+                }
+                for link in route_links
+            ],
         }
 
     def _has_demand_model(self, project: Project) -> bool:
@@ -93,9 +142,14 @@ class AnalysisService:
             return True
         if project.demand_model.get("route_split_coefficients"):
             return True
+        if project.demand_model.get("node_turning_ratios"):
+            return True
         if project.demand_model.get("turning_coefficients"):
             return True
-        return any(route.demand_veh_h > 0 for route in project.network.routes.values())
+        return any(
+            (route.demand_value or route.demand_veh_h) > 0
+            for route in project.network.routes.values()
+        )
 
     def _build_section(self, link: Link, pcu_coeffs: dict[str, float]):
         params = link.parameters

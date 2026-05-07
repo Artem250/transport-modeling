@@ -505,7 +505,12 @@ class MainWindow(QMainWindow):
                 not link.results for link in self.project.network.links.values()
             )
             if needs_analysis:
-                self.analysis_service.analyze_project(self.project)
+                report = self.analysis_service.analyze_project(self.project)
+                assignment_report = report.get("Demand_Assignment", {})
+                for error in assignment_report.get("errors", []):
+                    print(f"Demand assignment error: {error}")
+                for warning in assignment_report.get("warnings", []):
+                    print(f"Demand assignment warning: {warning}")
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
             self.project = None
@@ -517,8 +522,12 @@ class MainWindow(QMainWindow):
         return (
             bool(demand_model.get("routes"))
             or bool(demand_model.get("route_split_coefficients"))
+            or bool(demand_model.get("node_turning_ratios"))
             or bool(demand_model.get("turning_coefficients"))
-            or any(route.demand_veh_h > 0 for route in self.project.network.routes.values())
+            or any(
+                (route.demand_value or route.demand_veh_h) > 0
+                for route in self.project.network.routes.values()
+            )
         )
 
     def draw_map(self):

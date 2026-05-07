@@ -22,8 +22,9 @@ class ScenarioService:
 
         if change_type == "update_traffic" and link is not None:
             if project.demand_model:
-                link.metadata.setdefault("observed_traffic_counts", {}).update(
-                    change.get("traffic_counts", {})
+                project.metadata.setdefault("scenario_warnings", []).append(
+                    f"update_traffic for link {link.id} ignored because demand_model "
+                    "drives calculated traffic_counts. Use demand scenario changes instead."
                 )
                 return
             link.traffic_counts.update(change.get("traffic_counts", {}))
@@ -44,24 +45,31 @@ class ScenarioService:
 
         if change_type == "update_route_demand":
             route_id = change.get("route_id")
-            demand = change.get("demand_veh_h", change.get("demand"))
+            demand = change.get("demand_value", change.get("demand_veh_h", change.get("demand")))
             route = project.network.routes.get(route_id)
             if route is not None and demand is not None:
-                route.demand_veh_h = demand
+                route.demand_value = demand
                 return
 
             for demand_route in project.demand_model.get("routes", []):
                 if demand_route.get("id") == route_id and demand is not None:
-                    demand_route["demand_veh_h"] = demand
+                    demand_route["demand_value"] = demand
+                    demand_route.pop("demand_veh_h", None)
+                    demand_route.pop("demand", None)
                     return
 
         if change_type == "scale_all_route_demand":
             factor = float(change.get("factor", 1.0))
             for route in project.network.routes.values():
-                route.demand_veh_h *= factor
+                if route.demand_value is not None:
+                    route.demand_value *= factor
+                else:
+                    route.demand_veh_h *= factor
 
             for demand_route in project.demand_model.get("routes", []):
-                if "demand_veh_h" in demand_route:
+                if "demand_value" in demand_route:
+                    demand_route["demand_value"] *= factor
+                elif "demand_veh_h" in demand_route:
                     demand_route["demand_veh_h"] *= factor
                 elif "demand" in demand_route:
                     demand_route["demand"] *= factor
@@ -70,8 +78,6 @@ class ScenarioService:
                 project.demand_model["boundary_flows"][boundary_id] = volume * factor
 
             for movement in self._iter_route_splits(project):
-                if "demand_veh_h" in movement:
-                    movement["demand_veh_h"] *= factor
                 if "base_volume_veh_h" in movement:
                     movement["base_volume_veh_h"] *= factor
             return
@@ -102,6 +108,8 @@ class ScenarioService:
             for movement in self._iter_route_splits(project):
                 if movement.get("id") == movement_id and coefficient is not None:
                     movement["coefficient"] = coefficient
+                    for demand_key in ("demand_value", "demand_veh_h", "demand"):
+                        movement.pop(demand_key, None)
                     return
 
     def _iter_route_splits(self, project: Project):

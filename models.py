@@ -38,6 +38,7 @@ class Route:
     link_ids: list[str] = field(default_factory=list)
     origin_node_id: str | None = None
     destination_node_id: str | None = None
+    demand_value: float | None = None
     demand_veh_h: float = 0.0
     vehicle_type: str = "car"
     results: dict[str, Any] = field(default_factory=dict)
