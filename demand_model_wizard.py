@@ -27,11 +27,13 @@ from project_saver import ProjectSaver
 IMPORTANT_HIGHWAYS = {"primary", "secondary", "tertiary"}
 DEFAULT_BOUNDARY_MARGIN_PERCENT = 7
 DEFAULT_MAX_DESTINATIONS_PER_ORIGIN = 3
+BOUNDARY_CLUSTER_RADIUS_KM = 0.12
 
 
 @dataclass
 class AutoDemandBuildResult:
     boundary_nodes: list[str]
+    demand_origins: list[str]
     intersections: list[str]
     roundabout_parts: list[str]
     routes: list[dict[str, Any]]
@@ -42,11 +44,9 @@ class AutoDemandBuilder:
     """
     Builds a first draft local demand model automatically.
 
-    The builder is deliberately conservative: it does not claim to infer real OD demand.
-    It only finds candidate boundary nodes near the imported map border and builds shortest
-    directed routes between them. Route split coefficients are distributed uniformly per
-    origin. A user can later replace boundary flows and coefficients with real SKDF/field
-    values.
+    It does not infer real demand. It detects candidate boundary nodes near the map border,
+    clusters consecutive border points, builds shortest directed boundary-to-boundary routes,
+    and assigns uniform placeholder split coefficients per origin.
     """
 
     def __init__(
@@ -73,6 +73,14 @@ class AutoDemandBuilder:
             )
 
         routes = self._build_route_splits(network, boundary_nodes, warnings)
+        demand_origins = sorted({route["from"] for route in routes})
+        exit_only_nodes = sorted(set(boundary_nodes) - set(demand_origins))
+        if exit_only_nodes:
+            warnings.append(
+                "Some boundary nodes have no outgoing generated routes and were kept only as exits: "
+                + ", ".join(exit_only_nodes[:12])
+                + (" ..." if len(exit_only_nodes) > 12 else "")
+            )
         if not routes:
             warnings.append(
                 "No boundary-to-boundary routes were built. Check link directions or regenerate project with two-way links."
@@ -85,13 +93,17 @@ class AutoDemandBuilder:
                 "Auto-generated draft: boundary flows are placeholders, route split coefficients "
                 "are uniform over shortest paths. Replace them with observed/SKDF/scenario values."
             ),
-            "boundary_flows": {node_id: self.default_boundary_flow for node_id in boundary_nodes},
+            # Only origins that actually have generated routes receive input flow.
+            # Boundary nodes without outgoing routes remain exits, not flow sources.
+            "boundary_flows": {node_id: self.default_boundary_flow for node_id in demand_origins},
             "route_split_coefficients": routes,
             "metadata": {
                 "generated_by": "DemandModelWizard",
                 "boundary_margin_percent": self.boundary_margin_percent,
                 "max_destinations_per_origin": self.max_destinations_per_origin,
                 "include_residential_boundaries": self.include_residential_boundaries,
+                "boundary_nodes": boundary_nodes,
+                "exit_only_boundary_nodes": exit_only_nodes,
             },
         }
         project.metadata.setdefault("demand_model_notes", []).append(
@@ -99,6 +111,7 @@ class AutoDemandBuilder:
         )
         return AutoDemandBuildResult(
             boundary_nodes=boundary_nodes,
+            demand_origins=demand_origins,
             intersections=[node_id for node_id, node in network.nodes.items() if node.node_type == "intersection"],
             roundabout_parts=[node_id for node_id, node in network.nodes.items() if node.node_type == "roundabout_part"],
             routes=routes,
@@ -109,6 +122,8 @@ class AutoDemandBuilder:
         incoming = self._incoming(network)
         outgoing = self._outgoing(network)
         for node_id, node in network.nodes.items():
+            if node.metadata.get("manual_node_type"):
+                node.node_type = str(node.metadata["manual_node_type"])
             in_degree = len(incoming.get(node_id, []))
             out_degree = len(outgoing.get(node_id, []))
             degree = len({link.id for link in incoming.get(node_id, []) + outgoing.get(node_id, [])})
@@ -123,6 +138,8 @@ class AutoDemandBuilder:
                 }
             )
 
+            if node.metadata.get("manual_node_type"):
+                continue
             if self._looks_like_roundabout_part(network, node_id, incoming, outgoing):
                 node.node_type = "roundabout_part"
             elif degree >= 3:
@@ -144,8 +161,13 @@ class AutoDemandBuilder:
 
         incoming = self._incoming(network)
         outgoing = self._outgoing(network)
-        candidates: list[tuple[int, str]] = []
+        candidates: list[str] = []
         for node in nodes_with_coords:
+            if node.metadata.get("manual_node_type") == "boundary":
+                candidates.append(node.id)
+                continue
+            if node.metadata.get("manual_node_type") in {"ordinary", "intersection", "roundabout_part"}:
+                continue
             incident = incoming.get(node.id, []) + outgoing.get(node.id, [])
             if not incident:
                 continue
@@ -157,18 +179,67 @@ class AutoDemandBuilder:
                 or float(node.lat) <= lat_min + lat_margin
                 or float(node.lat) >= lat_max - lat_margin
             )
-            if not near_border:
-                continue
-            # Prefer true network stubs first, then other border nodes.
-            degree = int(node.metadata.get("degree", len({link.id for link in incident})))
-            score = 0 if degree <= 2 else 1
-            candidates.append((score, node.id))
+            if near_border:
+                candidates.append(node.id)
 
-        boundary_nodes = [node_id for _, node_id in sorted(candidates)]
+        boundary_nodes = self._cluster_boundary_candidates(network, candidates, lon_min, lon_max, lat_min, lat_max)
         for node_id in boundary_nodes:
             network.nodes[node_id].node_type = "boundary"
             network.nodes[node_id].metadata["boundary_candidate"] = True
+        for node_id in set(candidates) - set(boundary_nodes):
+            if not network.nodes[node_id].metadata.get("manual_node_type"):
+                network.nodes[node_id].metadata["boundary_candidate_rejected"] = True
         return boundary_nodes
+
+    def _cluster_boundary_candidates(
+        self,
+        network: Network,
+        candidates: list[str],
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+    ) -> list[str]:
+        clusters: list[list[str]] = []
+        for node_id in sorted(set(candidates)):
+            node = network.nodes[node_id]
+            placed = False
+            for cluster in clusters:
+                if any(self._node_distance_km(network.nodes[other_id], node) <= BOUNDARY_CLUSTER_RADIUS_KM for other_id in cluster):
+                    cluster.append(node_id)
+                    placed = True
+                    break
+            if not placed:
+                clusters.append([node_id])
+
+        representatives = [
+            self._boundary_representative(network, cluster, lon_min, lon_max, lat_min, lat_max)
+            for cluster in clusters
+        ]
+        return sorted(representatives)
+
+    def _boundary_representative(
+        self,
+        network: Network,
+        cluster: list[str],
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+    ) -> str:
+        def score(node_id: str) -> tuple[int, float, str]:
+            node = network.nodes[node_id]
+            manual = 0 if node.metadata.get("manual_node_type") == "boundary" else 1
+            degree = int(node.metadata.get("degree", 99))
+            border_distance = min(
+                abs(float(node.lon) - lon_min),
+                abs(float(node.lon) - lon_max),
+                abs(float(node.lat) - lat_min),
+                abs(float(node.lat) - lat_max),
+            )
+            # Prefer manual, then stubs, then closest to the actual map cut.
+            return manual, 0 if degree <= 1 else 1, border_distance, node_id
+        return sorted(cluster, key=score)[0]
 
     def _build_route_splits(
         self,
@@ -197,7 +268,7 @@ class AutoDemandBuilder:
                         "id": f"RS_{self._safe_id(origin)}_{self._safe_id(destination)}",
                         "from": origin,
                         "to": destination,
-                        "coefficient": round(coefficient, 6),
+                        "coefficient": round(coefficient, 8),
                         "vehicle_type": "car",
                         "link_ids": path,
                     }
@@ -249,7 +320,7 @@ class AutoDemandBuilder:
         for other in network.nodes.values():
             if other.id == node_id or other.lon is None or other.lat is None:
                 continue
-            if _haversine_km(float(node.lon), float(node.lat), float(other.lon), float(other.lat)) <= 0.18:
+            if self._node_distance_km(node, other) <= 0.18:
                 nearby += 1
         return nearby >= 4
 
@@ -267,6 +338,9 @@ class AutoDemandBuilder:
         for link in network.links.values():
             result[link.start_node_id].append(link)
         return result
+
+    def _node_distance_km(self, first, second) -> float:
+        return _haversine_km(float(first.lon), float(first.lat), float(second.lon), float(second.lat))
 
     def _safe_id(self, value: str) -> str:
         return "".join(ch if ch.isalnum() else "_" for ch in value)[-32:]
@@ -369,6 +443,7 @@ class DemandModelWizard(QDialog):
         lines = [
             "Auto demand_model draft",
             f"boundary nodes: {len(result.boundary_nodes)}",
+            f"demand origins: {len(result.demand_origins)}",
             f"intersections: {len(result.intersections)}",
             f"roundabout parts: {len(result.roundabout_parts)}",
             f"route splits: {len(result.routes)}",
@@ -377,8 +452,9 @@ class DemandModelWizard(QDialog):
         ]
         for node_id in result.boundary_nodes[:80]:
             node = self.project.network.nodes[node_id]
+            origin_mark = "source" if node_id in result.demand_origins else "exit-only"
             lines.append(
-                f"- {node_id} | {node.name or node_id} | type={node.node_type} | "
+                f"- {node_id} | {node.name or node_id} | {origin_mark} | type={node.node_type} | "
                 f"degree={node.metadata.get('degree')} | highways={node.metadata.get('incident_highways')}"
             )
         if len(result.boundary_nodes) > 80:
