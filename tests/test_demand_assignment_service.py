@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import copy
 import unittest
 
 from analysis_service import AnalysisService
 from demand_assignment_service import DemandAssignmentService
-from models import Link, Network, Node, Project, Route, Scenario
+from models import Link, Network, Node, Project, Scenario
 from scenario_service import ScenarioService
-from validation_service import ValidationService
 
 
-def build_project() -> Project:
+def build_project(demand_model: dict | None = None) -> Project:
     network = Network()
     for node_id in ("B_WEST", "I1", "B_EAST", "B_SOUTH"):
         network.add_node(Node(id=node_id))
@@ -23,6 +23,7 @@ def build_project() -> Project:
             length_km=0.4,
             traffic_counts={"car": 999},
             parameters={"lanes_total": 2, "capacity_per_lane_base": 1800},
+            results={"LOS": "OLD"},
         )
     )
     network.add_link(
@@ -33,6 +34,7 @@ def build_project() -> Project:
             end_node_id="B_EAST",
             length_km=0.7,
             parameters={"lanes_total": 2, "capacity_per_lane_base": 1800},
+            results={"LOS": "OLD"},
         )
     )
     network.add_link(
@@ -43,45 +45,98 @@ def build_project() -> Project:
             end_node_id="B_SOUTH",
             length_km=0.5,
             parameters={"lanes_total": 1, "capacity_per_lane_base": 1500},
+            results={"LOS": "OLD"},
         )
     )
 
     return Project(
         project_name="Demand test",
-        pcu_coefficients={"car": 1.0},
+        pcu_coefficients={"car": 1.0, "pcu": 1.0},
         network=network,
-        demand_model={
-            "boundary_flows": {"B_WEST": 1200},
-            "routes": [
-                {
-                    "id": "R_WE",
-                    "origin_node_id": "B_WEST",
-                    "destination_node_id": "B_EAST",
-                    "demand_veh_h": 800,
-                    "vehicle_type": "car",
-                    "link_ids": ["L_W_IN", "L_CENTER"],
-                },
-                {
-                    "id": "R_WS",
-                    "from": "B_WEST",
-                    "to": "B_SOUTH",
-                    "demand_veh_h": 400,
-                    "vehicle_type": "car",
-                    "link_ids": ["L_W_IN", "L_SOUTH"],
-                },
-            ],
-        },
+        demand_model=demand_model or {},
     )
 
 
+def routes_model(unit: str = "veh/h") -> dict:
+    return {
+        "type": "routes",
+        "unit": unit,
+        "routes": [
+            {
+                "id": "R_WE",
+                "origin_node_id": "B_WEST",
+                "destination_node_id": "B_EAST",
+                "demand_value": 800,
+                "vehicle_type": "car",
+                "link_ids": ["L_W_IN", "L_CENTER"],
+            },
+            {
+                "id": "R_WS",
+                "origin_node_id": "B_WEST",
+                "destination_node_id": "B_SOUTH",
+                "demand_value": 400,
+                "vehicle_type": "car",
+                "link_ids": ["L_W_IN", "L_SOUTH"],
+            },
+        ],
+    }
+
+
+def split_model(
+    coefficient_a: float = 0.7,
+    coefficient_b: float = 0.3,
+    policy: str | None = None,
+) -> dict:
+    model = {
+        "type": "route_split_coefficients",
+        "unit": "veh/h",
+        "boundary_flows": {"B_WEST": 1200},
+        "route_split_coefficients": [
+            {
+                "id": "RS_WE",
+                "from": "B_WEST",
+                "to": "B_EAST",
+                "coefficient": coefficient_a,
+                "vehicle_type": "car",
+                "link_ids": ["L_W_IN", "L_CENTER"],
+            },
+            {
+                "id": "RS_WS",
+                "from": "B_WEST",
+                "to": "B_SOUTH",
+                "coefficient": coefficient_b,
+                "vehicle_type": "car",
+                "link_ids": ["L_W_IN", "L_SOUTH"],
+            },
+        ],
+    }
+    if policy is not None:
+        model["split_balance_policy"] = policy
+    return model
+
+
+class FailingAssignmentService:
+    def assign(self, project: Project) -> dict:
+        return {
+            "success": False,
+            "demand_model_type": project.demand_model.get("type"),
+            "unit": project.demand_model.get("unit", "veh/h"),
+            "assigned_routes": 0,
+            "routes": [],
+            "link_assignments": {},
+            "warnings": [],
+            "errors": ["synthetic assignment failure"],
+        }
+
+
 class DemandAssignmentServiceTest(unittest.TestCase):
-    def test_assign_sums_route_demand_on_links(self):
-        project = build_project()
+    def test_routes_mode_sums_shared_input_and_branches(self):
+        project = build_project(routes_model())
 
         report = DemandAssignmentService().assign(project)
 
+        self.assertTrue(report["success"])
         self.assertEqual(report["assigned_routes"], 2)
-        self.assertEqual(report["warnings"], [])
         self.assertEqual(project.network.links["L_W_IN"].traffic_counts["car"], 1200)
         self.assertEqual(project.network.links["L_CENTER"].traffic_counts["car"], 800)
         self.assertEqual(project.network.links["L_SOUTH"].traffic_counts["car"], 400)
@@ -89,206 +144,141 @@ class DemandAssignmentServiceTest(unittest.TestCase):
             project.network.links["L_W_IN"].metadata["observed_traffic_counts"],
             {"car": 999},
         )
-        self.assertEqual(report["errors"], [])
-        self.assertEqual(len(report["routes"]), 2)
 
-    def test_assign_builds_shortest_path_when_route_has_no_links(self):
-        project = Project(network=Network())
-        for node_id in ("A", "B", "C"):
-            project.network.add_node(Node(id=node_id))
-        project.network.add_link(Link(id="AB", name="AB", start_node_id="A", end_node_id="B", length_km=1))
-        project.network.add_link(Link(id="BC", name="BC", start_node_id="B", end_node_id="C", length_km=1))
-        project.network.routes["R"] = Route(
-            id="R",
-            name="A-C",
-            origin_node_id="A",
-            destination_node_id="C",
-            demand_veh_h=500,
+    def test_route_split_coefficients_mode_assigns_boundary_flow(self):
+        project = build_project(split_model())
+
+        report = DemandAssignmentService().assign(project)
+
+        self.assertTrue(report["success"])
+        self.assertEqual(project.network.links["L_W_IN"].traffic_counts["car"], 1200)
+        self.assertEqual(project.network.links["L_CENTER"].traffic_counts["car"], 840)
+        self.assertEqual(project.network.links["L_SOUTH"].traffic_counts["car"], 360)
+
+    def test_assignment_is_transactional_when_route_has_missing_link(self):
+        project = build_project(routes_model())
+        project.demand_model["routes"][1]["link_ids"] = ["L_W_IN", "MISSING"]
+        original_counts = {
+            link_id: copy.deepcopy(link.traffic_counts)
+            for link_id, link in project.network.links.items()
+        }
+        original_results = {
+            link_id: copy.deepcopy(link.results)
+            for link_id, link in project.network.links.items()
+        }
+
+        report = DemandAssignmentService().assign(project)
+
+        self.assertFalse(report["success"])
+        self.assertTrue(any("missing link MISSING" in error for error in report["errors"]))
+        self.assertEqual(
+            {link_id: link.traffic_counts for link_id, link in project.network.links.items()},
+            original_counts,
+        )
+        self.assertEqual(
+            {link_id: link.results for link_id, link in project.network.links.items()},
+            original_results,
         )
 
-        report = DemandAssignmentService().assign(project)
-
-        self.assertEqual(report["assigned_routes"], 1)
-        self.assertEqual(report["routes"][0]["link_ids"], ["AB", "BC"])
-        self.assertEqual(project.network.routes["R"].link_ids, ["AB", "BC"])
-        self.assertEqual(project.network.routes["R"].metadata["assigned_link_ids"], ["AB", "BC"])
-        self.assertEqual(project.network.links["AB"].traffic_counts["car"], 500)
-        self.assertEqual(project.network.links["BC"].traffic_counts["car"], 500)
-
-    def test_assign_calculates_demand_from_route_split_coefficients(self):
-        project = build_project()
-        project.demand_model = {
-            "type": "route_split_coefficients",
-            "boundary_flows": {"B_WEST": 1200},
-            "route_split_coefficients": [
-                {
-                    "id": "RS_WE",
-                    "from": "B_WEST",
-                    "to": "B_EAST",
-                    "coefficient": 0.7,
-                    "link_ids": ["L_W_IN", "L_CENTER"],
-                },
-                {
-                    "id": "RS_WS",
-                    "from": "B_WEST",
-                    "to": "B_SOUTH",
-                    "coefficient": 0.3,
-                    "link_ids": ["L_W_IN", "L_SOUTH"],
-                },
-            ],
-        }
-
-        report = DemandAssignmentService().assign(project)
-
-        self.assertEqual(report["warnings"], [])
-        self.assertEqual(project.network.links["L_W_IN"].traffic_counts["car"], 1200)
-        self.assertEqual(project.network.links["L_CENTER"].traffic_counts["car"], 840)
-        self.assertEqual(project.network.links["L_SOUTH"].traffic_counts["car"], 360)
-
-    def test_assignment_rejects_disconnected_route_links(self):
-        project = build_project()
-        project.demand_model = {
-            "type": "routes",
-            "boundary_flows": {"B_WEST": 1200},
-            "routes": [
-                {
-                    "id": "BAD",
-                    "demand_veh_h": 100,
-                    "link_ids": ["L_CENTER", "L_W_IN"],
-                }
-            ],
-        }
-
-        report = DemandAssignmentService().assign(project)
-
-        self.assertEqual(report["assigned_routes"], 0)
-        self.assertTrue(any("discontinuity" in error for error in report["errors"]))
-        self.assertEqual(project.network.links["L_CENTER"].traffic_counts, {})
-        self.assertTrue(any("actually assigned 0.0" in warning for warning in report["warnings"]))
-
-    def test_assignment_requires_mode_when_multiple_sources_are_present(self):
-        project = build_project()
-        project.demand_model["route_split_coefficients"] = [
-            {
-                "id": "RS_WE",
-                "from": "B_WEST",
-                "to": "B_EAST",
-                "coefficient": 1.0,
-                "link_ids": ["L_W_IN", "L_CENTER"],
-            }
+    def test_route_path_validation_errors(self):
+        cases = [
+            ("disconnected", {"link_ids": ["L_CENTER", "L_W_IN"]}, "disconnected"),
+            ("origin", {"origin_node_id": "B_EAST"}, "expected origin B_EAST"),
+            ("destination", {"destination_node_id": "B_EAST", "link_ids": ["L_W_IN", "L_SOUTH"]}, "expected destination B_EAST"),
+            ("disabled", {"disabled_link": "L_CENTER"}, "disabled link"),
         ]
 
+        for _, override, expected in cases:
+            project = build_project(routes_model())
+            route = project.demand_model["routes"][0]
+            route.update({key: value for key, value in override.items() if key != "disabled_link"})
+            if "disabled_link" in override:
+                project.network.links[override["disabled_link"]].metadata["disabled"] = True
+
+            report = DemandAssignmentService().assign(project)
+
+            self.assertFalse(report["success"])
+            self.assertTrue(
+                any(expected in error for error in report["errors"]),
+                report["errors"],
+            )
+
+    def test_route_split_validation_errors_and_allow_unassigned_warning(self):
+        invalid_cases = [
+            (split_model(-0.1, 1.1), "cannot be negative"),
+            (split_model(0.7, 1.1), "greater than 1"),
+            (split_model(0.8, 0.5), "greater than 1"),
+            (split_model(0.7, 0.0), "less than 1"),
+        ]
+        for model, expected in invalid_cases:
+            project = build_project(model)
+            report = DemandAssignmentService().assign(project)
+            self.assertFalse(report["success"])
+            self.assertTrue(any(expected in error for error in report["errors"]), report["errors"])
+
+        project = build_project(split_model(0.7, 0.0, policy="allow_unassigned"))
         report = DemandAssignmentService().assign(project)
 
-        self.assertEqual(report["assigned_routes"], 0)
-        self.assertTrue(any("Ambiguous demand model" in error for error in report["errors"]))
+        self.assertTrue(report["success"])
+        self.assertTrue(any("less than 1" in warning for warning in report["warnings"]))
+        self.assertEqual(project.network.links["L_W_IN"].traffic_counts["car"], 840)
 
-    def test_assignment_rejects_origin_destination_mismatch_and_disabled_links(self):
-        project = build_project()
-        project.network.links["L_CENTER"].metadata["disabled"] = True
-        project.demand_model = {
-            "type": "routes",
-            "routes": [
-                {
-                    "id": "BAD",
-                    "origin_node_id": "B_WEST",
-                    "destination_node_id": "B_SOUTH",
-                    "demand_value": 100,
-                    "link_ids": ["L_CENTER"],
-                }
-            ],
-        }
-
-        report = DemandAssignmentService().assign(project)
-
-        self.assertEqual(report["assigned_routes"], 0)
-        self.assertTrue(any("disabled link" in error for error in report["errors"]))
-        self.assertTrue(any("expected origin B_WEST" in error for error in report["errors"]))
-        self.assertTrue(any("expected destination B_SOUTH" in error for error in report["errors"]))
-
-    def test_assignment_rejects_route_split_demand_override(self):
-        project = build_project()
-        project.demand_model = {
-            "type": "route_split_coefficients",
-            "boundary_flows": {"B_WEST": 1200},
-            "route_split_coefficients": [
-                {
-                    "id": "RS_BAD",
-                    "from": "B_WEST",
-                    "to": "B_EAST",
-                    "coefficient": 1.0,
-                    "demand_value": 1200,
-                    "link_ids": ["L_W_IN", "L_CENTER"],
-                }
-            ],
-        }
+    def test_route_split_rejects_embedded_demand_value(self):
+        model = split_model()
+        model["route_split_coefficients"][0]["demand_value"] = 840
+        project = build_project(model)
 
         report = DemandAssignmentService().assign(project)
 
-        self.assertEqual(report["assigned_routes"], 0)
-        self.assertTrue(any("do not set demand_value" in error for error in report["errors"]))
+        self.assertFalse(report["success"])
+        self.assertTrue(any("remove demand_value" in error for error in report["errors"]))
 
-    def test_assignment_propagates_node_turning_ratios(self):
-        project = build_project()
-        project.demand_model = {
-            "type": "node_turning_ratios",
-            "boundary_flows": {"B_WEST": 1200},
-            "node_turning_ratios": [
-                {
-                    "id": "T_EAST",
-                    "node_id": "I1",
-                    "from_link_id": "L_W_IN",
-                    "to_link_id": "L_CENTER",
-                    "share": 0.7,
-                },
-                {
-                    "id": "T_SOUTH",
-                    "node_id": "I1",
-                    "from_link_id": "L_W_IN",
-                    "to_link_id": "L_SOUTH",
-                    "share": 0.3,
-                },
-            ],
-        }
+    def test_pcu_unit_writes_pcu_counts_without_vehicle_type(self):
+        model = routes_model(unit="pcu/h")
+        model["routes"] = [model["routes"][0]]
+        model["routes"][0]["demand_value"] = 500
+        model["routes"][0]["vehicle_type"] = "car"
+        project = build_project(model)
 
         report = DemandAssignmentService().assign(project)
 
-        self.assertEqual(report["errors"], [])
-        self.assertEqual(report["demand_model_type"], "node_turning_ratios")
-        self.assertEqual(project.network.links["L_W_IN"].traffic_counts["car"], 1200)
-        self.assertEqual(project.network.links["L_CENTER"].traffic_counts["car"], 840)
-        self.assertEqual(project.network.links["L_SOUTH"].traffic_counts["car"], 360)
-        self.assertEqual(report["assigned_links"], 3)
+        self.assertTrue(report["success"])
+        self.assertEqual(project.network.links["L_W_IN"].traffic_counts, {"pcu": 500})
+        self.assertNotIn("car", project.network.links["L_W_IN"].traffic_counts)
 
-    def test_analysis_runs_assignment_before_link_analysis(self):
-        project = build_project()
+    def test_analysis_validation_failed_skips_link_analysis(self):
+        project = build_project(routes_model())
+        project.demand_model["routes"][0]["link_ids"] = ["MISSING"]
 
         report = AnalysisService().analyze_project(project)
 
-        self.assertEqual(report["Demand_Assignment"]["assigned_routes"], 2)
-        self.assertEqual(project.network.links["L_W_IN"].results["V"], 1200)
-        self.assertEqual(len(report["Demand_Routes_Analysis"]), 2)
-
-    def test_analysis_skips_link_analysis_when_assignment_fails(self):
-        project = build_project()
-        project.demand_model["route_split_coefficients"] = [
-            {
-                "id": "RS_WE",
-                "from": "B_WEST",
-                "to": "B_EAST",
-                "coefficient": 1.0,
-                "link_ids": ["L_W_IN", "L_CENTER"],
-            }
-        ]
-
-        report = AnalysisService().analyze_project(project)
-
-        self.assertIn("failed", report["Analysis_Status"])
+        self.assertEqual(report["Analysis_Status"], "Validation failed")
         self.assertEqual(report["Links_Analysis"], [])
-        self.assertEqual(project.network.links["L_W_IN"].results, {})
+        self.assertEqual(project.network.links["L_W_IN"].results, {"LOS": "OLD"})
 
-    def test_scenario_can_scale_route_demand(self):
-        project = build_project()
+    def test_analysis_assignment_failed_skips_link_analysis(self):
+        project = build_project(routes_model())
+        service = AnalysisService()
+        service.demand_assignment_service = FailingAssignmentService()
+
+        report = service.analyze_project(project)
+
+        self.assertEqual(report["Analysis_Status"], "Demand assignment failed")
+        self.assertEqual(report["Links_Analysis"], [])
+        self.assertEqual(project.network.links["L_W_IN"].results, {"LOS": "OLD"})
+
+    def test_analysis_successful_assignment_fills_link_and_demand_route_reports(self):
+        project = build_project(routes_model())
+
+        report = AnalysisService().analyze_project(project)
+
+        self.assertEqual(report["Analysis_Status"], "OK")
+        self.assertTrue(report["Links_Analysis"])
+        self.assertEqual(len(report["Demand_Routes_Analysis"]), 2)
+        self.assertEqual(project.network.links["L_W_IN"].results["V"], 1200)
+
+    def test_scenario_scales_routes_demand_value(self):
+        project = build_project(routes_model())
         scenario = Scenario(
             id="growth",
             name="Growth",
@@ -298,18 +288,32 @@ class DemandAssignmentServiceTest(unittest.TestCase):
         scenario_project = ScenarioService().apply_scenario(project, scenario)
 
         routes = scenario_project.demand_model["routes"]
-        self.assertEqual(routes[0]["demand_veh_h"], 960)
-        self.assertEqual(routes[1]["demand_veh_h"], 480)
-        self.assertEqual(scenario_project.demand_model["boundary_flows"]["B_WEST"], 1440)
+        self.assertEqual(routes[0]["demand_value"], 960)
+        self.assertEqual(routes[1]["demand_value"], 480)
 
-    def test_scenario_can_update_route_split_coefficient(self):
-        project = build_project()
-        project.demand_model = {
-            "route_split_coefficients": [{"id": "RS_WE", "coefficient": 0.7}],
-        }
+    def test_scenario_scales_boundary_flows_not_split_coefficients(self):
+        project = build_project(split_model())
         scenario = Scenario(
-            id="turn",
-            name="Turn",
+            id="growth",
+            name="Growth",
+            changes=[{"type": "scale_all_route_demand", "factor": 1.2}],
+        )
+
+        scenario_project = ScenarioService().apply_scenario(project, scenario)
+
+        self.assertEqual(scenario_project.demand_model["boundary_flows"]["B_WEST"], 1440)
+        coefficients = [
+            split["coefficient"]
+            for split in scenario_project.demand_model["route_split_coefficients"]
+        ]
+        self.assertEqual(coefficients, [0.7, 0.3])
+
+    def test_scenario_updates_route_split_coefficient_only(self):
+        project = build_project(split_model())
+        project.demand_model["route_split_coefficients"][0]["demand_value"] = 999
+        scenario = Scenario(
+            id="split",
+            name="Split",
             changes=[
                 {
                     "type": "update_route_split_coefficient",
@@ -321,56 +325,28 @@ class DemandAssignmentServiceTest(unittest.TestCase):
 
         scenario_project = ScenarioService().apply_scenario(project, scenario)
 
-        self.assertEqual(
-            scenario_project.demand_model["route_split_coefficients"][0]["coefficient"],
-            0.8,
+        split = scenario_project.demand_model["route_split_coefficients"][0]
+        self.assertEqual(split["coefficient"], 0.8)
+        self.assertEqual(split["demand_value"], 999)
+
+    def test_scenario_update_traffic_with_demand_model_adds_warning(self):
+        project = build_project(routes_model())
+        scenario = Scenario(
+            id="traffic",
+            name="Traffic",
+            changes=[
+                {
+                    "type": "update_traffic",
+                    "link_id": "L_W_IN",
+                    "traffic_counts": {"car": 123},
+                }
+            ],
         )
 
-    def test_validation_checks_demand_model(self):
-        project = build_project()
-        project.demand_model = {
-            "type": "route_split_coefficients",
-            "unit": "bad-unit",
-            "boundary_flows": {"B_WEST": -1},
-            "route_split_coefficients": [
-                {
-                    "id": "RS_BAD",
-                    "from": "B_WEST",
-                    "coefficient": -0.1,
-                    "demand_veh_h": 100,
-                    "link_ids": ["missing"],
-                }
-            ],
-        }
+        scenario_project = ScenarioService().apply_scenario(project, scenario)
 
-        errors = ValidationService().validate_project(project)
-
-        self.assertTrue(any("unit" in error for error in errors))
-        self.assertTrue(any("volume cannot be negative" in error for error in errors))
-        self.assertTrue(any("coefficient cannot be negative" in error for error in errors))
-        self.assertTrue(any("missing link" in error for error in errors))
-
-    def test_validation_checks_node_turning_ratios(self):
-        project = build_project()
-        project.demand_model = {
-            "type": "node_turning_ratios",
-            "boundary_flows": {"MISSING": 100},
-            "node_turning_ratios": [
-                {
-                    "id": "BAD_TURN",
-                    "node_id": "B_EAST",
-                    "from_link_id": "L_W_IN",
-                    "to_link_id": "L_SOUTH",
-                    "share": -0.2,
-                }
-            ],
-        }
-
-        errors = ValidationService().validate_project(project)
-
-        self.assertTrue(any("node is missing" in error for error in errors))
-        self.assertTrue(any("share cannot be negative" in error for error in errors))
-        self.assertTrue(any("node_id B_EAST does not match" in error for error in errors))
+        self.assertEqual(scenario_project.network.links["L_W_IN"].traffic_counts, {"car": 999})
+        self.assertTrue(scenario_project.metadata["scenario_warnings"])
 
 
 if __name__ == "__main__":

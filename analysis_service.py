@@ -3,28 +3,55 @@ from __future__ import annotations
 from demand_assignment_service import DemandAssignmentService
 from models import Link, Project
 from road_sections import Intersection, StraightRoad
+from validation_service import ValidationService
 
 
 class AnalysisService:
     def __init__(self) -> None:
+        self.validation_service = ValidationService()
         self.demand_assignment_service = DemandAssignmentService()
 
     def analyze_project(self, project: Project, assign_demand: bool = True) -> dict:
         assignment_report = {}
+
         if assign_demand and self._has_demand_model(project):
-            assignment_report = self.demand_assignment_service.assign(project)
-            if assignment_report.get("errors"):
+            validation_errors = self.validation_service.validate_project(project)
+            if validation_errors:
                 return {
                     "Project_Name": project.project_name,
-                    "Demand_Assignment": assignment_report,
-                    "Analysis_Status": "Demand assignment failed; link analysis skipped.",
+                    "Analysis_Status": "Validation failed",
                     "Links_Analysis": [],
                     "Routes_Analysis": [],
                     "Demand_Routes_Analysis": [],
+                    "Validation_Errors": validation_errors,
                 }
 
-        links_report = []
+            assignment_report = self.demand_assignment_service.assign(project)
+            if not assignment_report.get("success"):
+                return {
+                    "Project_Name": project.project_name,
+                    "Analysis_Status": "Demand assignment failed",
+                    "Links_Analysis": [],
+                    "Routes_Analysis": [],
+                    "Demand_Routes_Analysis": [],
+                    "Demand_Assignment": assignment_report,
+                }
 
+        links_report = self._analyze_links(project)
+        routes_report = self._analyze_visual_routes(project)
+        demand_routes_report = self._analyze_demand_routes(project, assignment_report)
+
+        return {
+            "Project_Name": project.project_name,
+            "Demand_Assignment": assignment_report,
+            "Analysis_Status": "OK",
+            "Links_Analysis": links_report,
+            "Routes_Analysis": routes_report,
+            "Demand_Routes_Analysis": demand_routes_report,
+        }
+
+    def _analyze_links(self, project: Project) -> list[dict]:
+        links_report = []
         for link in project.network.links.values():
             section = self._build_section(link, project.pcu_coefficients)
             if section is None:
@@ -41,16 +68,19 @@ class AnalysisService:
             }
 
             if optimization_result:
-                opt_data = {
-                    "Optimization_Proposal": optimization_result["proposal"],
-                    "C_optimized": round(optimization_result["C_new"], 0),
-                    "VC_optimized": round(optimization_result["vc_new"], 3),
-                    "LOS_optimized": optimization_result["los_new"],
-                }
-                link.results.update(opt_data)
+                link.results.update(
+                    {
+                        "Optimization_Proposal": optimization_result["proposal"],
+                        "C_optimized": round(optimization_result["C_new"], 0),
+                        "VC_optimized": round(optimization_result["vc_new"], 3),
+                        "LOS_optimized": optimization_result["los_new"],
+                    }
+                )
 
             links_report.append(link.results.copy())
+        return links_report
 
+    def _analyze_visual_routes(self, project: Project) -> list[dict]:
         routes_report = []
         for route in project.network.routes.values():
             route_report = self._analyze_route(
@@ -63,7 +93,13 @@ class AnalysisService:
                 continue
             route.results = route_report.copy()
             routes_report.append(route.results.copy())
+        return routes_report
 
+    def _analyze_demand_routes(
+        self,
+        project: Project,
+        assignment_report: dict,
+    ) -> list[dict]:
         demand_routes_report = []
         for route in assignment_report.get("routes", []):
             route_report = self._analyze_route(
@@ -84,15 +120,7 @@ class AnalysisService:
                 }
             )
             demand_routes_report.append(route_report)
-
-        return {
-            "Project_Name": project.project_name,
-            "Demand_Assignment": assignment_report,
-            "Analysis_Status": "OK",
-            "Links_Analysis": links_report,
-            "Routes_Analysis": routes_report,
-            "Demand_Routes_Analysis": demand_routes_report,
-        }
+        return demand_routes_report
 
     def _analyze_route(
         self,
@@ -112,7 +140,9 @@ class AnalysisService:
         total_length_km = sum(link.length_km for link in route_links)
         total_delay_sec = sum(link.results.get("Delay_sec", 0.0) for link in route_links)
         base_speed_kph = 60.0
-        base_travel_time_sec = (total_length_km / base_speed_kph) * 3600 if total_length_km else 0.0
+        base_travel_time_sec = (
+            (total_length_km / base_speed_kph) * 3600 if total_length_km else 0.0
+        )
         total_travel_time_sec = base_travel_time_sec + total_delay_sec
         avg_speed_kph = (
             total_length_km / (total_travel_time_sec / 3600)
@@ -138,18 +168,7 @@ class AnalysisService:
         }
 
     def _has_demand_model(self, project: Project) -> bool:
-        if project.demand_model.get("routes"):
-            return True
-        if project.demand_model.get("route_split_coefficients"):
-            return True
-        if project.demand_model.get("node_turning_ratios"):
-            return True
-        if project.demand_model.get("turning_coefficients"):
-            return True
-        return any(
-            (route.demand_value or route.demand_veh_h) > 0
-            for route in project.network.routes.values()
-        )
+        return bool(project.demand_model)
 
     def _build_section(self, link: Link, pcu_coeffs: dict[str, float]):
         params = link.parameters

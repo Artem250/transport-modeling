@@ -506,29 +506,37 @@ class MainWindow(QMainWindow):
             )
             if needs_analysis:
                 report = self.analysis_service.analyze_project(self.project)
-                assignment_report = report.get("Demand_Assignment", {})
-                for error in assignment_report.get("errors", []):
-                    print(f"Demand assignment error: {error}")
-                for warning in assignment_report.get("warnings", []):
-                    print(f"Demand assignment warning: {warning}")
+                self._show_demand_report_if_failed(report)
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
             self.project = None
 
+    def _show_demand_report_if_failed(self, report):
+        status = report.get("Analysis_Status")
+        if status not in {"Validation failed", "Demand assignment failed"}:
+            return
+
+        demand_model = self.project.demand_model or {}
+        assignment_report = report.get("Demand_Assignment", {})
+        errors = report.get("Validation_Errors", []) or assignment_report.get("errors", [])
+        warnings = assignment_report.get("warnings", [])
+        lines = [
+            f"demand_model.type: {demand_model.get('type')}",
+            f"status: {status}",
+            f"assigned_routes: {assignment_report.get('assigned_routes', 0)}",
+        ]
+        if errors:
+            lines.append("errors:")
+            lines.extend(f"- {error}" for error in errors)
+        if warnings:
+            lines.append("warnings:")
+            lines.extend(f"- {warning}" for warning in warnings)
+        QMessageBox.critical(self, "Demand assignment", "\n".join(lines))
+
     def _has_demand_model(self):
         if self.project is None:
             return False
-        demand_model = self.project.demand_model or {}
-        return (
-            bool(demand_model.get("routes"))
-            or bool(demand_model.get("route_split_coefficients"))
-            or bool(demand_model.get("node_turning_ratios"))
-            or bool(demand_model.get("turning_coefficients"))
-            or any(
-                (route.demand_value or route.demand_veh_h) > 0
-                for route in self.project.network.routes.values()
-            )
-        )
+        return bool(self.project.demand_model)
 
     def draw_map(self):
         self.scene.addItem(MapBackgroundItem(self.map_data))

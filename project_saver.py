@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
-from models import Project
+from models import Link, Project, Route
 
 
 class ProjectSaver:
@@ -11,7 +12,7 @@ class ProjectSaver:
         data = {
             "project_name": project.project_name,
             "pcu_coefficients": project.pcu_coefficients,
-            "demand_model": project.demand_model,
+            "demand_model": self._serialize_demand_model(project.demand_model),
             "metadata": project.metadata,
             "network": {
                 "nodes": [
@@ -35,29 +36,14 @@ class ProjectSaver:
                         "end_node_id": link.end_node_id,
                         "link_type": link.link_type,
                         "length_km": link.length_km,
-                        "traffic_counts": link.traffic_counts,
+                        "traffic_counts": self._serialize_link_traffic_counts(project, link),
                         "coords": link.coords,
                         "parameters": link.parameters,
-                        "results": link.results,
-                        "metadata": link.metadata,
+                        "metadata": self._serialize_link_metadata(link),
                     }
                     for link in project.network.links.values()
                 ],
-                "routes": [
-                    {
-                        "id": route.id,
-                        "name": route.name,
-                        "link_ids": route.link_ids,
-                        "origin_node_id": route.origin_node_id,
-                        "destination_node_id": route.destination_node_id,
-                        "demand_value": route.demand_value,
-                        "demand_veh_h": route.demand_veh_h,
-                        "vehicle_type": route.vehicle_type,
-                        "results": route.results,
-                        "metadata": route.metadata,
-                    }
-                    for route in project.network.routes.values()
-                ],
+                "routes": [self._serialize_route(route) for route in project.network.routes.values()],
             },
             "scenarios": [
                 {
@@ -74,3 +60,51 @@ class ProjectSaver:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
+    def _serialize_demand_model(self, demand_model: dict) -> dict:
+        serialized = deepcopy(demand_model or {})
+        for key in ("routes", "route_split_coefficients"):
+            if isinstance(serialized.get(key), list):
+                serialized[key] = [
+                    self._clean_runtime_fields(item) for item in serialized[key]
+                ]
+        return serialized
+
+    def _serialize_link_traffic_counts(self, project: Project, link: Link) -> dict:
+        if (
+            project.demand_model
+            and link.metadata.get("traffic_counts_source") == "assigned_demand"
+        ):
+            return dict(link.metadata.get("observed_traffic_counts", {}))
+        return dict(link.traffic_counts)
+
+    def _serialize_link_metadata(self, link: Link) -> dict:
+        metadata = dict(link.metadata)
+        if metadata.get("traffic_counts_source") == "assigned_demand":
+            metadata.pop("traffic_counts_source", None)
+            metadata.pop("observed_traffic_counts", None)
+        metadata.pop("source_traffic_counts", None)
+        return self._clean_runtime_fields(metadata)
+
+    def _serialize_route(self, route: Route) -> dict:
+        data = {
+            "id": route.id,
+            "name": route.name,
+            "link_ids": route.link_ids,
+            "origin_node_id": route.origin_node_id,
+            "destination_node_id": route.destination_node_id,
+            "demand_value": route.demand_value,
+            "vehicle_type": route.vehicle_type,
+            "metadata": self._clean_runtime_fields(route.metadata),
+        }
+        return data
+
+    def _clean_runtime_fields(self, item: dict) -> dict:
+        cleaned = dict(item)
+        for key in (
+            "assigned_link_ids",
+            "results",
+            "demand_veh_h",
+            "demand",
+        ):
+            cleaned.pop(key, None)
+        return cleaned

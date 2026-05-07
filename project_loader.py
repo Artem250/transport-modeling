@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 from models import Link, Network, Node, Project, Route, Scenario
@@ -32,7 +33,7 @@ class ProjectLoader:
         project = Project(
             project_name=data.get("project_name", "Unnamed Project"),
             pcu_coefficients=data.get("pcu_coefficients", {}),
-            demand_model=data.get("demand_model", {}),
+            demand_model=self._normalize_demand_model(data.get("demand_model", {})),
             metadata=data.get("metadata", {}),
         )
 
@@ -106,8 +107,7 @@ class ProjectLoader:
                     link_ids=route_data.get("link_ids", route_data.get("links", [])),
                     origin_node_id=route_data.get("origin_node_id", route_data.get("from")),
                     destination_node_id=route_data.get("destination_node_id", route_data.get("to")),
-                    demand_value=route_data.get("demand_value"),
-                    demand_veh_h=route_data.get("demand_veh_h", route_data.get("demand", 0.0)),
+                    demand_value=self._route_demand_value(route_data),
                     vehicle_type=route_data.get("vehicle_type", "car"),
                     results=route_data.get("results", {}),
                     metadata=route_data.get("metadata", {}),
@@ -162,8 +162,7 @@ class ProjectLoader:
                     link_ids=item.get("link_ids", item.get("links", [])),
                     origin_node_id=item.get("origin_node_id", item.get("from")),
                     destination_node_id=item.get("destination_node_id", item.get("to")),
-                    demand_value=item.get("demand_value"),
-                    demand_veh_h=item.get("demand_veh_h", item.get("demand", 0.0)),
+                    demand_value=self._route_demand_value(item),
                     vehicle_type=item.get("vehicle_type", "car"),
                     results=item.get("results", {}),
                     metadata=item.get("metadata", {}),
@@ -282,3 +281,28 @@ class ProjectLoader:
 
     def _looks_like_coordinate_node_id(self, value: str) -> bool:
         return value.startswith("N_") and "_" in value[2:]
+
+    def _normalize_demand_model(self, demand_model: dict) -> dict:
+        normalized = deepcopy(demand_model or {})
+        routes = normalized.get("routes")
+        if isinstance(routes, list):
+            normalized["routes"] = [self._normalize_demand_route(route) for route in routes]
+        return normalized
+
+    def _normalize_demand_route(self, route: dict) -> dict:
+        normalized = dict(route)
+        demand_value = self._route_demand_value(normalized)
+        if demand_value is not None:
+            normalized["demand_value"] = demand_value
+        normalized.pop("demand_veh_h", None)
+        normalized.pop("demand", None)
+        normalized.pop("assigned_link_ids", None)
+        normalized.pop("results", None)
+        return normalized
+
+    def _route_demand_value(self, route: dict):
+        if route.get("demand_value") is not None:
+            return route.get("demand_value")
+        if route.get("demand_veh_h") is not None:
+            return route.get("demand_veh_h")
+        return route.get("demand")

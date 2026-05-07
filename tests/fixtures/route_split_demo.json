@@ -1,0 +1,74 @@
+{
+  "project_name": "Route split demo",
+  "pcu_coefficients": {
+    "car": 1.0
+  },
+  "demand_model": {
+    "type": "route_split_coefficients",
+    "unit": "veh/h",
+    "boundary_flows": {
+      "B_WEST": 1200
+    },
+    "route_split_coefficients": [
+      {
+        "id": "RS_WEST_EAST",
+        "from": "B_WEST",
+        "to": "B_EAST",
+        "coefficient": 0.7,
+        "vehicle_type": "car",
+        "link_ids": ["L_W_IN", "L_CENTER"]
+      },
+      {
+        "id": "RS_WEST_SOUTH",
+        "from": "B_WEST",
+        "to": "B_SOUTH",
+        "coefficient": 0.3,
+        "vehicle_type": "car",
+        "link_ids": ["L_W_IN", "L_SOUTH"]
+      }
+    ]
+  },
+  "metadata": {},
+  "network": {
+    "nodes": [
+      {"id": "B_WEST", "name": "B_WEST"},
+      {"id": "I1", "name": "I1"},
+      {"id": "B_EAST", "name": "B_EAST"},
+      {"id": "B_SOUTH", "name": "B_SOUTH"}
+    ],
+    "links": [
+      {
+        "id": "L_W_IN",
+        "name": "West input",
+        "start_node_id": "B_WEST",
+        "end_node_id": "I1",
+        "link_type": "straight",
+        "length_km": 0.4,
+        "traffic_counts": {},
+        "parameters": {"lanes_total": 2, "capacity_per_lane_base": 1800}
+      },
+      {
+        "id": "L_CENTER",
+        "name": "Center",
+        "start_node_id": "I1",
+        "end_node_id": "B_EAST",
+        "link_type": "straight",
+        "length_km": 0.7,
+        "traffic_counts": {},
+        "parameters": {"lanes_total": 2, "capacity_per_lane_base": 1800}
+      },
+      {
+        "id": "L_SOUTH",
+        "name": "South",
+        "start_node_id": "I1",
+        "end_node_id": "B_SOUTH",
+        "link_type": "straight",
+        "length_km": 0.5,
+        "traffic_counts": {},
+        "parameters": {"lanes_total": 1, "capacity_per_lane_base": 1500}
+      }
+    ],
+    "routes": []
+  },
+  "scenarios": []
+}

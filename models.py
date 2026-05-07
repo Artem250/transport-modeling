@@ -39,7 +39,6 @@ class Route:
     origin_node_id: str | None = None
     destination_node_id: str | None = None
     demand_value: float | None = None
-    demand_veh_h: float = 0.0
     vehicle_type: str = "car"
     results: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
