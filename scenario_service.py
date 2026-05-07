@@ -79,11 +79,10 @@ class ScenarioService:
                 demand_route["demand_value"] = demand
                 return
 
-        route = project.network.routes.get(route_id)
-        if route is not None:
-            route.demand_value = demand
-            return
-        self._warn(project, f"Scenario change update_route_demand ignored: route_id {route_id} not found.")
+        self._warn(
+            project,
+            f"Scenario change update_route_demand ignored: demand_model route_id {route_id} not found.",
+        )
 
     def _scale_all_route_demand(self, project: Project, change: dict) -> None:
         factor = self._float_value(project, change.get("factor", 1.0), "scale_all_route_demand factor")
@@ -107,11 +106,10 @@ class ScenarioService:
                     boundary_flows[boundary_id] = numeric_volume * factor
             return
 
-        for route in project.network.routes.values():
-            if route.demand_value is not None:
-                demand = self._float_value(project, route.demand_value, f"network route {route.id} demand_value")
-                if demand is not None:
-                    route.demand_value = demand * factor
+        self._warn(
+            project,
+            "Scenario change scale_all_route_demand ignored: project has no supported demand_model.",
+        )
 
     def _update_boundary_flow(self, project: Project, change: dict) -> None:
         boundary_id = change.get("boundary_id")
@@ -161,11 +159,10 @@ class ScenarioService:
                 split["link_ids"] = new_link_ids
                 return
 
-        route = project.network.routes.get(route_id)
-        if route is not None:
-            route.link_ids = new_link_ids
-            return
-        self._warn(project, f"Scenario change reroute ignored: route_id {route_id} not found.")
+        self._warn(
+            project,
+            f"Scenario change reroute ignored: demand_model route/split id {route_id} not found.",
+        )
 
     def _float_value(self, project: Project, value: Any, label: str) -> float | None:
         try:
