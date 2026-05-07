@@ -91,6 +91,8 @@ class AnalysisService:
     def _has_demand_model(self, project: Project) -> bool:
         if project.demand_model.get("routes"):
             return True
+        if project.demand_model.get("route_split_coefficients"):
+            return True
         if project.demand_model.get("turning_coefficients"):
             return True
         return any(route.demand_veh_h > 0 for route in project.network.routes.values())

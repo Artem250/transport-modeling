@@ -1,21 +1,22 @@
 {
-  "project_name": "Demand assignment demo: map1.osm",
+  "project_name": "Демо распределения потока: map1.osm",
   "pcu_coefficients": {
     "car": 1,
     "truck": 2.5,
     "bus": 2
   },
   "demand_model": {
-    "type": "turning_coefficients",
+    "type": "route_split_coefficients",
+    "unit": "veh/h",
     "time_period": "demo_peak_hour",
-    "notes": "???????? ?????: traffic_counts ?? links ???????, ????? ????????? ????????????? ??? boundary_flow * turning coefficient.",
+    "notes": "Тестовая копия: входный поток распределяется по заранее заданным маршрутам через коэффициенты разбиения.",
     "boundary_flows": {
       "OSM_277921413": 7800
     },
-    "turning_coefficients": [
+    "route_split_coefficients": [
       {
-        "id": "TC_WEST_NORTH",
-        "name": "?????????? ???????????: ????? -> ?????",
+        "id": "RS_WEST_NORTH",
+        "name": "Доля потока: запад -> север",
         "from": "OSM_277921413",
         "to": "OSM_738545049",
         "coefficient": 0.5512820512820513,
@@ -35,8 +36,8 @@
         ]
       },
       {
-        "id": "TC_WEST_EAST",
-        "name": "?????????? ???????????: ????? -> ??????",
+        "id": "RS_WEST_EAST",
+        "name": "Доля потока: запад -> восток",
         "from": "OSM_277921413",
         "to": "OSM_277921423",
         "coefficient": 0.44871794871794873,
@@ -61,6 +62,7 @@
     "path": "map1.osm",
     "demand_demo_source": "osm_network_project_map1.json",
     "demand_demo_expected": {
+      "source_model": "boundary_flows * route_split_coefficients",
       "shared_links": [
         "L14",
         "L15",
@@ -84,10 +86,9 @@
         "L13"
       ],
       "east_only_volume_car": 3500,
-      "source_model": "boundary_flows * turning_coefficients",
-      "turning_coefficients": {
-        "TC_WEST_NORTH": 0.5512820512820513,
-        "TC_WEST_EAST": 0.44871794871794873
+      "route_split_coefficients": {
+        "RS_WEST_NORTH": 0.5512820512820513,
+        "RS_WEST_EAST": 0.44871794871794873
       }
     }
   },
@@ -282,7 +283,7 @@
         "x": null,
         "y": null,
         "node_type": "boundary",
-        "name": "???????: ????????? ?????",
+        "name": "Граница: восточный выход",
         "metadata": {
           "source": "osm",
           "osm_id": "277921423"
@@ -295,7 +296,7 @@
         "x": null,
         "y": null,
         "node_type": "boundary",
-        "name": "???????: ???????? ????",
+        "name": "Граница: западный вход",
         "metadata": {
           "source": "osm",
           "osm_id": "277921413"
@@ -425,7 +426,7 @@
         "x": null,
         "y": null,
         "node_type": "boundary",
-        "name": "???????: ???????? ?????",
+        "name": "Граница: северный выход",
         "metadata": {
           "source": "osm",
           "osm_id": "738545049"
@@ -10233,8 +10234,8 @@
   "scenarios": [
     {
       "id": "demo_growth_20",
-      "name": "????: ???? ????????? ?????? ?? 20%",
-      "description": "???????????? boundary_flows; ????? ?? ???????????? ??????????????? ????? ?????????? ????????????.",
+      "name": "Демо: рост входного потока на 20%",
+      "description": "Масштабирует boundary_flows; спрос по направлениям пересчитывается через коэффициенты разбиения.",
       "changes": [
         {
           "type": "scale_all_route_demand",
@@ -10243,18 +10244,18 @@
       ]
     },
     {
-      "id": "demo_more_east_turns",
-      "name": "????: ?????? ?????? ?? ??????",
-      "description": "?????? ?????????? ???????????? ????????? ?????: ????? 45%, ?????? 55%.",
+      "id": "demo_more_east_split",
+      "name": "Демо: больше потока на восток",
+      "description": "Меняет доли западного входа: север 45%, восток 55%.",
       "changes": [
         {
-          "type": "update_turning_coefficient",
-          "movement_id": "TC_WEST_NORTH",
+          "type": "update_route_split_coefficient",
+          "movement_id": "RS_WEST_NORTH",
           "coefficient": 0.45
         },
         {
-          "type": "update_turning_coefficient",
-          "movement_id": "TC_WEST_EAST",
+          "type": "update_route_split_coefficient",
+          "movement_id": "RS_WEST_EAST",
           "coefficient": 0.55
         }
       ]

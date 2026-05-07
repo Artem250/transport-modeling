@@ -109,20 +109,21 @@ class DemandAssignmentServiceTest(unittest.TestCase):
         self.assertEqual(project.network.links["AB"].traffic_counts["car"], 500)
         self.assertEqual(project.network.links["BC"].traffic_counts["car"], 500)
 
-    def test_assign_calculates_demand_from_turning_coefficients(self):
+    def test_assign_calculates_demand_from_route_split_coefficients(self):
         project = build_project()
         project.demand_model = {
+            "type": "route_split_coefficients",
             "boundary_flows": {"B_WEST": 1200},
-            "turning_coefficients": [
+            "route_split_coefficients": [
                 {
-                    "id": "TC_WE",
+                    "id": "RS_WE",
                     "from": "B_WEST",
                     "to": "B_EAST",
                     "coefficient": 0.7,
                     "link_ids": ["L_W_IN", "L_CENTER"],
                 },
                 {
-                    "id": "TC_WS",
+                    "id": "RS_WS",
                     "from": "B_WEST",
                     "to": "B_SOUTH",
                     "coefficient": 0.3,
@@ -137,6 +138,42 @@ class DemandAssignmentServiceTest(unittest.TestCase):
         self.assertEqual(project.network.links["L_W_IN"].traffic_counts["car"], 1200)
         self.assertEqual(project.network.links["L_CENTER"].traffic_counts["car"], 840)
         self.assertEqual(project.network.links["L_SOUTH"].traffic_counts["car"], 360)
+
+    def test_assignment_rejects_disconnected_route_links(self):
+        project = build_project()
+        project.demand_model = {
+            "type": "routes",
+            "routes": [
+                {
+                    "id": "BAD",
+                    "demand_veh_h": 100,
+                    "link_ids": ["L_CENTER", "L_W_IN"],
+                }
+            ],
+        }
+
+        report = DemandAssignmentService().assign(project)
+
+        self.assertEqual(report["assigned_routes"], 0)
+        self.assertTrue(any("discontinuity" in warning for warning in report["warnings"]))
+        self.assertEqual(project.network.links["L_CENTER"].traffic_counts, {})
+
+    def test_assignment_requires_mode_when_multiple_sources_are_present(self):
+        project = build_project()
+        project.demand_model["route_split_coefficients"] = [
+            {
+                "id": "RS_WE",
+                "from": "B_WEST",
+                "to": "B_EAST",
+                "coefficient": 1.0,
+                "link_ids": ["L_W_IN", "L_CENTER"],
+            }
+        ]
+
+        report = DemandAssignmentService().assign(project)
+
+        self.assertEqual(report["assigned_routes"], 0)
+        self.assertTrue(any("Ambiguous demand model" in warning for warning in report["warnings"]))
 
     def test_analysis_runs_assignment_before_link_analysis(self):
         project = build_project()
@@ -161,18 +198,18 @@ class DemandAssignmentServiceTest(unittest.TestCase):
         self.assertEqual(routes[1]["demand_veh_h"], 480)
         self.assertEqual(scenario_project.demand_model["boundary_flows"]["B_WEST"], 1440)
 
-    def test_scenario_can_update_turning_coefficient(self):
+    def test_scenario_can_update_route_split_coefficient(self):
         project = build_project()
         project.demand_model = {
-            "turning_coefficients": [{"id": "TC_WE", "coefficient": 0.7}],
+            "route_split_coefficients": [{"id": "RS_WE", "coefficient": 0.7}],
         }
         scenario = Scenario(
             id="turn",
             name="Turn",
             changes=[
                 {
-                    "type": "update_turning_coefficient",
-                    "movement_id": "TC_WE",
+                    "type": "update_route_split_coefficient",
+                    "movement_id": "RS_WE",
                     "coefficient": 0.8,
                 }
             ],
@@ -181,7 +218,7 @@ class DemandAssignmentServiceTest(unittest.TestCase):
         scenario_project = ScenarioService().apply_scenario(project, scenario)
 
         self.assertEqual(
-            scenario_project.demand_model["turning_coefficients"][0]["coefficient"],
+            scenario_project.demand_model["route_split_coefficients"][0]["coefficient"],
             0.8,
         )
 

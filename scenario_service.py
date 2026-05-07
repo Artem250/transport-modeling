@@ -6,6 +6,9 @@ from models import Project, Scenario
 
 
 class ScenarioService:
+    ROUTE_SPLIT_COEFFICIENTS = "route_split_coefficients"
+    LEGACY_TURNING_COEFFICIENTS = "turning_coefficients"
+
     def apply_scenario(self, project: Project, scenario: Scenario) -> Project:
         scenario_project = deepcopy(project)
         for change in scenario.changes:
@@ -18,6 +21,11 @@ class ScenarioService:
         link = project.network.links.get(link_id) if link_id else None
 
         if change_type == "update_traffic" and link is not None:
+            if project.demand_model:
+                link.metadata.setdefault("observed_traffic_counts", {}).update(
+                    change.get("traffic_counts", {})
+                )
+                return
             link.traffic_counts.update(change.get("traffic_counts", {}))
             return
 
@@ -61,7 +69,7 @@ class ScenarioService:
             for boundary_id, volume in project.demand_model.get("boundary_flows", {}).items():
                 project.demand_model["boundary_flows"][boundary_id] = volume * factor
 
-            for movement in project.demand_model.get("turning_coefficients", []):
+            for movement in self._iter_route_splits(project):
                 if "demand_veh_h" in movement:
                     movement["demand_veh_h"] *= factor
                 if "base_volume_veh_h" in movement:
@@ -88,10 +96,14 @@ class ScenarioService:
                 project.demand_model.setdefault("boundary_flows", {})[boundary_id] = volume
             return
 
-        if change_type == "update_turning_coefficient":
+        if change_type in {"update_route_split_coefficient", "update_turning_coefficient"}:
             movement_id = change.get("movement_id")
             coefficient = change.get("coefficient", change.get("share", change.get("turn_ratio")))
-            for movement in project.demand_model.get("turning_coefficients", []):
+            for movement in self._iter_route_splits(project):
                 if movement.get("id") == movement_id and coefficient is not None:
                     movement["coefficient"] = coefficient
                     return
+
+    def _iter_route_splits(self, project: Project):
+        yield from project.demand_model.get(self.ROUTE_SPLIT_COEFFICIENTS, [])
+        yield from project.demand_model.get(self.LEGACY_TURNING_COEFFICIENTS, [])

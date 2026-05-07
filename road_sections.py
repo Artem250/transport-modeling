@@ -88,9 +88,9 @@ class StraightRoad(RoadSection):
         f_g = 1.0 - (self.G / 100.0)
         f_HV = 1.0 / (1.0 + self.P_HV * (2.0 - 1))
         f_p = 0.95 if self.P_exist else 1.0
-        effective_lanes = self.lanes_total - self.lanes_bus
+        effective_lanes = max(0, self.lanes_total - self.lanes_bus)
         # Пропускная способность = Полосы * База * Коэффициенты
-        self.C = effective_lanes * self.capacity_base_per_lane *  f_HV
+        self.C = effective_lanes * self.capacity_base_per_lane * f_w * f_g * f_HV * f_p
 
         self.analysis_data.update({
             'f_w': round(f_w, 3), 'f_g': round(f_g, 3), 'f_HV': round(f_HV, 3), 'f_p': round(f_p, 3),
@@ -99,6 +99,13 @@ class StraightRoad(RoadSection):
 
     def optimize(self):
         if self.vc_ratio <= TARGET_LOS_VC: return None
+        if self.C <= 0:
+            return {
+                'proposal': "CRITICAL: capacity is zero; check closure, lanes, or base capacity.",
+                'C_new': self.C,
+                'vc_new': self.vc_ratio,
+                'los_new': self.los
+            }
 
         # РАСЧЕТ ИЗ ОРИГИНАЛА: Сколько полос нужно добавить?
         required_C = self.V / TARGET_LOS_VC

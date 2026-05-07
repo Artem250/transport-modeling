@@ -9,6 +9,7 @@ class ValidationService:
         network = project.network
         has_demand_model = (
             bool(project.demand_model.get("routes"))
+            or bool(project.demand_model.get("route_split_coefficients"))
             or bool(project.demand_model.get("turning_coefficients"))
             or any(route.demand_veh_h > 0 for route in network.routes.values())
         )

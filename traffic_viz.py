@@ -501,12 +501,25 @@ class MainWindow(QMainWindow):
     def load_project_data(self, path):
         try:
             self.project = self.loader.load(path)
-            needs_analysis = any(not link.results for link in self.project.network.links.values())
+            needs_analysis = self._has_demand_model() or any(
+                not link.results for link in self.project.network.links.values()
+            )
             if needs_analysis:
                 self.analysis_service.analyze_project(self.project)
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
             self.project = None
+
+    def _has_demand_model(self):
+        if self.project is None:
+            return False
+        demand_model = self.project.demand_model or {}
+        return (
+            bool(demand_model.get("routes"))
+            or bool(demand_model.get("route_split_coefficients"))
+            or bool(demand_model.get("turning_coefficients"))
+            or any(route.demand_veh_h > 0 for route in self.project.network.routes.values())
+        )
 
     def draw_map(self):
         self.scene.addItem(MapBackgroundItem(self.map_data))
