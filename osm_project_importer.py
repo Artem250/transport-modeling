@@ -11,7 +11,7 @@ from typing import Any
 from models import Link, Network, Node, Project
 
 
-ALLOWED_HIGHWAYS = {"primary", "secondary", "tertiary", "residential"}
+ALLOWED_HIGHWAYS = {"primary", "secondary", "tertiary", "trunk"} #, "residential"}
 ANGLE_TOLERANCE_DEG = 3.0
 DISTANCE_TOLERANCE_M = 1.5
 EARTH_RADIUS_M = 6371008.8
@@ -572,9 +572,9 @@ def _text_value(value: Any, default: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Import OSM XML into osm_network_project.json.")
-    parser.add_argument("--input", default="map.osm", help="Input OSM XML file.")
-    parser.add_argument("--output", default="osm_network_project.json", help="Output project JSON file.")
+    parser = argparse.ArgumentParser(description="Import OSM XML into osm_network_project_map_nstu.json.")
+    parser.add_argument("--input", default="map_nstu.osm", help="Input OSM XML file.")
+    parser.add_argument("--output", default="osm_network_project_map_nstu.json", help="Output project JSON file.")
     parser.add_argument("--intensity", type=int, default=600, help="Default car intensity per link.")
     args = parser.parse_args(argv)
 

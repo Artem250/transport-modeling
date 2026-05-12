@@ -5,10 +5,150 @@
     "truck": 2.5,
     "bus": 2.0
   },
-  "demand_model": {},
+  "demand_model": {
+    "type": "route_split_coefficients",
+    "unit": "veh/h",
+    "description": "Auto-generated draft: boundary flows are placeholders, route split coefficients are uniform over shortest paths. Replace them with observed/SKDF/scenario values.",
+    "boundary_flows": {
+      "OSM_10538395818": 1200.0,
+      "OSM_277921413": 1200.0
+    },
+    "route_split_coefficients": [
+      {
+        "id": "RS_OSM_10538395818_OSM_3153238055",
+        "from": "OSM_10538395818",
+        "to": "OSM_3153238055",
+        "coefficient": 1.0,
+        "vehicle_type": "car",
+        "link_ids": [
+          "L179",
+          "L180",
+          "L181",
+          "L182",
+          "L183",
+          "L184",
+          "L185",
+          "L186",
+          "L187",
+          "L188",
+          "L189",
+          "L190",
+          "L147",
+          "L148"
+        ]
+      },
+      {
+        "id": "RS_OSM_277921413_OSM_277646090",
+        "from": "OSM_277921413",
+        "to": "OSM_277646090",
+        "coefficient": 0.5,
+        "vehicle_type": "car",
+        "link_ids": [
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19",
+          "L20",
+          "L21",
+          "L22",
+          "L23",
+          "L24",
+          "L52",
+          "L53",
+          "L113",
+          "L114",
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L120",
+          "L121",
+          "L122",
+          "L67",
+          "L68",
+          "L69",
+          "L9",
+          "L10"
+        ]
+      },
+      {
+        "id": "RS_OSM_277921413_OSM_3153238055",
+        "from": "OSM_277921413",
+        "to": "OSM_3153238055",
+        "coefficient": 0.5,
+        "vehicle_type": "car",
+        "link_ids": [
+          "L14",
+          "L15",
+          "L16",
+          "L17",
+          "L18",
+          "L19",
+          "L20",
+          "L21",
+          "L22",
+          "L23",
+          "L24",
+          "L52",
+          "L53",
+          "L113",
+          "L114",
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L120",
+          "L121",
+          "L122",
+          "L123",
+          "L124",
+          "L125",
+          "L126",
+          "L111",
+          "L112",
+          "L54",
+          "L55",
+          "L56",
+          "L57",
+          "L166",
+          "L164",
+          "L42",
+          "L132",
+          "L88",
+          "L87",
+          "L189",
+          "L190",
+          "L147",
+          "L148"
+        ]
+      }
+    ],
+    "metadata": {
+      "generated_by": "DemandModelWizard",
+      "boundary_margin_percent": 7,
+      "max_destinations_per_origin": 4,
+      "include_residential_boundaries": false,
+      "boundary_nodes": [
+        "OSM_10538395818",
+        "OSM_277646090",
+        "OSM_277921413",
+        "OSM_3153238055"
+      ],
+      "exit_only_boundary_nodes": [
+        "OSM_277646090",
+        "OSM_3153238055"
+      ]
+    }
+  },
   "metadata": {
     "source": "osm_xml",
-    "path": "map1.osm"
+    "path": "map1.osm",
+    "demand_model_notes": [
+      "Auto-generated demand model is a draft. Boundary flows and split coefficients are placeholders.",
+      "Auto-generated demand model is a draft. Boundary flows and split coefficients are placeholders."
+    ]
   },
   "network": {
     "nodes": [
@@ -22,7 +162,13 @@
         "name": "OSM_277646061",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646061"
+          "osm_id": "277646061",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -31,11 +177,17 @@
         "lat": 55.045858,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787999",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787999"
+          "osm_id": "11380787999",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -44,11 +196,17 @@
         "lat": 55.045885,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544906",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544906"
+          "osm_id": "738544906",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -57,11 +215,17 @@
         "lat": 55.045922,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787998",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787998"
+          "osm_id": "11380787998",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -74,7 +238,13 @@
         "name": "OSM_277646075",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646075"
+          "osm_id": "277646075",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -87,7 +257,14 @@
         "name": "OSM_277646089",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646089"
+          "osm_id": "277646089",
+          "in_degree": 2,
+          "out_degree": 2,
+          "degree": 4,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -96,11 +273,17 @@
         "lat": 55.045502,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1183457236",
         "metadata": {
           "source": "osm",
-          "osm_id": "1183457236"
+          "osm_id": "1183457236",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -109,11 +292,17 @@
         "lat": 55.045514,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_5684588964",
         "metadata": {
           "source": "osm",
-          "osm_id": "5684588964"
+          "osm_id": "5684588964",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -122,11 +311,17 @@
         "lat": 55.045502,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_277918785",
         "metadata": {
           "source": "osm",
-          "osm_id": "277918785"
+          "osm_id": "277918785",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -135,11 +330,18 @@
         "lat": 55.048218,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_3975209385",
         "metadata": {
           "source": "osm",
-          "osm_id": "3975209385"
+          "osm_id": "3975209385",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -148,11 +350,18 @@
         "lat": 55.04826,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "boundary",
         "name": "OSM_277646090",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646090"
+          "osm_id": "277646090",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "secondary"
+          ],
+          "boundary_candidate": true
         }
       },
       {
@@ -165,7 +374,14 @@
         "name": "OSM_277921416",
         "metadata": {
           "source": "osm",
-          "osm_id": "277921416"
+          "osm_id": "277921416",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "residential",
+            "tertiary"
+          ]
         }
       },
       {
@@ -174,11 +390,17 @@
         "lat": 55.04288,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1347056560",
         "metadata": {
           "source": "osm",
-          "osm_id": "1347056560"
+          "osm_id": "1347056560",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -187,11 +409,17 @@
         "lat": 55.040998,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1347628144",
         "metadata": {
           "source": "osm",
-          "osm_id": "1347628144"
+          "osm_id": "1347628144",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -200,11 +428,17 @@
         "lat": 55.040742,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_277921423",
         "metadata": {
           "source": "osm",
-          "osm_id": "277921423"
+          "osm_id": "277921423",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -213,11 +447,18 @@
         "lat": 55.041312,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "boundary",
         "name": "OSM_277921413",
         "metadata": {
           "source": "osm",
-          "osm_id": "277921413"
+          "osm_id": "277921413",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "tertiary"
+          ],
+          "boundary_candidate": true
         }
       },
       {
@@ -226,11 +467,18 @@
         "lat": 55.041541,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_1347056487",
         "metadata": {
           "source": "osm",
-          "osm_id": "1347056487"
+          "osm_id": "1347056487",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -239,11 +487,17 @@
         "lat": 55.04232,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_277921414",
         "metadata": {
           "source": "osm",
-          "osm_id": "277921414"
+          "osm_id": "277921414",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -252,11 +506,17 @@
         "lat": 55.042449,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_6454354186",
         "metadata": {
           "source": "osm",
-          "osm_id": "6454354186"
+          "osm_id": "6454354186",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -265,11 +525,17 @@
         "lat": 55.04276,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_688224260",
         "metadata": {
           "source": "osm",
-          "osm_id": "688224260"
+          "osm_id": "688224260",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -278,11 +544,17 @@
         "lat": 55.043127,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_6454354103",
         "metadata": {
           "source": "osm",
-          "osm_id": "6454354103"
+          "osm_id": "6454354103",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -291,11 +563,17 @@
         "lat": 55.043443,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_277921415",
         "metadata": {
           "source": "osm",
-          "osm_id": "277921415"
+          "osm_id": "277921415",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -304,11 +582,17 @@
         "lat": 55.044108,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_847787189",
         "metadata": {
           "source": "osm",
-          "osm_id": "847787189"
+          "osm_id": "847787189",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -317,11 +601,17 @@
         "lat": 55.044279,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1347628697",
         "metadata": {
           "source": "osm",
-          "osm_id": "1347628697"
+          "osm_id": "1347628697",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -330,11 +620,17 @@
         "lat": 55.045835,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1347628836",
         "metadata": {
           "source": "osm",
-          "osm_id": "1347628836"
+          "osm_id": "1347628836",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -347,7 +643,13 @@
         "name": "OSM_738545049",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545049"
+          "osm_id": "738545049",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -360,7 +662,14 @@
         "name": "OSM_666164357",
         "metadata": {
           "source": "osm",
-          "osm_id": "666164357"
+          "osm_id": "666164357",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -369,11 +678,17 @@
         "lat": 55.048346,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1004182553",
         "metadata": {
           "source": "osm",
-          "osm_id": "1004182553"
+          "osm_id": "1004182553",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -382,11 +697,17 @@
         "lat": 55.048365,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1755703400",
         "metadata": {
           "source": "osm",
-          "osm_id": "1755703400"
+          "osm_id": "1755703400",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -395,11 +716,17 @@
         "lat": 55.049479,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_411335529",
         "metadata": {
           "source": "osm",
-          "osm_id": "411335529"
+          "osm_id": "411335529",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -412,7 +739,14 @@
         "name": "OSM_666164346",
         "metadata": {
           "source": "osm",
-          "osm_id": "666164346"
+          "osm_id": "666164346",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -421,11 +755,17 @@
         "lat": 55.052097,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_414634144",
         "metadata": {
           "source": "osm",
-          "osm_id": "414634144"
+          "osm_id": "414634144",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -434,11 +774,17 @@
         "lat": 55.052218,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4391371652",
         "metadata": {
           "source": "osm",
-          "osm_id": "4391371652"
+          "osm_id": "4391371652",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -447,11 +793,17 @@
         "lat": 55.052425,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_6766976710",
         "metadata": {
           "source": "osm",
-          "osm_id": "6766976710"
+          "osm_id": "6766976710",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -460,11 +812,17 @@
         "lat": 55.052653,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_414634145",
         "metadata": {
           "source": "osm",
-          "osm_id": "414634145"
+          "osm_id": "414634145",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -473,11 +831,17 @@
         "lat": 55.053109,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_414634147",
         "metadata": {
           "source": "osm",
-          "osm_id": "414634147"
+          "osm_id": "414634147",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -486,11 +850,17 @@
         "lat": 55.04486,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_10537331965",
         "metadata": {
           "source": "osm",
-          "osm_id": "10537331965"
+          "osm_id": "10537331965",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -499,11 +869,17 @@
         "lat": 55.04727,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1884879867",
         "metadata": {
           "source": "osm",
-          "osm_id": "1884879867"
+          "osm_id": "1884879867",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -512,11 +888,17 @@
         "lat": 55.048,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_664110702",
         "metadata": {
           "source": "osm",
-          "osm_id": "664110702"
+          "osm_id": "664110702",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -529,7 +911,14 @@
         "name": "OSM_10538395826",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395826"
+          "osm_id": "10538395826",
+          "in_degree": 2,
+          "out_degree": 2,
+          "degree": 4,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -538,11 +927,17 @@
         "lat": 55.049217,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_664110715",
         "metadata": {
           "source": "osm",
-          "osm_id": "664110715"
+          "osm_id": "664110715",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -555,7 +950,14 @@
         "name": "OSM_664110995",
         "metadata": {
           "source": "osm",
-          "osm_id": "664110995"
+          "osm_id": "664110995",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -564,11 +966,17 @@
         "lat": 55.052101,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_4784305623",
         "metadata": {
           "source": "osm",
-          "osm_id": "4784305623"
+          "osm_id": "4784305623",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -577,11 +985,17 @@
         "lat": 55.05214,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1368185169",
         "metadata": {
           "source": "osm",
-          "osm_id": "1368185169"
+          "osm_id": "1368185169",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -594,7 +1008,14 @@
         "name": "OSM_664110735",
         "metadata": {
           "source": "osm",
-          "osm_id": "664110735"
+          "osm_id": "664110735",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -603,11 +1024,17 @@
         "lat": 55.051533,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_664110744",
         "metadata": {
           "source": "osm",
-          "osm_id": "664110744"
+          "osm_id": "664110744",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -620,7 +1047,13 @@
         "name": "OSM_667417660",
         "metadata": {
           "source": "osm",
-          "osm_id": "667417660"
+          "osm_id": "667417660",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -633,7 +1066,13 @@
         "name": "OSM_243233868",
         "metadata": {
           "source": "osm",
-          "osm_id": "243233868"
+          "osm_id": "243233868",
+          "in_degree": 3,
+          "out_degree": 1,
+          "degree": 4,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -642,11 +1081,17 @@
         "lat": 55.052642,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1368185110",
         "metadata": {
           "source": "osm",
-          "osm_id": "1368185110"
+          "osm_id": "1368185110",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -655,11 +1100,17 @@
         "lat": 55.057185,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_321934092",
         "metadata": {
           "source": "osm",
-          "osm_id": "321934092"
+          "osm_id": "321934092",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -672,7 +1123,13 @@
         "name": "OSM_671396216",
         "metadata": {
           "source": "osm",
-          "osm_id": "671396216"
+          "osm_id": "671396216",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -685,7 +1142,14 @@
         "name": "OSM_671396321",
         "metadata": {
           "source": "osm",
-          "osm_id": "671396321"
+          "osm_id": "671396321",
+          "in_degree": 3,
+          "out_degree": 1,
+          "degree": 4,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -694,11 +1158,17 @@
         "lat": 55.056069,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_671396526",
         "metadata": {
           "source": "osm",
-          "osm_id": "671396526"
+          "osm_id": "671396526",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -711,7 +1181,13 @@
         "name": "OSM_738544976",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544976"
+          "osm_id": "738544976",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -720,11 +1196,17 @@
         "lat": 55.046579,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_7853342497",
         "metadata": {
           "source": "osm",
-          "osm_id": "7853342497"
+          "osm_id": "7853342497",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -733,11 +1215,17 @@
         "lat": 55.046497,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544904",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544904"
+          "osm_id": "738544904",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -746,11 +1234,17 @@
         "lat": 55.046477,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544878",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544878"
+          "osm_id": "738544878",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -759,11 +1253,17 @@
         "lat": 55.046472,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738545093",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545093"
+          "osm_id": "738545093",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -776,7 +1276,14 @@
         "name": "OSM_277646072",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646072"
+          "osm_id": "277646072",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "secondary"
+          ]
         }
       },
       {
@@ -785,11 +1292,17 @@
         "lat": 55.045845,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4371569778",
         "metadata": {
           "source": "osm",
-          "osm_id": "4371569778"
+          "osm_id": "4371569778",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -802,7 +1315,14 @@
         "name": "OSM_277646062",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646062"
+          "osm_id": "277646062",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "tertiary"
+          ]
         }
       },
       {
@@ -815,7 +1335,13 @@
         "name": "OSM_277646071",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646071"
+          "osm_id": "277646071",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -824,11 +1350,17 @@
         "lat": 55.046574,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738545086",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545086"
+          "osm_id": "738545086",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -837,11 +1369,17 @@
         "lat": 55.046612,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4371569753",
         "metadata": {
           "source": "osm",
-          "osm_id": "4371569753"
+          "osm_id": "4371569753",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -850,11 +1388,17 @@
         "lat": 55.04681,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544923",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544923"
+          "osm_id": "738544923",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -863,11 +1407,17 @@
         "lat": 55.046875,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4371569752",
         "metadata": {
           "source": "osm",
-          "osm_id": "4371569752"
+          "osm_id": "4371569752",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -880,7 +1430,14 @@
         "name": "OSM_738545098",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545098"
+          "osm_id": "738545098",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "tertiary"
+          ]
         }
       },
       {
@@ -889,11 +1446,17 @@
         "lat": 55.046048,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544949",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544949"
+          "osm_id": "738544949",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -902,11 +1465,17 @@
         "lat": 55.045959,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544854",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544854"
+          "osm_id": "738544854",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -915,11 +1484,17 @@
         "lat": 55.046991,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4371570394",
         "metadata": {
           "source": "osm",
-          "osm_id": "4371570394"
+          "osm_id": "4371570394",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -928,11 +1503,17 @@
         "lat": 55.045726,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_3627026574",
         "metadata": {
           "source": "osm",
-          "osm_id": "3627026574"
+          "osm_id": "3627026574",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -945,7 +1526,13 @@
         "name": "OSM_727353547",
         "metadata": {
           "source": "osm",
-          "osm_id": "727353547"
+          "osm_id": "727353547",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -954,11 +1541,17 @@
         "lat": 55.045724,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544933",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544933"
+          "osm_id": "738544933",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -967,11 +1560,17 @@
         "lat": 55.045847,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738545083",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545083"
+          "osm_id": "738545083",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -984,7 +1583,14 @@
         "name": "OSM_277646074",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646074"
+          "osm_id": "277646074",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "secondary"
+          ]
         }
       },
       {
@@ -993,11 +1599,17 @@
         "lat": 55.046307,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738545095",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545095"
+          "osm_id": "738545095",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -1006,11 +1618,17 @@
         "lat": 55.04641,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738545068",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545068"
+          "osm_id": "738545068",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "secondary"
+          ]
         }
       },
       {
@@ -1023,7 +1641,14 @@
         "name": "OSM_847822778",
         "metadata": {
           "source": "osm",
-          "osm_id": "847822778"
+          "osm_id": "847822778",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -1032,11 +1657,17 @@
         "lat": 55.050735,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_2844359022",
         "metadata": {
           "source": "osm",
-          "osm_id": "2844359022"
+          "osm_id": "2844359022",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1045,11 +1676,17 @@
         "lat": 55.050728,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_847822771",
         "metadata": {
           "source": "osm",
-          "osm_id": "847822771"
+          "osm_id": "847822771",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1062,7 +1699,13 @@
         "name": "OSM_13107118411",
         "metadata": {
           "source": "osm",
-          "osm_id": "13107118411"
+          "osm_id": "13107118411",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1071,11 +1714,17 @@
         "lat": 55.05068,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_13107118414",
         "metadata": {
           "source": "osm",
-          "osm_id": "13107118414"
+          "osm_id": "13107118414",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1084,11 +1733,17 @@
         "lat": 55.049956,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_847822828",
         "metadata": {
           "source": "osm",
-          "osm_id": "847822828"
+          "osm_id": "847822828",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1097,11 +1752,17 @@
         "lat": 55.04978,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_847822833",
         "metadata": {
           "source": "osm",
-          "osm_id": "847822833"
+          "osm_id": "847822833",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1110,11 +1771,17 @@
         "lat": 55.049804,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_1715119267",
         "metadata": {
           "source": "osm",
-          "osm_id": "1715119267"
+          "osm_id": "1715119267",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1123,11 +1790,17 @@
         "lat": 55.049552,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_1715119234",
         "metadata": {
           "source": "osm",
-          "osm_id": "1715119234"
+          "osm_id": "1715119234",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1136,11 +1809,17 @@
         "lat": 55.049386,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1715119193",
         "metadata": {
           "source": "osm",
-          "osm_id": "1715119193"
+          "osm_id": "1715119193",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1149,11 +1828,17 @@
         "lat": 55.0488,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1715119225",
         "metadata": {
           "source": "osm",
-          "osm_id": "1715119225"
+          "osm_id": "1715119225",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1162,11 +1847,17 @@
         "lat": 55.04838,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1715119175",
         "metadata": {
           "source": "osm",
-          "osm_id": "1715119175"
+          "osm_id": "1715119175",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1175,11 +1866,17 @@
         "lat": 55.042906,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1112586534",
         "metadata": {
           "source": "osm",
-          "osm_id": "1112586534"
+          "osm_id": "1112586534",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1188,11 +1885,17 @@
         "lat": 55.044336,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_683409102",
         "metadata": {
           "source": "osm",
-          "osm_id": "683409102"
+          "osm_id": "683409102",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1201,11 +1904,17 @@
         "lat": 55.053067,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1193908327",
         "metadata": {
           "source": "osm",
-          "osm_id": "1193908327"
+          "osm_id": "1193908327",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1218,7 +1927,13 @@
         "name": "OSM_1193908333",
         "metadata": {
           "source": "osm",
-          "osm_id": "1193908333"
+          "osm_id": "1193908333",
+          "in_degree": 2,
+          "out_degree": 2,
+          "degree": 4,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1231,7 +1946,13 @@
         "name": "OSM_1193908325",
         "metadata": {
           "source": "osm",
-          "osm_id": "1193908325"
+          "osm_id": "1193908325",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1240,11 +1961,17 @@
         "lat": 55.052071,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1193908349",
         "metadata": {
           "source": "osm",
-          "osm_id": "1193908349"
+          "osm_id": "1193908349",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1257,7 +1984,13 @@
         "name": "OSM_1193908338",
         "metadata": {
           "source": "osm",
-          "osm_id": "1193908338"
+          "osm_id": "1193908338",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1270,7 +2003,13 @@
         "name": "OSM_1303902563",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902563"
+          "osm_id": "1303902563",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1279,11 +2018,17 @@
         "lat": 55.054449,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_1303902545",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902545"
+          "osm_id": "1303902545",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1292,11 +2037,17 @@
         "lat": 55.054675,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1303902564",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902564"
+          "osm_id": "1303902564",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1309,7 +2060,14 @@
         "name": "OSM_1303902562",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902562"
+          "osm_id": "1303902562",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -1322,7 +2080,14 @@
         "name": "OSM_10538395832",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395832"
+          "osm_id": "10538395832",
+          "in_degree": 2,
+          "out_degree": 2,
+          "degree": 4,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -1335,7 +2100,13 @@
         "name": "OSM_1303902504",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902504"
+          "osm_id": "1303902504",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1344,11 +2115,17 @@
         "lat": 55.053328,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_11683893402",
         "metadata": {
           "source": "osm",
-          "osm_id": "11683893402"
+          "osm_id": "11683893402",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1357,11 +2134,17 @@
         "lat": 55.054287,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1303902534",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902534"
+          "osm_id": "1303902534",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1370,11 +2153,17 @@
         "lat": 55.053969,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1303902579",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902579"
+          "osm_id": "1303902579",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1383,11 +2172,17 @@
         "lat": 55.054187,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_1303902491",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902491"
+          "osm_id": "1303902491",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1400,7 +2195,13 @@
         "name": "OSM_1303902489",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902489"
+          "osm_id": "1303902489",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1409,11 +2210,17 @@
         "lat": 55.054598,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_6514653404",
         "metadata": {
           "source": "osm",
-          "osm_id": "6514653404"
+          "osm_id": "6514653404",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1426,7 +2233,13 @@
         "name": "OSM_1303902508",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902508"
+          "osm_id": "1303902508",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1435,11 +2248,17 @@
         "lat": 55.055837,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_1303902474",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902474"
+          "osm_id": "1303902474",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1448,11 +2267,17 @@
         "lat": 55.056016,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_2619245356",
         "metadata": {
           "source": "osm",
-          "osm_id": "2619245356"
+          "osm_id": "2619245356",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1461,11 +2286,17 @@
         "lat": 55.056471,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_2432398910",
         "metadata": {
           "source": "osm",
-          "osm_id": "2432398910"
+          "osm_id": "2432398910",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1474,11 +2305,17 @@
         "lat": 55.056507,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4058090968",
         "metadata": {
           "source": "osm",
-          "osm_id": "4058090968"
+          "osm_id": "4058090968",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1487,11 +2324,17 @@
         "lat": 55.05657,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_3164824534",
         "metadata": {
           "source": "osm",
-          "osm_id": "3164824534"
+          "osm_id": "3164824534",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1504,7 +2347,14 @@
         "name": "OSM_10538395809",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395809"
+          "osm_id": "10538395809",
+          "in_degree": 2,
+          "out_degree": 2,
+          "degree": 4,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -1513,11 +2363,17 @@
         "lat": 55.056764,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_321934098",
         "metadata": {
           "source": "osm",
-          "osm_id": "321934098"
+          "osm_id": "321934098",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1526,11 +2382,17 @@
         "lat": 55.054713,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1303902539",
         "metadata": {
           "source": "osm",
-          "osm_id": "1303902539"
+          "osm_id": "1303902539",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1539,11 +2401,17 @@
         "lat": 55.04653,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787994",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787994"
+          "osm_id": "11380787994",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1552,11 +2420,17 @@
         "lat": 55.045845,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380788000",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380788000"
+          "osm_id": "11380788000",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1569,7 +2443,13 @@
         "name": "OSM_277646065",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646065"
+          "osm_id": "277646065",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1578,11 +2458,17 @@
         "lat": 55.046097,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380788002",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380788002"
+          "osm_id": "11380788002",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1591,11 +2477,17 @@
         "lat": 55.046015,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_277646063",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646063"
+          "osm_id": "277646063",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1604,11 +2496,17 @@
         "lat": 55.045926,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380788001",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380788001"
+          "osm_id": "11380788001",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1617,11 +2515,17 @@
         "lat": 55.046068,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544881",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544881"
+          "osm_id": "738544881",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1630,11 +2534,17 @@
         "lat": 55.046128,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787997",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787997"
+          "osm_id": "11380787997",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1643,11 +2553,17 @@
         "lat": 55.046271,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787996",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787996"
+          "osm_id": "11380787996",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1656,11 +2572,17 @@
         "lat": 55.046349,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544998",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544998"
+          "osm_id": "738544998",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1669,11 +2591,17 @@
         "lat": 55.046433,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787995",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787995"
+          "osm_id": "11380787995",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1682,11 +2610,17 @@
         "lat": 55.046517,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544926",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544926"
+          "osm_id": "738544926",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1695,11 +2629,17 @@
         "lat": 55.046476,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_277646070",
         "metadata": {
           "source": "osm",
-          "osm_id": "277646070"
+          "osm_id": "277646070",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1708,11 +2648,17 @@
         "lat": 55.046429,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_11380787993",
         "metadata": {
           "source": "osm",
-          "osm_id": "11380787993"
+          "osm_id": "11380787993",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1721,11 +2667,17 @@
         "lat": 55.046372,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544836",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544836"
+          "osm_id": "738544836",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1738,7 +2690,13 @@
         "name": "OSM_10538395830",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395830"
+          "osm_id": "10538395830",
+          "in_degree": 2,
+          "out_degree": 2,
+          "degree": 4,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1751,7 +2709,13 @@
         "name": "OSM_664111079",
         "metadata": {
           "source": "osm",
-          "osm_id": "664111079"
+          "osm_id": "664111079",
+          "in_degree": 2,
+          "out_degree": 1,
+          "degree": 3,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1760,11 +2724,17 @@
         "lat": 55.056098,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1368185393",
         "metadata": {
           "source": "osm",
-          "osm_id": "1368185393"
+          "osm_id": "1368185393",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1773,11 +2743,18 @@
         "lat": 55.056301,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_243233866",
         "metadata": {
           "source": "osm",
-          "osm_id": "243233866"
+          "osm_id": "243233866",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -1786,11 +2763,17 @@
         "lat": 55.052541,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_664111050",
         "metadata": {
           "source": "osm",
-          "osm_id": "664111050"
+          "osm_id": "664111050",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1799,11 +2782,17 @@
         "lat": 55.054034,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1884017797",
         "metadata": {
           "source": "osm",
-          "osm_id": "1884017797"
+          "osm_id": "1884017797",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1812,11 +2801,18 @@
         "lat": 55.05888,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "boundary",
         "name": "OSM_3153238055",
         "metadata": {
           "source": "osm",
-          "osm_id": "3153238055"
+          "osm_id": "3153238055",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate": true
         }
       },
       {
@@ -1825,11 +2821,17 @@
         "lat": 55.056683,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_664111104",
         "metadata": {
           "source": "osm",
-          "osm_id": "664111104"
+          "osm_id": "664111104",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -1838,11 +2840,17 @@
         "lat": 55.055118,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1884018117",
         "metadata": {
           "source": "osm",
-          "osm_id": "1884018117"
+          "osm_id": "1884018117",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "tertiary"
+          ]
         }
       },
       {
@@ -1851,11 +2859,17 @@
         "lat": 55.049361,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1368185385",
         "metadata": {
           "source": "osm",
-          "osm_id": "1368185385"
+          "osm_id": "1368185385",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1864,11 +2878,17 @@
         "lat": 55.056667,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_4058090965",
         "metadata": {
           "source": "osm",
-          "osm_id": "4058090965"
+          "osm_id": "4058090965",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1877,11 +2897,17 @@
         "lat": 55.04704,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_4371569750",
         "metadata": {
           "source": "osm",
-          "osm_id": "4371569750"
+          "osm_id": "4371569750",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1890,11 +2916,17 @@
         "lat": 55.046823,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544995",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544995"
+          "osm_id": "738544995",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1903,11 +2935,17 @@
         "lat": 55.046752,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544902",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544902"
+          "osm_id": "738544902",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1916,11 +2954,17 @@
         "lat": 55.046497,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738544877",
         "metadata": {
           "source": "osm",
-          "osm_id": "738544877"
+          "osm_id": "738544877",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1929,11 +2973,17 @@
         "lat": 55.046375,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_738545090",
         "metadata": {
           "source": "osm",
-          "osm_id": "738545090"
+          "osm_id": "738545090",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -1942,11 +2992,17 @@
         "lat": 55.054086,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_5360317128",
         "metadata": {
           "source": "osm",
-          "osm_id": "5360317128"
+          "osm_id": "5360317128",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1955,11 +3011,17 @@
         "lat": 55.053181,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_5456756231",
         "metadata": {
           "source": "osm",
-          "osm_id": "5456756231"
+          "osm_id": "5456756231",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1968,11 +3030,17 @@
         "lat": 55.053411,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_6766976711",
         "metadata": {
           "source": "osm",
-          "osm_id": "6766976711"
+          "osm_id": "6766976711",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1981,11 +3049,17 @@
         "lat": 55.053406,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_411812370",
         "metadata": {
           "source": "osm",
-          "osm_id": "411812370"
+          "osm_id": "411812370",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -1994,11 +3068,17 @@
         "lat": 55.053621,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1598554138",
         "metadata": {
           "source": "osm",
-          "osm_id": "1598554138"
+          "osm_id": "1598554138",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -2007,11 +3087,17 @@
         "lat": 55.053385,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_6590322836",
         "metadata": {
           "source": "osm",
-          "osm_id": "6590322836"
+          "osm_id": "6590322836",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -2020,11 +3106,17 @@
         "lat": 55.04198,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_1347628253",
         "metadata": {
           "source": "osm",
-          "osm_id": "1347628253"
+          "osm_id": "1347628253",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -2033,11 +3125,18 @@
         "lat": 55.045413,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "boundary",
         "name": "OSM_10538395818",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395818"
+          "osm_id": "10538395818",
+          "in_degree": 0,
+          "out_degree": 1,
+          "degree": 1,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate": true
         }
       },
       {
@@ -2046,11 +3145,18 @@
         "lat": 55.045598,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_10538395819",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395819"
+          "osm_id": "10538395819",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2059,11 +3165,18 @@
         "lat": 55.045799,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_10538395820",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395820"
+          "osm_id": "10538395820",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2072,11 +3185,18 @@
         "lat": 55.045956,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_10538395821",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395821"
+          "osm_id": "10538395821",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2085,11 +3205,18 @@
         "lat": 55.046318,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_10538395822",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395822"
+          "osm_id": "10538395822",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2098,11 +3225,18 @@
         "lat": 55.046479,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_10538395823",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395823"
+          "osm_id": "10538395823",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2111,11 +3245,18 @@
         "lat": 55.046704,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_10538395824",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395824"
+          "osm_id": "10538395824",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2124,11 +3265,18 @@
         "lat": 55.046949,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_10538395825",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395825"
+          "osm_id": "10538395825",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ],
+          "boundary_candidate_rejected": true
         }
       },
       {
@@ -2137,11 +3285,17 @@
         "lat": 55.052635,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_10538395829",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395829"
+          "osm_id": "10538395829",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "primary"
+          ]
         }
       },
       {
@@ -2154,7 +3308,14 @@
         "name": "OSM_10538395812",
         "metadata": {
           "source": "osm",
-          "osm_id": "10538395812"
+          "osm_id": "10538395812",
+          "in_degree": 1,
+          "out_degree": 2,
+          "degree": 3,
+          "incident_highways": [
+            "primary",
+            "residential"
+          ]
         }
       },
       {
@@ -2163,11 +3324,17 @@
         "lat": 55.051305,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_13107118412",
         "metadata": {
           "source": "osm",
-          "osm_id": "13107118412"
+          "osm_id": "13107118412",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -2176,11 +3343,17 @@
         "lat": 55.054212,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_5456756233",
         "metadata": {
           "source": "osm",
-          "osm_id": "5456756233"
+          "osm_id": "5456756233",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -2189,11 +3362,17 @@
         "lat": 55.054765,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "roundabout_part",
         "name": "OSM_13368348704",
         "metadata": {
           "source": "osm",
-          "osm_id": "13368348704"
+          "osm_id": "13368348704",
+          "in_degree": 1,
+          "out_degree": 1,
+          "degree": 2,
+          "incident_highways": [
+            "residential"
+          ]
         }
       },
       {
@@ -2202,11 +3381,17 @@
         "lat": 55.054941,
         "x": null,
         "y": null,
-        "node_type": "intersection",
+        "node_type": "ordinary",
         "name": "OSM_13368273598",
         "metadata": {
           "source": "osm",
-          "osm_id": "13368273598"
+          "osm_id": "13368273598",
+          "in_degree": 1,
+          "out_degree": 0,
+          "degree": 1,
+          "incident_highways": [
+            "residential"
+          ]
         }
       }
     ],

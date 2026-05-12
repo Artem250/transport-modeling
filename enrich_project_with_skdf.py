@@ -13,7 +13,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--project",
-        default="osm_network_project.json",
+        default="osm_network_project_map_bez.json",
         help="Input project JSON path.",
     )
     parser.add_argument(
@@ -23,7 +23,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--output",
-        default="osm_network_project_skdf.json",
+        default="osm_network_project_skdf_map_bez.json",
         help="Output enriched project JSON path.",
     )
     parser.add_argument(

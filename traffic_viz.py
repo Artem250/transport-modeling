@@ -204,12 +204,22 @@ class TrafficLink(QGraphicsPathItem):
         self.update_geometry()
 
     def update_geometry(self):
+        # Сообщаем сцене, что геометрия сейчас изменится
+        self.prepareGeometryChange()
+        
         path = QPainterPath()
         path.moveTo(self.start_node.scenePos())
         for pt in self.intermediate_points:
             path.lineTo(QPointF(pt[0], pt[1]))
         path.lineTo(self.end_node.scenePos())
         self.setPath(path)
+
+    # ПЕРЕОПРЕДЕЛИ boundingRect, чтобы добавить запас для стрелок
+    def boundingRect(self):
+        # Берем базовый размер (путь + толщина пера)
+        base_rect = super().boundingRect()
+        # Раздуваем его на несколько пикселей во все стороны для запаса под стрелку
+        return base_rect.adjusted(-5, -5, 5, 5)
 
     def update_visuals(self, stage):
         res = self.link_model.results or {}
@@ -243,6 +253,46 @@ class TrafficLink(QGraphicsPathItem):
         if self.app_callback:
             self.app_callback(self.link_model)
 
+    def paint(self, painter, option, widget):
+        # 1. Сначала рисуем саму линию дороги (стандартное поведение)
+        super().paint(painter, option, widget)
+
+        # 2. Рисуем стрелку направления
+        path = self.path()
+        if path.length() < 15:  # Не рисуем стрелку на слишком коротких отрезках
+            return
+
+        # Определяем положение стрелки (например, на 90% длины пути, ближе к концу)
+        percent = 0.9
+        point = path.pointAtPercent(percent)
+        angle = path.angleAtPercent(percent)  # Угол наклона пути в этой точке
+
+        # Настраиваем кисть для стрелки (используем цвет линии)
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Цвет стрелки берем из текущего пера, но делаем его непрозрачным
+        arrow_color = self.pen().color()
+        arrow_color.setAlpha(255) 
+        painter.setBrush(QBrush(arrow_color))
+        painter.setPen(Qt.NoPen)
+
+        # Перемещаем систему координат в точку на линии и поворачиваем
+        painter.translate(point)
+        painter.rotate(-angle) # В Qt углы идут по часовой стрелке, инвертируем
+
+        # Рисуем треугольник (стрелку)
+        # Размер стрелки зависит от ширины дороги
+        arrow_size = self.pen().width() * 1.3
+        arrow_head = QPolygonF([
+            QPointF(arrow_size, 0),                # Носик стрелки
+            QPointF(-arrow_size, -arrow_size * 0.6), # Верхнее "крыло"
+            QPointF(-arrow_size, arrow_size * 0.6)   # Нижнее "крыло"
+        ])
+        
+        painter.drawPolygon(arrow_head)
+        painter.restore()
+
 
 class MapViewer(QGraphicsView):
     def __init__(self, scene):
@@ -257,7 +307,7 @@ class MapViewer(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="osm_network_project.json"):
+    def __init__(self, map_file="map_nstu.osm", data_file="osm_network_project_map_nstu.json"):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
