@@ -39,6 +39,7 @@ class ProjectSaver:
                         "traffic_counts": self._serialize_link_traffic_counts(project, link),
                         "coords": link.coords,
                         "parameters": link.parameters,
+                        "results": link.results,
                         "metadata": self._serialize_link_metadata(link),
                     }
                     for link in project.network.links.values()

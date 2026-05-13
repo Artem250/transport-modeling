@@ -1,3 +1,4 @@
+import argparse
 import math
 import os
 import sys
@@ -86,6 +87,16 @@ NODE_COLORS = {
 }
 
 
+def format_map_value(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "-"
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.2f}".rstrip("0").rstrip(".")
+
+
 class MapBackgroundItem(QGraphicsItem):
     def __init__(self, map_data):
         super().__init__()
@@ -172,6 +183,8 @@ class TrafficNode(QGraphicsEllipseItem):
 
     def paint(self, painter, option, widget):
         super().paint(painter, option, widget)
+        if (self.node_model.metadata or {}).get("source") == "skdf_segment_endpoint":
+            return
         font = QFont("Arial", 1)
         painter.setFont(font)
         painter.setPen(Qt.black)
@@ -201,6 +214,8 @@ class TrafficLink(QGraphicsPathItem):
         self.setFlags(QGraphicsItem.ItemIsSelectable)
         self.setZValue(50)
         self.base_width = 8
+        self.skdf_label = self._build_skdf_label()
+        self._set_skdf_tooltip()
         self.update_geometry()
 
     def update_geometry(self):
@@ -292,6 +307,31 @@ class TrafficLink(QGraphicsPathItem):
         
         painter.drawPolygon(arrow_head)
         painter.restore()
+
+    def _build_skdf_label(self):
+        metadata = self.link_model.metadata or {}
+        if metadata.get("source") != "skdf_segment":
+            return ""
+        results = self.link_model.results or {}
+        intensity = results.get("V")
+        capacity = results.get("C_initial")
+        return f"I:{format_map_value(intensity)} C:{format_map_value(capacity)}"
+
+    def _set_skdf_tooltip(self):
+        skdf = (self.link_model.metadata or {}).get("skdf") or {}
+        if not skdf:
+            return
+        self.setToolTip(
+            "<br>".join(
+                [
+                    f"<b>{self.link_model.name}</b>",
+                    f"Intensity: {format_map_value(skdf.get('traffic'))}",
+                    f"Capacity: {format_map_value(skdf.get('capacity_total'))}",
+                    f"V/C: {format_map_value((self.link_model.results or {}).get('VC_ratio'))}",
+                    f"km: {format_map_value(skdf.get('start_km'))} - {format_map_value(skdf.get('finish_km'))}",
+                ]
+            )
+        )
 
 
 class MapViewer(QGraphicsView):
@@ -543,6 +583,7 @@ class MainWindow(QMainWindow):
         if self.project is None:
             return
         node_registry = {}
+        show_nodes = (self.project.metadata or {}).get("source") != "skdf_segments_csv"
         for node_model in self.project.network.nodes.values():
             if node_model.lon is not None and node_model.lat is not None:
                 point = QPointF(*project_coords(node_model.lon, node_model.lat))
@@ -552,7 +593,8 @@ class MainWindow(QMainWindow):
                 continue
             node_label = node_model.name or node_model.id
             node_item = TrafficNode(node_model, node_label, point, self.on_node_click)
-            self.scene.addItem(node_item)
+            if show_nodes:
+                self.scene.addItem(node_item)
             node_registry[node_model.id] = node_item
             self.node_index[node_model.id] = node_item
 
@@ -596,6 +638,8 @@ class MainWindow(QMainWindow):
 
     def on_link_click(self, link_model):
         res = link_model.results or {}
+        metadata = link_model.metadata or {}
+        skdf = metadata.get("skdf") or {}
         html = f"<h3>{link_model.name}</h3>"
         html += f"<b>ID:</b> {link_model.id}<br>"
         html += f"<b>from → to:</b> {link_model.start_node_id} → {link_model.end_node_id}<br>"
@@ -613,8 +657,18 @@ class MainWindow(QMainWindow):
             html += f"<b>Delay_sec:</b> {res.get('Delay_sec', 0)}<br>"
         else:
             html += "<b>metadata:</b><br>"
-            for key, value in sorted((link_model.metadata or {}).items()):
+            for key, value in sorted(metadata.items()):
                 html += f"{key}: {value}<br>"
+        if skdf:
+            html += "<br><b>SKDF segment:</b><br>"
+            html += f"<b>road_id:</b> {skdf.get('road_id', '-')}<br>"
+            html += f"<b>segment_id:</b> {skdf.get('segment_object_id', '-')}<br>"
+            html += f"<b>road:</b> {skdf.get('road_name') or skdf.get('full_name') or '-'}<br>"
+            html += f"<b>km:</b> {format_map_value(skdf.get('start_km'))} - {format_map_value(skdf.get('finish_km'))}<br>"
+            html += f"<b>intensity:</b> {format_map_value(skdf.get('traffic'))}<br>"
+            html += f"<b>capacity:</b> {format_map_value(skdf.get('capacity_total'))}<br>"
+            html += f"<b>lanes:</b> {format_map_value(skdf.get('lanes'))}<br>"
+            html += f"<b>speed:</b> {format_map_value(skdf.get('speed_limit'))}<br>"
         self.info.setHtml(html)
 
     def find_route(self):
@@ -697,9 +751,19 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить проект: {exc}")
 
 
+def parse_args():
+    default_data = "skdf_segments_project.json" if os.path.exists("skdf_segments_project.json") else "osm_network_project_map_nstu.json"
+    default_map = "map_bez.osm" if default_data == "skdf_segments_project.json" and os.path.exists("map_bez.osm") else "map_nstu.osm"
+    parser = argparse.ArgumentParser(description="Traffic visualization viewer.")
+    parser.add_argument("--map", default=default_map, help="OSM background file.")
+    parser.add_argument("--data", default=default_data, help="Project JSON file.")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
+    args = parse_args()
+    app = QApplication([sys.argv[0]])
+    window = MainWindow(map_file=args.map, data_file=args.data)
     window.resize(1200, 800)
     window.show()
     sys.exit(app.exec_())

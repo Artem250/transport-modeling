@@ -4,6 +4,8 @@ from typing import Any
 import pandas as pd
 import requests
 
+from skdf_segment_project import write_project_from_segments_csv
+
 
 PUBLIC_HOST = "https://xn--d1aluo.xn--p1ai"
 GEOSERVER_WFS_URL = f"{PUBLIC_HOST}/geoserver/skdf_open/wfs"
@@ -264,7 +266,10 @@ road_df = pd.DataFrame(road_rows)
 road_df.to_csv("nsk_roads_bbox_3_2.csv", index=False, encoding="utf-8-sig")
 
 segment_df = pd.DataFrame(segment_rows)
-segment_df.to_csv("nsk_roads_bbox_3_segments_2.csv", index=False, encoding="utf-8-sig")
+segment_csv_path = "nsk_roads_bbox_3_segments_2.csv"
+segment_df.to_csv(segment_csv_path, index=False, encoding="utf-8-sig")
+project_stats = write_project_from_segments_csv(segment_csv_path, "skdf_segments_project.json")
 
 print(road_df.head())
 print(segment_df.head())
+print(f"Saved skdf_segments_project.json: {project_stats['links']} links, {project_stats['nodes']} nodes")

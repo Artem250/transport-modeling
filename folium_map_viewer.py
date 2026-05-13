@@ -173,17 +173,22 @@ def _link_weight(link) -> int:
 
 def _link_tooltip(link) -> str:
     results = link.results or {}
+    skdf = (link.metadata or {}).get("skdf") or {}
     values: dict[str, Any] = {
         "ID": link.id,
         "Name": link.name,
         "Length": f"{link.length_km} km",
         "LOS": results.get("LOS", "-"),
         "V/C": results.get("VC_ratio", "-"),
-        "Cars": (link.traffic_counts or {}).get("car", "-"),
+        "Intensity": results.get("V", (link.traffic_counts or {}).get("car", "-")),
+        "Capacity": results.get("C_initial", skdf.get("capacity_total", "-")),
     }
-    if "skdf" in (link.metadata or {}):
-        values["SKDF road"] = link.metadata["skdf"].get("road_name", "-")
-        values["SKDF score"] = link.metadata["skdf"].get("match_score", "-")
+    if skdf:
+        values["SKDF road"] = skdf.get("road_name", "-")
+        values["SKDF segment"] = skdf.get("segment_object_id", "-")
+        values["SKDF km"] = f"{skdf.get('start_km', '-')} - {skdf.get('finish_km', '-')}"
+        if skdf.get("match_score") is not None:
+            values["SKDF score"] = skdf.get("match_score", "-")
     return "<br>".join(f"<b>{key}:</b> {value}" for key, value in values.items())
 
 

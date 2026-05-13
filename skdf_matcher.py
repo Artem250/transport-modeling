@@ -77,24 +77,24 @@ def load_skdf_roads(csv_path: str | Path) -> list[SkdfRoad]:
         delimiter = _detect_csv_delimiter(sample)
         reader = csv.DictReader(f, delimiter=delimiter)
         for row_index, row in enumerate(reader, start=1):
-            geometry = _parse_skdf_geometry(row.get("geometry"), MultiLineString)
+            geometry = _parse_skdf_geometry(row.get("geometry_segment") or row.get("geometry"), MultiLineString)
             if geometry is None or geometry.is_empty:
                 continue
 
-            road_name = _text(row.get("road_name"))
+            road_name = _text(row.get("road_name_segment") or row.get("road_name"))
             full_name = _text(row.get("full_name"))
             name = road_name or full_name
             roads.append(
                 SkdfRoad(
                     row_index=row_index,
                     road_id=_text(row.get("road_id")),
-                    road_part_id=_text(row.get("road_part_id")),
+                    road_part_id=_text(row.get("road_part_id_segment") or row.get("road_part_id")),
                     road_name=road_name,
                     full_name=full_name,
-                    traffic=_number(row.get("traffic_1")),
-                    capacity=_number(row.get("capacity_1")),
-                    lanes=_int_number(row.get("lanes_1")),
-                    speed_limit=_number(row.get("speed_limit_1")),
+                    traffic=_first_number(row, "traffic_segment", "traffic_1", "traffic"),
+                    capacity=_first_number(row, "capacity_segment", "capacity_1", "capacity"),
+                    lanes=_first_int_number(row, "lanes_segment", "lanes_1", "lanes"),
+                    speed_limit=_first_number(row, "top_speed_segment", "speed_limit_1", "speed_limit"),
                     geometry=geometry,
                     normalized_name=normalize_road_name(name),
                 )
@@ -717,6 +717,22 @@ def _number(value: Any) -> float | None:
         return float(text)
     except ValueError:
         return None
+
+
+def _first_number(row: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        number = _number(row.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _first_int_number(row: dict[str, Any], *keys: str) -> int | None:
+    for key in keys:
+        number = _int_number(row.get(key))
+        if number is not None:
+            return number
+    return None
 
 
 def _int_number(value: Any) -> int | None:
