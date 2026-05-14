@@ -58,7 +58,7 @@ from network_dynamic import DynamicNetwork
 
 # === КОНФИГУРАЦИЯ ===
 DEFAULT_PROJECT = "osm_network_project_skdf_v3.json"
-SIMULATION_HORIZON = 3600  # 1 час
+SIMULATION_HORIZON = 360  # 1 час
 DT_SECONDS = 10  # шаг симуляции
 VIEW_WIDTH = 1200
 VIEW_HEIGHT = 800
@@ -230,7 +230,7 @@ def get_los_color(density_ratio: float) -> QColor:
 class DynamicLinkItem(QGraphicsLineItem):
     def __init__(self, link_id: str, start_pos: QPointF, end_pos: QPointF, 
                  base_capacity: float, length_m: float):
-        super().__init__(start_pos, end_pos)
+        super().__init__(start_pos.x(), start_pos.y(), end_pos.x(), end_pos.y())
         self.link_id = link_id
         self.base_capacity = base_capacity
         self.length_m = length_m
