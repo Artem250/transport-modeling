@@ -49,12 +49,20 @@ class CTMSimulator:
                 node_out = sum(
                     flow
                     for movement_id, flow in node_flows.items()
-                    if self.network.movements[movement_id].from_link_id == link_id
+                    if (
+                        mov := self.network.movements[movement_id]
+                    ) and (
+                        getattr(mov, 'from_link_id', None) or mov.get('from_link_id') if isinstance(mov, dict) else mov.from_link_id
+                    ) == link_id
                 )
                 node_in = sum(
                     flow
                     for movement_id, flow in node_flows.items()
-                    if self.network.movements[movement_id].to_link_id == link_id
+                    if (
+                        mov := self.network.movements[movement_id]
+                    ) and (
+                        getattr(mov, 'to_link_id', None) or mov.get('to_link_id') if isinstance(mov, dict) else mov.to_link_id
+                    ) == link_id
                 )
 
                 if link.cells:
@@ -112,15 +120,17 @@ class CTMSimulator:
     def _compute_sink_flows(self) -> dict[str, float]:
         sink_flows: dict[str, float] = {}
         for sink in self.network.sinks.values():
-            link = self.network.links.get(sink.link_id)
+            link_id = getattr(sink, 'link_id', None) or (sink.get('link_id') if isinstance(sink, dict) else sink.link_id)
+            link = self.network.links.get(link_id)
             if link is None or not link.cells:
                 continue
+            capacity_pcu_h = getattr(sink, 'capacity_pcu_h', None) or (sink.get('capacity_pcu_h') if isinstance(sink, dict) else sink.capacity_pcu_h)
             capacity_step = (
-                sink.capacity_pcu_h * self.dt_seconds / 3600.0
-                if sink.capacity_pcu_h is not None
+                capacity_pcu_h * self.dt_seconds / 3600.0
+                if capacity_pcu_h is not None
                 else link.capacity_step
             )
-            sink_flows[sink.link_id] = min(link.sending_capacity(link.cell_count - 1), capacity_step)
+            sink_flows[link_id] = min(link.sending_capacity(link.cell_count - 1), capacity_step)
         return sink_flows
 
     def _compute_node_flows(self, current_time_s: int) -> dict[str, float]:
@@ -138,24 +148,32 @@ class CTMSimulator:
 
         for movement_id in sorted(self.network.movements):
             movement = self.network.movements[movement_id]
-            from_available = remaining_sending.get(movement.from_link_id, 0.0)
-            to_available = remaining_receiving.get(movement.to_link_id, 0.0)
+            from_link_id = getattr(movement, 'from_link_id', None) or (movement.get('from_link_id') if isinstance(movement, dict) else movement.from_link_id)
+            to_link_id = getattr(movement, 'to_link_id', None) or (movement.get('to_link_id') if isinstance(movement, dict) else movement.to_link_id)
+
+            from_available = remaining_sending.get(from_link_id, 0.0)
+            to_available = remaining_receiving.get(to_link_id, 0.0)
             if from_available <= 0 or to_available <= 0:
                 movement_flows[movement_id] = 0.0
                 continue
 
-            desired = original_sending.get(movement.from_link_id, 0.0) * max(movement.split_ratio, 0.0)
+            split_ratio = getattr(movement, 'split_ratio', None) or (movement.get('split_ratio') if isinstance(movement, dict) else movement.split_ratio)
+            desired = original_sending.get(from_link_id, 0.0) * max(split_ratio, 0.0)
             cap_step = self._movement_capacity_step(movement, current_time_s)
             actual = min(desired, from_available, to_available, cap_step)
-            remaining_sending[movement.from_link_id] = max(from_available - actual, 0.0)
-            remaining_receiving[movement.to_link_id] = max(to_available - actual, 0.0)
+            remaining_sending[from_link_id] = max(from_available - actual, 0.0)
+            remaining_receiving[to_link_id] = max(to_available - actual, 0.0)
             movement_flows[movement_id] = actual
         return movement_flows
 
     def _movement_capacity_step(self, movement: Movement, current_time_s: int) -> float:
-        from_link = self.network.links[movement.from_link_id]
-        base_capacity_h = movement.capacity_pcu_h or from_link.capacity_pcu_h
-        control = movement.control or {}
+        from_link_id = getattr(movement, 'from_link_id', None) or (movement.get('from_link_id') if isinstance(movement, dict) else movement.from_link_id)
+        from_link = self.network.links[from_link_id]
+
+        capacity_pcu_h = getattr(movement, 'capacity_pcu_h', None) or (movement.get('capacity_pcu_h') if isinstance(movement, dict) else movement.capacity_pcu_h)
+        base_capacity_h = capacity_pcu_h or from_link.capacity_pcu_h
+
+        control = getattr(movement, 'control', None) or (movement.get('control') if isinstance(movement, dict) else movement.control) or {}
         control_type = control.get("control_type", "uncontrolled")
         multiplier = 1.0
 
@@ -167,7 +185,8 @@ class CTMSimulator:
                 phase_open = False
                 for phase in phases:
                     allowed = phase.get("green_for_movements", [])
-                    if allowed and movement.id not in allowed:
+                    mov_id = getattr(movement, 'id', None) or (movement.get('id') if isinstance(movement, dict) else movement.id)
+                    if allowed and mov_id not in allowed:
                         continue
                     if int(phase.get("start_s", 0)) <= cycle_offset < int(phase.get("end_s", 0)):
                         phase_open = True
