@@ -19,6 +19,10 @@ class SimulationConfig:
     wave_speed_kph: float = 20.0
     jam_density_pcu_per_km_lane: float = 150.0
     capacity_per_lane_base: float = 1800.0
+    split_update_interval_s: int = 30
+    split_inertia_alpha: float = 0.25
+    congestion_speed_penalty_power: float = 1.0
+    directional_split_ratio: float = 0.5
     group_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     link_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -143,5 +147,5 @@ class Project:
     network: Network = field(default_factory=Network)
     scenarios: list[Scenario] = field(default_factory=list)
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
-    analysis_mode: AnalysisMode = "compare"
+    analysis_mode: AnalysisMode = "dynamic"
     metadata: dict[str, Any] = field(default_factory=dict)

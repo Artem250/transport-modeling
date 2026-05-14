@@ -38,7 +38,7 @@ class ProjectLoader:
             project_name=data.get("project_name", "Unnamed Project"),
             pcu_coefficients=data.get("pcu_coefficients", {}),
             simulation=self._build_simulation(data.get("simulation", {})),
-            analysis_mode=data.get("analysis_mode", "compare"),
+            analysis_mode=data.get("analysis_mode", "dynamic"),
             metadata=data.get("metadata", {}),
         )
 
@@ -208,6 +208,10 @@ class ProjectLoader:
             wave_speed_kph=data.get("wave_speed_kph", 20.0),
             jam_density_pcu_per_km_lane=data.get("jam_density_pcu_per_km_lane", 150.0),
             capacity_per_lane_base=data.get("capacity_per_lane_base", 1800.0),
+            split_update_interval_s=data.get("split_update_interval_s", 30),
+            split_inertia_alpha=data.get("split_inertia_alpha", 0.25),
+            congestion_speed_penalty_power=data.get("congestion_speed_penalty_power", 1.0),
+            directional_split_ratio=data.get("directional_split_ratio", 0.5),
             group_overrides=data.get("group_overrides", {}),
             link_overrides=data.get("link_overrides", {}),
             metadata=data.get("metadata", {}),

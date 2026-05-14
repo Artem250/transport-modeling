@@ -33,8 +33,12 @@ class SkdfRoad:
     row_index: int
     road_id: str
     road_part_id: str
+    segment_object_id: str
+    segment_feature_id: str
     road_name: str
     full_name: str
+    start_km: float | None
+    finish_km: float | None
     traffic: float | None
     capacity: float | None
     lanes: int | None
@@ -77,24 +81,28 @@ def load_skdf_roads(csv_path: str | Path) -> list[SkdfRoad]:
         delimiter = _detect_csv_delimiter(sample)
         reader = csv.DictReader(f, delimiter=delimiter)
         for row_index, row in enumerate(reader, start=1):
-            geometry = _parse_skdf_geometry(row.get("geometry"), MultiLineString)
+            geometry = _parse_skdf_geometry(row.get("geometry_segment") or row.get("geometry"), MultiLineString)
             if geometry is None or geometry.is_empty:
                 continue
 
-            road_name = _text(row.get("road_name"))
+            road_name = _text(row.get("road_name_segment") or row.get("road_name"))
             full_name = _text(row.get("full_name"))
             name = road_name or full_name
             roads.append(
                 SkdfRoad(
                     row_index=row_index,
                     road_id=_text(row.get("road_id")),
-                    road_part_id=_text(row.get("road_part_id")),
+                    road_part_id=_text(row.get("road_part_id_segment") or row.get("road_part_id")),
+                    segment_object_id=_text(row.get("segment_object_id")),
+                    segment_feature_id=_text(row.get("segment_feature_id")),
                     road_name=road_name,
                     full_name=full_name,
-                    traffic=_number(row.get("traffic_1")),
-                    capacity=_number(row.get("capacity_1")),
-                    lanes=_int_number(row.get("lanes_1")),
-                    speed_limit=_number(row.get("speed_limit_1")),
+                    start_km=_first_number(row, "start_km_segment", "start_km"),
+                    finish_km=_first_number(row, "finish_km_segment", "finish_km"),
+                    traffic=_first_number(row, "traffic_segment", "traffic_1", "traffic"),
+                    capacity=_first_number(row, "capacity_segment", "capacity_1", "capacity"),
+                    lanes=_first_int_number(row, "lanes_segment", "lanes_1", "lanes"),
+                    speed_limit=_first_number(row, "top_speed_segment", "speed_limit_1", "speed_limit"),
                     geometry=geometry,
                     normalized_name=normalize_road_name(name),
                 )
@@ -313,14 +321,20 @@ def _apply_match(link: Link, match: LinkMatch) -> tuple[bool, bool]:
     link.metadata = {
         **(link.metadata or {}),
         "skdf": {
+            "source": "skdf_segment",
             "road_id": road.road_id,
             "road_part_id": road.road_part_id,
+            "segment_object_id": road.segment_object_id,
+            "segment_feature_id": road.segment_feature_id,
             "road_name": road.road_name,
             "full_name": road.full_name,
+            "start_km": road.start_km,
+            "finish_km": road.finish_km,
             "traffic": road.traffic,
             "capacity_total": road.capacity,
             "lanes": road.lanes,
             "speed_limit": road.speed_limit,
+            "directional": False,
             "match_score": round(match.score, 4),
             "match_distance_m": round(match.distance_m, 2),
             "match_overlap_ratio": round(match.overlap_ratio, 4),
@@ -607,7 +621,11 @@ def _report_row(link: Link, match: LinkMatch | None, best_candidate: LinkMatch |
         "status": status,
         "match_source": "",
         "road_id": "",
+        "segment_object_id": "",
+        "segment_feature_id": "",
         "road_name": "",
+        "start_km": "",
+        "finish_km": "",
         "score": "",
         "distance_m": "",
         "overlap_ratio": "",
@@ -617,6 +635,7 @@ def _report_row(link: Link, match: LinkMatch | None, best_candidate: LinkMatch |
         "lanes": "",
         "speed_limit": "",
         "best_candidate_road_id": "",
+        "best_candidate_segment_object_id": "",
         "best_candidate_road_name": "",
         "best_candidate_score": "",
         "best_candidate_distance_m": "",
@@ -627,6 +646,7 @@ def _report_row(link: Link, match: LinkMatch | None, best_candidate: LinkMatch |
         row.update(
             {
                 "best_candidate_road_id": best_candidate.road.road_id,
+                "best_candidate_segment_object_id": best_candidate.road.segment_object_id,
                 "best_candidate_road_name": best_candidate.road.road_name,
                 "best_candidate_score": round(best_candidate.score, 4),
                 "best_candidate_distance_m": round(best_candidate.distance_m, 2),
@@ -643,7 +663,11 @@ def _report_row(link: Link, match: LinkMatch | None, best_candidate: LinkMatch |
         {
             "match_source": match.source,
             "road_id": road.road_id,
+            "segment_object_id": road.segment_object_id,
+            "segment_feature_id": road.segment_feature_id,
             "road_name": road.road_name,
+            "start_km": road.start_km if road.start_km is not None else "",
+            "finish_km": road.finish_km if road.finish_km is not None else "",
             "score": round(match.score, 4),
             "distance_m": round(match.distance_m, 2),
             "overlap_ratio": round(match.overlap_ratio, 4),
@@ -665,7 +689,11 @@ def _write_report(path: str | Path, rows: list[dict[str, Any]]) -> None:
         "status",
         "match_source",
         "road_id",
+        "segment_object_id",
+        "segment_feature_id",
         "road_name",
+        "start_km",
+        "finish_km",
         "score",
         "distance_m",
         "overlap_ratio",
@@ -675,6 +703,7 @@ def _write_report(path: str | Path, rows: list[dict[str, Any]]) -> None:
         "lanes",
         "speed_limit",
         "best_candidate_road_id",
+        "best_candidate_segment_object_id",
         "best_candidate_road_name",
         "best_candidate_score",
         "best_candidate_distance_m",
@@ -717,6 +746,22 @@ def _number(value: Any) -> float | None:
         return float(text)
     except ValueError:
         return None
+
+
+def _first_number(row: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        number = _number(row.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _first_int_number(row: dict[str, Any], *keys: str) -> int | None:
+    for key in keys:
+        number = _int_number(row.get(key))
+        if number is not None:
+            return number
+    return None
 
 
 def _int_number(value: Any) -> int | None:

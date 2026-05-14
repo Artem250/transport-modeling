@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 import math
 import xml.etree.ElementTree as ET
 
@@ -295,7 +296,7 @@ class MapViewer(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, map_file="map.osm", data_file="network_project.json"):
+    def __init__(self, map_file="map.osm", data_file="osm_network_project_skdf.json", run_analysis=False):
         super().__init__()
         self.setWindowTitle("Транспортный визуализатор")
         self.resize(1400, 900)
@@ -307,6 +308,7 @@ class MainWindow(QMainWindow):
         if not os.path.exists(data_file) and os.path.exists("manual_network.json"):
             data_file = "manual_network.json"
         self.data_file = data_file
+        self.run_analysis = run_analysis
         self.project = None
         self.map_data = self.parse_osm(map_file)
 
@@ -502,7 +504,7 @@ class MainWindow(QMainWindow):
         try:
             self.project = self.loader.load(path)
             needs_analysis = any(not link.results for link in self.project.network.links.values())
-            if needs_analysis:
+            if needs_analysis and self.run_analysis:
                 self.analysis_service.analyze_project(self.project)
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить проект: {e}")
@@ -670,9 +672,31 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить проект: {e}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Open the traffic visualization GUI.")
+    parser.add_argument("--map", default="map.osm", help="OSM map file used as the background.")
+    parser.add_argument("--project", default="osm_network_project_skdf.json", help="Project JSON to load.")
+    parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Open the project without running dynamic analysis for missing link results.",
+    )
+    parser.add_argument(
+        "--run-analysis",
+        action="store_true",
+        help="Run dynamic analysis before opening the project if link results are missing.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = parse_args()
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = MainWindow(
+        map_file=args.map,
+        data_file=args.project,
+        run_analysis=args.run_analysis and not args.skip_analysis,
+    )
     window.resize(1200, 800)
     window.show()
     sys.exit(app.exec_())

@@ -11,9 +11,9 @@ from skdf_matcher import load_skdf_roads
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Export an HTML map with SKDF roads over the OSM project graph.")
+    parser = argparse.ArgumentParser(description="Export an HTML map with SKDF segments over the OSM project graph.")
     parser.add_argument("--project", default="osm_network_project.json", help="Input project JSON.")
-    parser.add_argument("--skdf-csv", default="nsk_roads_bbox.csv", help="SKDF CSV exported from api_test.py.")
+    parser.add_argument("--skdf-csv", default="nsk_roads_bbox_3_segments_2.csv", help="SKDF segment CSV exported from api_test.py.")
     parser.add_argument("--output", default="skdf_osm_overlay_map.html", help="Output HTML path.")
     args = parser.parse_args()
 
@@ -21,7 +21,7 @@ def main() -> None:
     html = build_overlay_html(project, args.skdf_csv)
     output_path = Path(args.output)
     output_path.write_text(html, encoding="utf-8")
-    print(f"Saved overlay map: {output_path.resolve()}")
+    print(f"Saved SKDF segment overlay map: {output_path.resolve()}")
 
 
 def build_overlay_html(project, skdf_csv_path: str) -> str:
@@ -79,7 +79,9 @@ def build_overlay_html(project, skdf_csv_path: str) -> str:
                     "points": points,
                     "tooltip": {
                         "SKDF road_id": road.road_id or "-",
+                        "Segment": road.segment_object_id or "-",
                         "Road": road.road_name or road.full_name or "-",
+                        "km": f"{road.start_km if road.start_km is not None else '-'} - {road.finish_km if road.finish_km is not None else '-'}",
                         "Traffic": road.traffic if road.traffic is not None else "-",
                         "Capacity": road.capacity if road.capacity is not None else "-",
                         "Lanes": road.lanes if road.lanes is not None else "-",
@@ -174,7 +176,7 @@ def build_overlay_html(project, skdf_csv_path: str) -> str:
     }};
     const overlays = {{
       "OSM graph": osmLayer,
-      "SKDF roads": skdfLayer
+      "SKDF segments": skdfLayer
     }};
     L.control.layers(baseLayers, overlays, {{ collapsed: false }}).addTo(map);
 
@@ -190,7 +192,7 @@ def build_overlay_html(project, skdf_csv_path: str) -> str:
       div.innerHTML = `
         <div><b>Слои</b></div>
         <div class="legend-row"><span class="legend-line" style="border-top-color:#1976d2"></span>OSM graph</div>
-        <div class="legend-row"><span class="legend-line" style="border-top-color:#d81b60"></span>SKDF roads</div>
+        <div class="legend-row"><span class="legend-line" style="border-top-color:#d81b60"></span>SKDF segments</div>
       `;
       return div;
     }};

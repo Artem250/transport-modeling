@@ -183,11 +183,22 @@ def _load_links(project_data: dict[str, Any]) -> dict[str, LinkInfo]:
             name=item.get("name", item["id"]),
             length_km=_float(item.get("length_km")) or 0.0,
             traffic=_float(traffic_counts.get("car")),
-            capacity=_float(parameters.get("capacity_per_lane_base")),
+            capacity=_link_capacity(parameters),
             los=str(results.get("LOS") or ""),
             vc_ratio=_float(results.get("VC_ratio")),
         )
     return links
+
+
+def _link_capacity(parameters: dict[str, Any]) -> float | None:
+    total = _float(parameters.get("capacity_total_skdf") or parameters.get("capacity_total"))
+    if total is not None:
+        return total
+    base = _float(parameters.get("capacity_per_lane_base") or parameters.get("saturation_flow_base"))
+    lanes = _float(parameters.get("lanes_total") or parameters.get("lanes_count") or 1)
+    if base is None or lanes is None:
+        return None
+    return base * lanes
 
 
 def _is_matched(row: dict[str, str]) -> bool:

@@ -9,7 +9,7 @@ from skdf_matcher import SkdfMatchConfig, enrich_project_with_skdf
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Assign SKDF traffic and capacity data to OSM project links."
+        description="Assign SKDF segment traffic and capacity data to OSM project links."
     )
     parser.add_argument(
         "--project",
@@ -18,8 +18,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--skdf-csv",
-        default="nsk_roads_bbox.csv",
-        help="SKDF CSV path exported by api_test.py.",
+        default="nsk_roads_bbox_3_segments_2.csv",
+        help="SKDF segment CSV path exported by api_test.py.",
     )
     parser.add_argument(
         "--output",
@@ -84,7 +84,7 @@ def main() -> None:
     )
     ProjectSaver().save(project, args.output)
 
-    print(f"SKDF roads loaded: {stats.skdf_roads_loaded}")
+    print(f"SKDF segments loaded: {stats.skdf_roads_loaded}")
     print(f"Links total: {stats.links_total}")
     print(f"Links with geometry: {stats.links_with_geometry}")
     print(f"Links matched: {stats.links_matched}")

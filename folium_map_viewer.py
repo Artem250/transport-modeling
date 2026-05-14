@@ -95,7 +95,7 @@ def build_project_map_html(project, skdf_csv_path: str | None = None) -> str:
     node_layer.add_to(m)
 
     if skdf_csv_path:
-        skdf_layer = folium.FeatureGroup(name="SKDF roads", show=True)
+        skdf_layer = folium.FeatureGroup(name="SKDF segments", show=True)
         _add_skdf_layer(skdf_layer, skdf_csv_path, bounds)
         skdf_layer.add_to(m)
 
@@ -173,17 +173,22 @@ def _link_weight(link) -> int:
 
 def _link_tooltip(link) -> str:
     results = link.results or {}
+    skdf = (link.metadata or {}).get("skdf") or {}
     values: dict[str, Any] = {
         "ID": link.id,
         "Name": link.name,
         "Length": f"{link.length_km} km",
         "LOS": results.get("LOS", "-"),
         "V/C": results.get("VC_ratio", "-"),
-        "Cars": (link.traffic_counts or {}).get("car", "-"),
+        "Intensity": results.get("V", (link.traffic_counts or {}).get("car", "-")),
+        "Capacity": results.get("C_initial", skdf.get("capacity_total", "-")),
     }
-    if "skdf" in (link.metadata or {}):
-        values["SKDF road"] = link.metadata["skdf"].get("road_name", "-")
-        values["SKDF score"] = link.metadata["skdf"].get("match_score", "-")
+    if skdf:
+        values["SKDF road"] = skdf.get("road_name", "-")
+        values["SKDF segment"] = skdf.get("segment_object_id", "-")
+        values["SKDF km"] = f"{skdf.get('start_km', '-')} - {skdf.get('finish_km', '-')}"
+        if skdf.get("match_score") is not None:
+            values["SKDF score"] = skdf.get("match_score", "-")
     return "<br>".join(f"<b>{key}:</b> {value}" for key, value in values.items())
 
 
@@ -220,7 +225,9 @@ def _add_skdf_layer(layer, csv_path: str, bounds: list[list[float]]) -> None:
 def _skdf_tooltip(road) -> str:
     values: dict[str, Any] = {
         "SKDF road_id": road.road_id or "-",
+        "Segment": road.segment_object_id or "-",
         "Road": road.road_name or road.full_name or "-",
+        "km": f"{road.start_km if road.start_km is not None else '-'} - {road.finish_km if road.finish_km is not None else '-'}",
         "Traffic": road.traffic if road.traffic is not None else "-",
         "Capacity": road.capacity if road.capacity is not None else "-",
         "Lanes": road.lanes if road.lanes is not None else "-",

@@ -13,7 +13,7 @@ class AnalysisService:
         self.dynamic_service = DynamicAnalysisService()
 
     def analyze_project(self, project: Project, mode: str | None = None) -> dict:
-        selected_mode = (mode or project.analysis_mode or "compare").lower()
+        selected_mode = (mode or project.analysis_mode or "dynamic").lower()
 
         if selected_mode == "static":
             return self.static_service.analyze_project(project)
