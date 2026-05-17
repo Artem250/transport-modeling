@@ -20,6 +20,7 @@ replace upstream/downstream boundary logic.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Callable, Optional
 
 
@@ -314,15 +315,7 @@ class CTMModel:
         flows.append(upstream_flow)
 
         # Internal boundaries.
-        for boundary_index in range(1, self.cell_count):
-            upstream_cell = cells[boundary_index - 1]
-            downstream_cell = cells[boundary_index]
-            flow = min(
-                self.demand(upstream_cell),
-                self.supply(downstream_cell),
-            )
-            flow *= self.signal_factor(boundary_index)
-            flows.append(flow)
+        flows.extend(self.compute_internal_flows())
 
         # Downstream boundary.
         downstream_flow = min(
@@ -333,6 +326,119 @@ class CTMModel:
         flows.append(downstream_flow)
 
         return flows
+
+    def compute_internal_flows(self) -> list[float]:
+        """Compute internal cell-to-cell flows as rates in pcu/s."""
+        flows: list[float] = []
+        for boundary_index in range(1, self.cell_count):
+            upstream_cell = self.cells[boundary_index - 1]
+            downstream_cell = self.cells[boundary_index]
+            flow = min(
+                self.demand(upstream_cell),
+                self.supply(downstream_cell),
+            )
+            flow *= self.signal_factor(boundary_index)
+            flows.append(flow)
+        return flows
+
+    def validate_boundary_flow_or_raise(
+        self,
+        *,
+        flow: float,
+        limit: float,
+        label: str,
+    ) -> float:
+        """Validate an externally solved network boundary flow."""
+        if not math.isfinite(flow):
+            raise CTMStateError(f"{label} boundary flow must be finite: {flow}")
+        if flow < -EPS:
+            raise CTMStateError(f"{label} boundary flow must be non-negative: {flow}")
+        if flow - limit > EPS:
+            raise CTMStateError(
+                f"{label} boundary flow exceeds CTM limit: {flow} > {limit}"
+            )
+        return max(0.0, flow)
+
+    def _advance_with_flows(self, flows: list[float]) -> dict[str, float | list[float]]:
+        """Advance state using already computed boundary/internal CTM flows."""
+        if len(flows) != self.cell_count + 1:
+            raise CTMStateError(
+                f"expected {self.cell_count + 1} boundary flows, got {len(flows)}"
+            )
+
+        before_densities = [cell.density for cell in self.cells]
+        self.validate_state_or_raise(before_densities, context="before step")
+
+        before_total = self.total_occupancy()
+
+        next_densities: list[float] = []
+        for i, cell in enumerate(self.cells):
+            inflow = flows[i]
+            outflow = flows[i + 1]
+            density_next = cell.density + (self.dt / cell.length) * (inflow - outflow)
+            next_densities.append(density_next)
+
+        if self.strict:
+            self.validate_state_or_raise(next_densities, context="after step")
+        else:
+            next_densities = [
+                min(max(0.0, density), self.diagram.jam_density)
+                for density in next_densities
+            ]
+
+        for cell, density in zip(self.cells, next_densities):
+            cell.density = density
+
+        self.time += self.dt
+
+        after_total = self.total_occupancy()
+        conservation_error = after_total - (
+            before_total + flows[0] * self.dt - flows[-1] * self.dt
+        )
+
+        return {
+            "time": self.time,
+            "flows_pcu_s": flows,
+            "densities_pcu_m": self.densities(),
+            "occupancies_pcu": self.occupancies(),
+            "external_queue_pcu": self.external_queue,
+            "total_occupancy_pcu": after_total,
+            "conservation_error_pcu": conservation_error,
+        }
+
+    def step_with_boundary_flows(
+        self,
+        *,
+        upstream_flow: float,
+        downstream_flow: float,
+    ) -> dict[str, float | list[float]]:
+        """Advance one step using network-solved upstream/downstream flows.
+
+        This method is intended for network CTM simulations where a separate
+        node solver determines link boundary flows. The link still owns the
+        CTM conservation update and internal cell-to-cell flows.
+        """
+
+        if self.validate_cfl:
+            self.validate_cfl_or_raise()
+
+        self.apply_incidents()
+
+        upstream_limit = self.supply(self.cells[0]) * self.signal_factor(0)
+        downstream_limit = self.demand(self.cells[-1]) * self.signal_factor(self.cell_count)
+        upstream_flow = self.validate_boundary_flow_or_raise(
+            flow=upstream_flow,
+            limit=upstream_limit,
+            label="upstream",
+        )
+        downstream_flow = self.validate_boundary_flow_or_raise(
+            flow=downstream_flow,
+            limit=downstream_limit,
+            label="downstream",
+        )
+
+        flows = [upstream_flow] + self.compute_internal_flows() + [downstream_flow]
+        return self._advance_with_flows(flows)
 
     def validate_state_or_raise(self, densities: list[float], *, context: str) -> None:
         for index, density in enumerate(densities):
@@ -353,50 +459,14 @@ class CTMModel:
             self.validate_cfl_or_raise()
 
         self.apply_incidents()
-        before_densities = [cell.density for cell in self.cells]
-        self.validate_state_or_raise(before_densities, context="before step")
-
-        before_total = self.total_occupancy()
         flows = self.compute_boundary_flows()
-
-        next_densities: list[float] = []
-        for i, cell in enumerate(self.cells):
-            inflow = flows[i]
-            outflow = flows[i + 1]
-            density_next = cell.density + (self.dt / cell.length) * (inflow - outflow)
-            next_densities.append(density_next)
-
-        if self.strict:
-            self.validate_state_or_raise(next_densities, context="after step")
-        else:
-            next_densities = [
-                min(max(0.0, density), self.diagram.jam_density)
-                for density in next_densities
-            ]
-
-        for cell, density in zip(self.cells, next_densities):
-            cell.density = density
+        diagnostics = self._advance_with_flows(flows)
 
         # Remove only the actually admitted upstream flow from the point queue.
         admitted_upstream_vehicles = flows[0] * self.dt
         self.external_queue = max(0.0, self.external_queue - admitted_upstream_vehicles)
-
-        self.time += self.dt
-
-        after_total = self.total_occupancy()
-        conservation_error = after_total - (
-            before_total + flows[0] * self.dt - flows[-1] * self.dt
-        )
-
-        return {
-            "time": self.time,
-            "flows_pcu_s": flows,
-            "densities_pcu_m": self.densities(),
-            "occupancies_pcu": self.occupancies(),
-            "external_queue_pcu": self.external_queue,
-            "total_occupancy_pcu": after_total,
-            "conservation_error_pcu": conservation_error,
-        }
+        diagnostics["external_queue_pcu"] = self.external_queue
+        return diagnostics
 
     def densities(self) -> list[float]:
         return [cell.density for cell in self.cells]
