@@ -11,7 +11,7 @@ from typing import Any
 from models import Link, Network, Node, Project
 
 
-ALLOWED_HIGHWAYS = {"primary", "secondary", "tertiary", "trunk"}  # , "residential"}
+ALLOWED_HIGHWAYS = {"primary", "secondary", "tertiary", "trunk", "residential"}
 ANGLE_TOLERANCE_DEG = 3.0
 DISTANCE_TOLERANCE_M = 1.5
 EARTH_RADIUS_M = 6371008.8

@@ -1,0 +1,603 @@
+import os
+import sys
+import xml.etree.ElementTree as ET
+import math
+
+from PyQt5.QtCore import QPointF, QRectF, Qt
+from PyQt5.QtGui import QColor, QBrush, QFont, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent
+from PyQt5.QtWidgets import (
+    QApplication, QGraphicsEllipseItem, QGraphicsItem, QGraphicsPathItem,
+    QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel, QMainWindow,
+    QMessageBox, QPushButton, QStackedWidget, QTextEdit, QVBoxLayout, QWidget, QSlider
+)
+
+from project_loader import ProjectLoader
+from project_saver import ProjectSaver
+
+try:
+    from PyQt5.QtWebEngineWidgets import QWebEngineProfile, QWebEngineView
+except ImportError:
+    QWebEngineProfile = None
+    QWebEngineView = None
+
+try:
+    from pyproj import Transformer
+
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:32644", always_xy=True)
+    inv_transformer = Transformer.from_crs("EPSG:32644", "EPSG:4326", always_xy=True)
+    USE_PYPROJ = True
+except ImportError:
+    USE_PYPROJ = False
+
+
+def project_coords(lon, lat):
+    if USE_PYPROJ:
+        x, y = transformer.transform(lon, lat)
+        return x, -y
+    r_major = 6378137.0
+    x = r_major * math.radians(lon)
+    scale = x / lon if lon != 0 else 1
+    y = 180.0 / math.pi * math.log(math.tan(math.pi / 4.0 + lat * (math.pi / 180.0) / 2.0)) * scale
+    return x, -y
+
+
+def unproject_coords(x, y_qt):
+    if USE_PYPROJ:
+        lon, lat = inv_transformer.transform(x, -y_qt)
+        return lon, lat
+    r_major = 6378137.0
+    lon = math.degrees(x / r_major)
+    lat = math.degrees(2 * math.atan(math.exp(math.radians(-y_qt))) - math.pi / 2)
+    return lon, lat
+
+
+# --- АКАДЕМИЧЕСКАЯ ТАБЛИЦА ПЛОТНОСТЕЙ ДЛЯ LOS (Легковые на км на полосу) ---
+def get_los_and_color_from_density(density_per_lane):
+    if density_per_lane <= 11: return "A", QColor(0, 200, 0)  # Свободный поток
+    if density_per_lane <= 16: return "B", QColor(100, 220, 100)  # Стабильный поток
+    if density_per_lane <= 22: return "C", QColor(255, 255, 0)  # Плотный поток
+    if density_per_lane <= 28: return "D", QColor(255, 165, 0)  # Предзаторовое состояние
+    if density_per_lane <= 35: return "E", QColor(255, 69, 0)  # Критическая плотность (Capacity)
+    return "F", QColor(255, 0, 0)  # Затор / Пробка
+
+
+NODE_COLORS = {
+    "boundary": QColor(220, 40, 40),
+    "intersection": QColor(45, 90, 210),
+    "roundabout_part": QColor(150, 70, 210),
+    "ordinary": QColor(80, 80, 80),
+}
+
+
+# Функция нарезки ломаной линии на N равных частей (ячеек CTM)
+def split_polyline(points, num_segments):
+    if num_segments <= 1 or len(points) < 2:
+        return [points]
+
+    lengths = []
+    for i in range(len(points) - 1):
+        dx = points[i + 1].x() - points[i].x()
+        dy = points[i + 1].y() - points[i].y()
+        lengths.append(math.hypot(dx, dy))
+
+    total_len = sum(lengths)
+    if total_len == 0:
+        return [points] * num_segments
+
+    target = total_len / num_segments
+    cells = []
+    curr_cell = [points[0]]
+
+    pt_idx = 0
+    p1 = points[0]
+
+    for _ in range(num_segments - 1):
+        dist_needed = target
+        while dist_needed > 1e-5 and pt_idx < len(points) - 1:
+            p2 = points[pt_idx + 1]
+            seg_len = math.hypot(p2.x() - p1.x(), p2.y() - p1.y())
+
+            if seg_len > dist_needed:
+                t = dist_needed / seg_len
+                nx = p1.x() + t * (p2.x() - p1.x())
+                ny = p1.y() + t * (p2.y() - p1.y())
+                new_pt = QPointF(nx, ny)
+                curr_cell.append(new_pt)
+                cells.append(curr_cell)
+                curr_cell = [new_pt]
+                p1 = new_pt
+                dist_needed = 0
+            else:
+                curr_cell.append(p2)
+                dist_needed -= seg_len
+                pt_idx += 1
+                p1 = points[pt_idx]
+
+        if dist_needed > 1e-5:
+            cells.append(curr_cell)
+            curr_cell = [p1]
+
+    while pt_idx < len(points) - 1:
+        curr_cell.append(points[pt_idx + 1])
+        pt_idx += 1
+    cells.append(curr_cell)
+
+    while len(cells) < num_segments:
+        cells.append([points[-1], points[-1]])
+
+    return cells
+
+
+class MapBackgroundItem(QGraphicsItem):
+    def __init__(self, map_data):
+        super().__init__()
+        self.roads = map_data.get("roads", [])
+        self.buildings = map_data.get("buildings", [])
+        self.building_pen = QPen(QColor(190, 190, 190), 0.8)
+        self.building_brush = QBrush(QColor(235, 235, 235))
+        self.road_styles = {
+            "primary": QPen(QColor(170, 170, 170), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "secondary": QPen(QColor(185, 185, 185), 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "tertiary": QPen(QColor(200, 200, 200), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "residential": QPen(QColor(215, 215, 215), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "service": QPen(QColor(225, 225, 225), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "unclassified": QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+        }
+
+        all_points = []
+        for road in self.roads:
+            all_points.extend(road["coords"])
+        for building in self.buildings:
+            all_points.extend(building["coords"])
+
+        if not all_points:
+            self.rect = QRectF(0, 0, 100, 100)
+        else:
+            all_x = [p[0] for p in all_points]
+            all_y = [p[1] for p in all_points]
+            self.rect = QRectF(min(all_x), min(all_y), max(all_x) - min(all_x), max(all_y) - min(all_y))
+        self.setZValue(-100)
+
+    def boundingRect(self):
+        return self.rect
+
+    def paint(self, painter, option, widget):
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(self.building_pen)
+        painter.setBrush(self.building_brush)
+        for building in self.buildings:
+            points = building["coords"]
+            if len(points) >= 3:
+                painter.drawPolygon(QPolygonF([QPointF(x, y) for x, y in points]))
+
+        painter.setBrush(Qt.NoBrush)
+        for road in self.roads:
+            points = road["coords"]
+            pen = self.road_styles.get(
+                road["type"],
+                QPen(QColor(210, 210, 210), 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            )
+            painter.setPen(pen)
+            if len(points) > 1:
+                painter.drawPolyline(QPolygonF([QPointF(x, y) for x, y in points]))
+
+
+class TrafficNode(QGraphicsEllipseItem):
+    def __init__(self, node_model, label, pos_point, app_callback=None):
+        radius = 6
+        super().__init__(-radius, -radius, radius * 2, radius * 2)
+        self.node_model = node_model
+        self.label = label
+        self.app_callback = app_callback
+        self.setPos(pos_point)
+        self.setBrush(QBrush(NODE_COLORS.get(node_model.node_type, NODE_COLORS["ordinary"])))
+        self.setPen(QPen(Qt.black, 1))
+        self.setZValue(100)  # Поверх дорог
+        self.setFlags(
+            QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemSendsScenePositionChanges)
+        self.connected_links = []
+
+    def add_link(self, link):
+        if link not in self.connected_links:
+            self.connected_links.append(link)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionChange:
+            for link in self.connected_links:
+                link.update_geometry()
+        return super().itemChange(change, value)
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if self.app_callback:
+            self.app_callback(self.node_model)
+
+    def paint(self, painter, option, widget):
+        super().paint(painter, option, widget)
+        font = QFont("Arial", 1)
+        painter.setFont(font)
+        painter.setPen(Qt.black)
+        text_rect = QRectF(-40, self.rect().bottom() + 1, 80, 3)
+        painter.drawText(text_rect, Qt.AlignCenter, self.label)
+
+
+class TrafficLink(QGraphicsPathItem):
+    def __init__(self, link_model, start_node, end_node, app_callback=None):
+        super().__init__()
+        self.link_model = link_model
+        self.id = link_model.id
+        self.start_node = start_node
+        self.end_node = end_node
+        self.app_callback = app_callback
+        self.intermediate_points = []
+
+        self.time_index = 0
+        self.cell_points = []  # Массив массивов координат для ячеек
+
+        coords = link_model.coords or {}
+        if coords.get("type") == "polyline":
+            for p in coords.get("points", [])[1:-1]:
+                self.intermediate_points.append(project_coords(p[0], p[1]))
+
+        self.start_node.add_link(self)
+        self.end_node.add_link(self)
+        self.setFlags(QGraphicsItem.ItemIsSelectable)
+        self.setZValue(50)
+        self.base_width = 8
+        self.update_geometry()
+
+    def update_geometry(self):
+        self.prepareGeometryChange()
+
+        base_points = [self.start_node.scenePos()]
+        for pt in self.intermediate_points: base_points.append(QPointF(pt[0], pt[1]))
+        base_points.append(self.end_node.scenePos())
+
+        OFFSET_PX = 4.0
+        shifted_points = []
+        for i in range(len(base_points)):
+            if i == 0:
+                dx, dy = base_points[1].x() - base_points[0].x(), base_points[1].y() - base_points[0].y()
+            elif i == len(base_points) - 1:
+                dx, dy = base_points[-1].x() - base_points[-2].x(), base_points[-1].y() - base_points[-2].y()
+            else:
+                dx, dy = base_points[i + 1].x() - base_points[i - 1].x(), base_points[i + 1].y() - base_points[
+                    i - 1].y()
+
+            length = math.hypot(dx, dy)
+            if length == 0:
+                shifted_points.append(base_points[i])
+                continue
+            nx, ny = -dy / length, dx / length
+            shifted_points.append(QPointF(base_points[i].x() + nx * OFFSET_PX, base_points[i].y() + ny * OFFSET_PX))
+
+        # Устанавливаем общий путь для хитбокса (выделения мышкой)
+        full_path = QPainterPath()
+        full_path.moveTo(shifted_points[0])
+        for pt in shifted_points[1:]: full_path.lineTo(pt)
+        self.setPath(full_path)
+
+        # Нарезаем линию на ячейки CTM
+        res = self.link_model.results or {}
+        cell_count = res.get("cell_count", 1)
+        self.cell_points = split_polyline(shifted_points, cell_count)
+
+    def boundingRect(self):
+        return super().boundingRect().adjusted(-5, -5, 5, 5)
+
+    def update_visuals(self, time_idx):
+        self.time_index = time_idx
+        self.update()  # Запрашиваем перерисовку
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if self.app_callback:
+            self.app_callback(self.link_model)
+
+    def paint(self, painter, option, widget):
+        # ВАЖНО: Мы переопределяем paint, чтобы рисовать ячейки вместо сплошной линии
+        res = self.link_model.results or {}
+        hist_dens = res.get("history_cells_density_pcu_km", [])
+        lanes = self.link_model.parameters.get("lanes_total", 1)
+
+        # Получаем плотности для текущего кадра времени
+        if hist_dens and self.time_index < len(hist_dens):
+            current_densities = hist_dens[self.time_index]
+        else:
+            current_densities = [0] * len(self.cell_points)
+
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        last_color = QColor(200, 200, 200)
+
+        # Отрисовка каждой ячейки своим цветом
+        for i, cell_pts in enumerate(self.cell_points):
+            if i < len(current_densities):
+                d = current_densities[i]
+            else:
+                d = 0
+
+            _, color = get_los_and_color_from_density(d / lanes)
+            if self.isSelected():
+                # Подсветка выделенной дороги синим контуром
+                painter.setPen(QPen(QColor(0, 170, 255), self.base_width + 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+                path = QPainterPath()
+                path.moveTo(cell_pts[0])
+                for pt in cell_pts[1:]: path.lineTo(pt)
+                painter.drawPath(path)
+
+            painter.setPen(QPen(color, self.base_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+
+            path = QPainterPath()
+            path.moveTo(cell_pts[0])
+            for pt in cell_pts[1:]: path.lineTo(pt)
+            painter.drawPath(path)
+            last_color = color
+
+        # Отрисовка стрелки направления на конце дороги
+        if len(self.cell_points) > 0:
+            last_cell = self.cell_points[-1]
+            if len(last_cell) >= 2:
+                p1, p2 = last_cell[-2], last_cell[-1]
+                dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
+                if math.hypot(dx, dy) > 0:
+                    angle = math.degrees(math.atan2(-dy, dx))
+
+                    arrow_color = QColor(last_color)
+                    arrow_color.setAlpha(255)
+                    painter.setBrush(QBrush(arrow_color))
+                    painter.setPen(Qt.NoPen)
+
+                    painter.translate(p2)
+                    painter.rotate(-angle)
+
+                    arrow_size = self.base_width * 1.3
+                    arrow_head = QPolygonF([
+                        QPointF(arrow_size, 0),
+                        QPointF(-arrow_size, -arrow_size * 0.6),
+                        QPointF(-arrow_size, arrow_size * 0.6)
+                    ])
+                    painter.drawPolygon(arrow_head)
+
+        painter.restore()
+
+
+class MapViewer(QGraphicsView):
+    def __init__(self, scene):
+        super().__init__(scene)
+        self.setRenderHint(QPainter.Antialiasing)
+        self.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+
+    def wheelEvent(self, event: QWheelEvent):
+        factor = 1.15
+        self.scale(factor, factor) if event.angleDelta().y() > 0 else self.scale(1 / factor, 1 / factor)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, map_file="map_nstu.osm", data_file="ctm_results_viz.json"):
+        super().__init__()
+        self.setWindowTitle("Транспортный визуализатор CTM (С динамикой)")
+        self.resize(1400, 900)
+
+        self.loader = ProjectLoader()
+        self.saver = ProjectSaver()
+        self.data_file = data_file
+        self.project = None
+        self.map_data = self.parse_osm(map_file)
+        self.viz_links = []
+        self.current_time_index = 0
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QHBoxLayout(central_widget)
+
+        # Левая часть (карта и ползунок)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+
+        self.scene = QGraphicsScene()
+        self.view = MapViewer(self.scene)
+        left_layout.addWidget(self.view)
+
+        # Ползунок времени
+        slider_layout = QHBoxLayout()
+        self.lbl_time = QLabel("Время: 0 мин")
+        self.lbl_time.setFixedWidth(120)
+
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(0)
+        self.slider.valueChanged.connect(self.on_time_changed)
+
+        slider_layout.addWidget(self.lbl_time)
+        slider_layout.addWidget(self.slider)
+        left_layout.addLayout(slider_layout)
+
+        main_layout.addWidget(left_panel, 4)
+
+        # Правая часть (инфо и кнопки)
+        control_panel = QWidget()
+        control_layout = QVBoxLayout(control_panel)
+        main_layout.addWidget(control_panel, 1)
+
+        self.info = QTextEdit()
+        self.info.setReadOnly(True)
+        control_layout.addWidget(QLabel("Детали объекта:"))
+        control_layout.addWidget(self.info)
+
+        self.btn_save_coords = QPushButton("Сохранить координаты в проект")
+        self.btn_save_coords.clicked.connect(self.save_current_positions_to_project)
+        control_layout.addWidget(self.btn_save_coords)
+
+        self.reload_project_and_redraw()
+
+    def on_time_changed(self, value):
+        self.current_time_index = value
+        self.lbl_time.setText(f"Время: {value} мин")
+
+        # Обновляем все дороги
+        for link in self.viz_links:
+            link.update_visuals(self.current_time_index)
+
+        # Обновляем текст в боковой панели, если что-то выбрано
+        if hasattr(self, 'last_clicked_link') and self.last_clicked_link:
+            self.on_link_click(self.last_clicked_link)
+
+    def reload_project_and_redraw(self):
+        self.scene.clear()
+        self.viz_links = []
+        self.draw_map()
+
+        try:
+            self.project = self.loader.load(self.data_file)
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить результаты CTM: {exc}")
+            self.project = None
+            return
+
+        self.draw_network()
+
+        # Настраиваем ползунок времени (ищем максимальную длину истории)
+        max_history = 0
+        for link in self.project.network.links.values():
+            res = link.results or {}
+            hist = res.get("history_cells_density_pcu_km", [])
+            if len(hist) > max_history:
+                max_history = len(hist)
+
+        if max_history > 0:
+            self.slider.setMaximum(max_history - 1)
+            self.slider.setValue(0)
+
+        self.on_time_changed(self.slider.value())
+
+    def parse_osm(self, path):
+        try:
+            tree = ET.parse(path)
+            nodes = {}
+            for n in tree.findall(".//node"):
+                nodes[n.get("id")] = project_coords(float(n.get("lon")), float(n.get("lat")))
+            roads = []
+            buildings = []
+            allowed_highways = {"primary", "secondary", "tertiary", "residential", "trunk"}
+            for w in tree.findall(".//way"):
+                tags = {t.get("k"): t.get("v") for t in w.findall("tag")}
+                coords = [nodes[nd.get("ref")] for nd in w.findall("nd") if nd.get("ref") in nodes]
+                if len(coords) < 2: continue
+                if tags.get("highway") in allowed_highways:
+                    roads.append({"type": tags["highway"], "coords": coords})
+                if tags.get("building") is not None and len(coords) >= 3:
+                    buildings.append({"type": tags["building"], "coords": coords})
+            return {"roads": roads, "buildings": buildings}
+        except Exception as exc:
+            return {"roads": [], "buildings": []}
+
+    def draw_map(self):
+        self.scene.addItem(MapBackgroundItem(self.map_data))
+
+    def draw_network(self):
+        if self.project is None: return
+        node_registry = {}
+        for node_model in self.project.network.nodes.values():
+            if node_model.lon is not None and node_model.lat is not None:
+                point = QPointF(*project_coords(node_model.lon, node_model.lat))
+            else:
+                continue
+            node_label = node_model.name or node_model.id
+            node_item = TrafficNode(node_model, node_label, point, self.on_node_click)
+            self.scene.addItem(node_item)
+            node_registry[node_model.id] = node_item
+
+        for link_model in self.project.network.links.values():
+            start_node = node_registry.get(link_model.start_node_id)
+            end_node = node_registry.get(link_model.end_node_id)
+            if start_node is None or end_node is None: continue
+            link_item = TrafficLink(link_model, start_node, end_node, self.on_link_click)
+            self.scene.addItem(link_item)
+            self.viz_links.append(link_item)
+
+        if self.viz_links:
+            self.view.fitInView(self.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+
+    def on_node_click(self, node_model):
+        self.last_clicked_link = None  # Сброс выбора дороги
+        incoming = self.project.network.get_incoming_links(node_model.id)
+        outgoing = self.project.network.get_outgoing_links(node_model.id)
+        html = f"<h3>Узел: {node_model.name or node_model.id}</h3>"
+        html += f"<b>Входящих дорог:</b> {len(incoming)}<br>"
+        html += f"<b>Исходящих дорог:</b> {len(outgoing)}<br>"
+        self.info.setHtml(html)
+
+    def on_link_click(self, link_model):
+        self.last_clicked_link = link_model
+        res = link_model.results or {}
+
+        hist_dens = res.get("history_cells_density_pcu_km", [])
+        hist_flow = res.get("history_flow_veh_h", [])
+        lanes = link_model.parameters.get("lanes_total", 1)
+
+        # Получаем данные на выбранную минуту симуляции
+        if hist_dens and self.current_time_index < len(hist_dens):
+            current_densities = hist_dens[self.current_time_index]
+            avg_dens = sum(current_densities) / len(current_densities)
+            max_dens = max(current_densities)
+            current_flow = hist_flow[self.current_time_index] if hist_flow else 0
+
+            los_avg, _ = get_los_and_color_from_density(avg_dens / lanes)
+            los_max, _ = get_los_and_color_from_density(max_dens / lanes)
+        else:
+            avg_dens, max_dens, current_flow = 0, 0, 0
+            los_avg, los_max = "Н/Д", "Н/Д"
+
+        html = f"<h3>{link_model.name}</h3>"
+        html += f"<b>ID:</b> {link_model.id}<br>"
+        html += f"<b>Длина:</b> {link_model.length_km} км<br>"
+        html += f"<b>Полос:</b> {lanes}<br>"
+        html += f"<b>Класс OSM:</b> {link_model.metadata.get('highway', 'Н/Д')}<br><br>"
+
+        html += f"<b>==== Динамика CTM ({self.current_time_index} мин) ====</b><br>"
+        html += f"<b>Выходной поток:</b> {current_flow} авт/ч<br>"
+        html += f"<b>Плотность (Ср):</b> {avg_dens:.1f} авт/км (LOS {los_avg})<br>"
+        html += f"<b>Плотность (Макс ячейка):</b> {max_dens:.1f} авт/км (LOS {los_max})<br>"
+
+        self.info.setHtml(html)
+
+    def save_current_positions_to_project(self):
+        if self.project is None: return
+        for link in self.viz_links:
+            p1 = link.start_node.scenePos()
+            p2 = link.end_node.scenePos()
+            lon_s, lat_s = unproject_coords(p1.x(), p1.y())
+            lon_e, lat_e = unproject_coords(p2.x(), p2.y())
+            coords = link.link_model.coords or {}
+            if coords.get("type") == "polyline" and len(coords.get("points", [])) >= 2:
+                points = coords["points"]
+                link.link_model.coords = {
+                    "type": "polyline",
+                    "points": [[round(lon_s, 6), round(lat_s, 6)], *points[1:-1], [round(lon_e, 6), round(lat_e, 6)]],
+                    "lon_start": round(lon_s, 6),
+                    "lat_start": round(lat_s, 6),
+                    "lon_end": round(lon_e, 6),
+                    "lat_end": round(lat_e, 6),
+                }
+            else:
+                link.link_model.coords = {
+                    "lon_start": round(lon_s, 6),
+                    "lat_start": round(lat_s, 6),
+                    "lon_end": round(lon_e, 6),
+                    "lat_end": round(lat_e, 6),
+                }
+        try:
+            self.saver.save(self.project, self.data_file)
+            QMessageBox.information(self, "Успех", f"Координаты сохранены в {self.data_file}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить проект: {exc}")
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
