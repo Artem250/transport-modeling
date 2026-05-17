@@ -45,6 +45,7 @@ class CTMSimulator:
         self.sources: list[str] = []
         self.sinks: list[str] = []
 
+        self.mass_generated = 0.0
         self.mass_entered = 0.0
         self.mass_exited = 0.0
         self.network_conservation_error_pcu = 0.0
@@ -54,6 +55,7 @@ class CTMSimulator:
 
         self._init_physics()
         self._build_turning_ratios()
+        self._init_source_queue_history()
         self._plan_incident()
 
     def _init_physics(self):
@@ -135,6 +137,10 @@ class CTMSimulator:
                         self.turn_ratios[node_id][in_link.id][out_id] = score / total_score
         print(f"Генераторов трафика: {len(self.sources)}, Стоков: {len(self.sinks)}")
 
+    def _init_source_queue_history(self):
+        for source_id in self.sources:
+            self.network.links[source_id].results["history_external_queue_pcu"] = []
+
     def _plan_incident(self):
         """Находит самую длинную внутреннюю дорогу и планирует аварию в её ЦЕНТРАЛЬНОЙ ячейке."""
         candidates = [
@@ -200,9 +206,17 @@ class CTMSimulator:
         # 2. Обработка краев сети
         source_rate = INFLOW_VEH_PER_HOUR / 3600.0
         for s_id in self.sources:
-            flow = min(source_rate, supplies[s_id])
+            ctm = self.ctm_links[s_id]
+            generated = source_rate * self.dt
+            ctm.external_queue += generated
+            self.mass_generated += generated
+
+            queued_demand_rate = ctm.external_queue / self.dt
+            flow = min(queued_demand_rate, supplies[s_id])
             actual_inflows[s_id] = flow
-            self.mass_entered += flow * self.dt
+            admitted = flow * self.dt
+            ctm.external_queue = max(0.0, ctm.external_queue - admitted)
+            self.mass_entered += admitted
 
         for s_id in self.sinks:
             flow = demands[s_id]
@@ -254,6 +268,10 @@ class CTMSimulator:
                 link = self.project.network.links[link_id]
                 link.results["history_cells_density_pcu_km"].append(cells_densities)
                 link.results["history_flow_veh_h"].append(round(avg_flow_veh_h, 1))
+                if link_id in self.sources:
+                    link.results["history_external_queue_pcu"].append(
+                        round(ctm.external_queue, 3)
+                    )
 
     def run(self):
         total_steps = int((SIMULATION_MINUTES * 60) / self.dt)
@@ -270,11 +288,21 @@ class CTMSimulator:
         mass_in_network = sum(
             c.density * c.length for ctm in self.ctm_links.values() for c in ctm.cells
         )
+        external_queue = sum(self.ctm_links[source_id].external_queue for source_id in self.sources)
+        network_error = self.mass_entered - self.mass_exited - mass_in_network
+        source_queue_error = self.mass_generated - self.mass_entered - external_queue
+        demand_balance_error = (
+            self.mass_generated
+            - self.mass_exited
+            - mass_in_network
+            - external_queue
+        )
         print("\n=== ДОКАЗАТЕЛЬСТВО ЗАКОНА СОХРАНЕНИЯ МАССЫ ===")
+        print(f"Сгенерированный входной спрос: {self.mass_generated:.2f}")
         print(f"Машин въехало в сеть: {self.mass_entered:.2f}")
         print(f"Машин выехало: {self.mass_exited:.2f}")
         print(f"Осталось в пробках и на дорогах: {mass_in_network:.2f}")
-        error = self.mass_entered - self.mass_exited - mass_in_network
+        print(f"Осталось во внешних очередях источников: {external_queue:.2f}")
         tolerance = 1e-6 * total_steps
         self.project.metadata["ctm_simulation"] = {
             "dt_seconds": self.dt,
@@ -282,19 +310,32 @@ class CTMSimulator:
             "cell_length_target_m": CELL_LENGTH_TARGET,
             "strict": True,
             "validate_cfl": True,
+            "total_generated_pcu": self.mass_generated,
             "total_entered_pcu": self.mass_entered,
             "total_exited_pcu": self.mass_exited,
             "mass_in_network_pcu": mass_in_network,
-            "conservation_error_pcu": error,
+            "total_external_queue_pcu": external_queue,
+            "conservation_error_pcu": network_error,
+            "source_queue_balance_error_pcu": source_queue_error,
+            "demand_balance_error_pcu": demand_balance_error,
             "sum_link_conservation_error_pcu": self.network_conservation_error_pcu,
             "max_abs_link_conservation_error_pcu": self.max_abs_link_conservation_error_pcu,
         }
-        print(f"Математическая погрешность CTM ядра: {error:.6f} автомобилей")
+        print(f"Погрешность сетевого баланса entered = exited + network: {network_error:.6f}")
+        print(f"Погрешность входного баланса generated = entered + queue: {source_queue_error:.6f}")
+        print(f"Погрешность полного баланса generated = exited + network + queue: {demand_balance_error:.6f}")
         print("==============================================\n")
-        if abs(error) > tolerance or abs(self.network_conservation_error_pcu) > tolerance:
+        if (
+            abs(network_error) > tolerance
+            or abs(source_queue_error) > tolerance
+            or abs(demand_balance_error) > tolerance
+            or abs(self.network_conservation_error_pcu) > tolerance
+        ):
             raise CTMStateError(
                 "network conservation check failed: "
-                f"boundary error={error:.9f}, "
+                f"network error={network_error:.9f}, "
+                f"source queue error={source_queue_error:.9f}, "
+                f"demand balance error={demand_balance_error:.9f}, "
                 f"sum link error={self.network_conservation_error_pcu:.9f}, "
                 f"tolerance={tolerance:.9f}"
             )

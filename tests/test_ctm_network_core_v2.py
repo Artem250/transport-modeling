@@ -95,6 +95,26 @@ class CTMNetworkCoreV2Test(unittest.TestCase):
 
 
 class CTMSimulatorRegressionTest(unittest.TestCase):
+    def test_source_queue_accumulates_unadmitted_boundary_demand(self):
+        project = ProjectLoader().load("osm_network_project_map_nstu.json")
+        simulator = CTMSimulator(project)
+        blocked_source_id = simulator.sources[0]
+        blocked_source = simulator.ctm_links[blocked_source_id]
+        blocked_source.cells[0].density = blocked_source.diagram.jam_density
+
+        simulator.step(0.0)
+
+        external_queue = sum(
+            simulator.ctm_links[source_id].external_queue
+            for source_id in simulator.sources
+        )
+        self.assertGreater(blocked_source.external_queue, 0.0)
+        self.assertAlmostEqual(
+            simulator.mass_generated - simulator.mass_entered - external_queue,
+            0.0,
+            places=9,
+        )
+
     def test_nstu_simulator_uses_strict_core_and_preserves_mass(self):
         project = ProjectLoader().load("osm_network_project_map_nstu.json")
         simulator = CTMSimulator(project)
@@ -103,8 +123,12 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
 
         metadata = project.metadata["ctm_simulation"]
         self.assertLess(abs(metadata["conservation_error_pcu"]), 0.01)
+        self.assertLess(abs(metadata["source_queue_balance_error_pcu"]), 0.01)
+        self.assertLess(abs(metadata["demand_balance_error_pcu"]), 0.01)
         self.assertLess(abs(metadata["sum_link_conservation_error_pcu"]), 0.01)
         self.assertTrue(metadata["validate_cfl"])
+        self.assertIn("total_generated_pcu", metadata)
+        self.assertIn("total_external_queue_pcu", metadata)
 
         incident = project.metadata["ctm_incident"]
         link = project.network.links[incident["link_id"]]
@@ -117,6 +141,9 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
         )
         self.assertGreater(upstream_max, 100.0)
         self.assertEqual(len(history), 50)
+        for source_id in simulator.sources:
+            source_link = project.network.links[source_id]
+            self.assertEqual(len(source_link.results["history_external_queue_pcu"]), 50)
 
 
 if __name__ == "__main__":
