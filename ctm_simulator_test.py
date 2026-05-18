@@ -104,11 +104,16 @@ class CTMSimulator:
             outgoing = self.network.get_outgoing_links(node_id)
 
             neighbors = {l.start_node_id for l in incoming} | {l.end_node_id for l in outgoing}
+            node_type = getattr(node, "node_type", "") or ""
 
             # Тупики (границы карты)
-            if len(neighbors) <= 1:
+            if node_type == "boundary" or len(neighbors) <= 1:
                 self.sources.extend([l.id for l in outgoing])
                 self.sinks.extend([l.id for l in incoming])
+                continue
+
+            if node_type and node_type != "intersection":
+                self._add_forced_through_movements(node_id, incoming, outgoing)
                 continue
 
             # Перекрестки
@@ -136,6 +141,38 @@ class CTMSimulator:
                     for out_id, score in scores.items():
                         self.turn_ratios[node_id][in_link.id][out_id] = score / total_score
         print(f"Генераторов трафика: {len(self.sources)}, Стоков: {len(self.sinks)}")
+
+    def _add_forced_through_movements(self, node_id: str, incoming: list[Link], outgoing: list[Link]) -> None:
+        for in_link in incoming:
+            candidates = [
+                out_link
+                for out_link in outgoing
+                if out_link.end_node_id != in_link.start_node_id
+            ]
+            same_road_candidates = [
+                out_link
+                for out_link in candidates
+                if self._same_transport_continuation(in_link, out_link)
+            ]
+            selected = same_road_candidates if len(same_road_candidates) == 1 else candidates
+            if len(selected) == 1:
+                self.turn_ratios[node_id][in_link.id][selected[0].id] = 1.0
+
+    def _same_transport_continuation(self, in_link: Link, out_link: Link) -> bool:
+        if in_link.metadata.get("osm_direction") != out_link.metadata.get("osm_direction"):
+            return False
+        if in_link.metadata.get("osm_is_oneway") != out_link.metadata.get("osm_is_oneway"):
+            return False
+        if in_link.metadata.get("highway") != out_link.metadata.get("highway"):
+            return False
+        if in_link.parameters.get("lanes_total", 1) != out_link.parameters.get("lanes_total", 1):
+            return False
+        in_way_id = in_link.metadata.get("osm_way_id")
+        if in_way_id and in_way_id == out_link.metadata.get("osm_way_id"):
+            return True
+        if in_link.metadata.get("osm_name") and in_link.metadata.get("osm_name") == out_link.metadata.get("osm_name"):
+            return True
+        return in_link.name == out_link.name
 
     def _init_source_queue_history(self):
         for source_id in self.sources:

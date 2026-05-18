@@ -13,6 +13,7 @@ from models import Link, Network, Node, Project
 
 ALLOWED_HIGHWAYS = {"primary", "secondary", "tertiary", "trunk", "residential"}
 ANGLE_TOLERANCE_DEG = 3.0
+SAME_ROAD_CONTINUATION_ANGLE_DEG = 25.0
 DISTANCE_TOLERANCE_M = 1.5
 EARTH_RADIUS_M = 6371008.8
 ONEWAY_TRUE_VALUES = {"yes", "true", "1"}
@@ -105,6 +106,7 @@ def build_project_from_osm_xml(path: str | Path, default_intensity: int = 600) -
             )
 
     _merge_degree_two_continuations(network)
+    _classify_network_nodes(network)
     return Project(
         project_name=f"OSM File Import: {Path(path).name}",
         pcu_coefficients={"car": 1.0, "truck": 2.5, "bus": 2.0},
@@ -173,6 +175,7 @@ def build_project_from_osmnx_graph(graph: Any, default_intensity: int = 600) -> 
             lanes_override=_parse_lanes(data.get("lanes")),
         )
 
+    _classify_network_nodes(network)
     return Project(
         project_name="OSM Imported Network",
         pcu_coefficients={"car": 1.0, "truck": 2.5, "bus": 2.0},
@@ -302,14 +305,6 @@ def _xml_anchor_refs(
         if count > 1:
             anchor_refs.add(ref)
 
-    for way in highway_ways:
-        refs = way["refs"]
-        for previous_ref, current_ref, next_ref in zip(refs, refs[1:], refs[2:]):
-            previous_point = osm_nodes[previous_ref]
-            current_point = osm_nodes[current_ref]
-            next_point = osm_nodes[next_ref]
-            if not _is_redundant_geometry_point(previous_point, current_point, next_point):
-                anchor_refs.add(current_ref)
     return anchor_refs
 
 
@@ -377,6 +372,7 @@ def _add_segment_link(
             metadata={
                 **metadata,
                 "highway": _text_value(tags.get("highway"), ""),
+                "osm_name": _text_value(tags.get("name"), ""),
                 "maxspeed": _text_value(tags.get("maxspeed"), ""),
             },
         )
@@ -392,53 +388,155 @@ def _dedupe_consecutive_points(points: list[tuple[float, float]]) -> list[tuple[
     return deduped
 
 
+def _classify_network_nodes(network: Network) -> None:
+    for node_id, node in network.nodes.items():
+        incoming = network.get_incoming_links(node_id)
+        outgoing = network.get_outgoing_links(node_id)
+        incident_links = [
+            link
+            for link in network.links.values()
+            if link.start_node_id == node_id or link.end_node_id == node_id
+        ]
+        neighbors = _node_neighbor_ids(node_id, incident_links)
+
+        if len(neighbors) <= 1 or not incoming or not outgoing:
+            node.node_type = "boundary"
+        elif _is_simple_continuation_topology(node_id, incoming, outgoing, incident_links):
+            node.node_type = "attribute_change"
+        else:
+            node.node_type = "intersection"
+
+
+def _node_neighbor_ids(node_id: str, incident_links: list[Link]) -> set[str]:
+    neighbors: set[str] = set()
+    for link in incident_links:
+        if link.start_node_id == node_id and link.end_node_id != node_id:
+            neighbors.add(link.end_node_id)
+        if link.end_node_id == node_id and link.start_node_id != node_id:
+            neighbors.add(link.start_node_id)
+    return neighbors
+
+
 def _merge_degree_two_continuations(network: Network) -> None:
     changed = True
     while changed:
         changed = False
         for node_id in list(network.nodes):
+            incoming = [
+                link
+                for link in network.links.values()
+                if link.end_node_id == node_id and link.start_node_id != link.end_node_id
+            ]
+            outgoing = [
+                link
+                for link in network.links.values()
+                if link.start_node_id == node_id and link.start_node_id != link.end_node_id
+            ]
             incident_links = [
                 link
                 for link in network.links.values()
                 if link.start_node_id == node_id or link.end_node_id == node_id
             ]
-            if len(incident_links) != 2:
+
+            if not _is_simple_continuation_topology(node_id, incoming, outgoing, incident_links):
                 continue
 
-            first_link, second_link = incident_links
-            if first_link.start_node_id == first_link.end_node_id or second_link.start_node_id == second_link.end_node_id:
-                continue
-            if not _links_can_merge(first_link, second_link):
-                continue
-            if not _is_straight_continuation(first_link, second_link, node_id):
+            pairs = _continuation_pairs(node_id, incoming, outgoing)
+            if not pairs:
                 continue
 
-            merged_link = _merged_link_through_node(first_link, second_link, node_id)
-            del network.links[first_link.id]
-            del network.links[second_link.id]
-            network.links[merged_link.id] = merged_link
-            del network.nodes[node_id]
+            for first_link, second_link in pairs:
+                merged_link = _merged_link_through_node(first_link, second_link, node_id)
+                network.links.pop(first_link.id, None)
+                network.links.pop(second_link.id, None)
+                network.links[merged_link.id] = merged_link
+            network.nodes.pop(node_id, None)
             changed = True
             break
+
+
+def _is_simple_continuation_topology(
+    node_id: str,
+    incoming: list[Link],
+    outgoing: list[Link],
+    incident_links: list[Link],
+) -> bool:
+    if not incoming or not outgoing or len(incoming) != len(outgoing):
+        return False
+    if len({link.id for link in incident_links}) != len(incident_links):
+        return False
+
+    neighbors = _node_neighbor_ids(node_id, incident_links)
+    return len(neighbors) == 2
+
+
+def _continuation_pairs(
+    node_id: str,
+    incoming: list[Link],
+    outgoing: list[Link],
+) -> list[tuple[Link, Link]]:
+    pairs: list[tuple[Link, Link]] = []
+    unused_outgoing = {link.id: link for link in outgoing}
+
+    for in_link in sorted(incoming, key=lambda link: link.id):
+        candidates = [
+            out_link
+            for out_link in unused_outgoing.values()
+            if out_link.end_node_id != in_link.start_node_id
+            and _links_can_merge(in_link, out_link)
+            and _is_same_road_continuation(in_link, out_link, node_id)
+        ]
+        if len(candidates) != 1:
+            return []
+
+        out_link = candidates[0]
+        pairs.append((in_link, out_link))
+        del unused_outgoing[out_link.id]
+
+    if unused_outgoing:
+        return []
+    return pairs
 
 
 def _links_can_merge(first_link: Link, second_link: Link) -> bool:
     if first_link.metadata.get("disabled") or second_link.metadata.get("disabled"):
         return False
 
-    comparable_metadata_keys = ("source", "osm_direction", "osm_is_oneway")
+    comparable_metadata_keys = (
+        "source",
+        "osm_direction",
+        "osm_is_oneway",
+        "highway",
+        "maxspeed",
+    )
     for key in comparable_metadata_keys:
         if first_link.metadata.get(key) != second_link.metadata.get(key):
             return False
 
+    if first_link.parameters.get("lanes_total", 1) != second_link.parameters.get("lanes_total", 1):
+        return False
+    if not _same_road_identity(first_link, second_link):
+        return False
+
     return first_link.traffic_counts == second_link.traffic_counts
 
 
-def _is_straight_continuation(first_link: Link, second_link: Link, node_id: str) -> bool:
+def _same_road_identity(first_link: Link, second_link: Link) -> bool:
+    first_way_id = first_link.metadata.get("osm_way_id")
+    if first_way_id and first_way_id == second_link.metadata.get("osm_way_id"):
+        return True
+    if first_link.metadata.get("osm_name") and first_link.metadata.get("osm_name") == second_link.metadata.get("osm_name"):
+        return True
+    return first_link.name == second_link.name
+
+
+def _is_same_road_continuation(first_link: Link, second_link: Link, node_id: str) -> bool:
     _, _, points, join_index = _merged_points_through_node(first_link, second_link, node_id)
     if join_index <= 0 or join_index >= len(points) - 1:
         return False
-    return _is_redundant_geometry_point(points[join_index - 1], points[join_index], points[join_index + 1])
+
+    angle = _turn_angle_deg(points[join_index - 1], points[join_index], points[join_index + 1])
+    return abs(180.0 - angle) <= SAME_ROAD_CONTINUATION_ANGLE_DEG
 
 
 def _merged_link_through_node(first_link: Link, second_link: Link, node_id: str) -> Link:

@@ -24,8 +24,8 @@
       "lanes_assumption": "If a bidirectional way has only total lanes, lanes are split approximately equally by direction."
     },
     "direction_stats": {
-      "forward": 19,
-      "reverse": 14,
+      "forward": 23,
+      "reverse": 17,
       "bidirectional_ways": 6,
       "oneway_ways": 4
     }
@@ -72,12 +72,38 @@
         }
       },
       {
+        "id": "OSM_2092440668",
+        "lon": 82.900207,
+        "lat": 54.991979,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "OSM_2092440668",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "2092440668"
+        }
+      },
+      {
+        "id": "OSM_3959012361",
+        "lon": 82.899717,
+        "lat": 54.992323,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "OSM_3959012361",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "3959012361"
+        }
+      },
+      {
         "id": "OSM_275914474",
         "lon": 82.899433,
         "lat": 54.992725,
         "x": null,
         "y": null,
-        "node_type": "boundary",
+        "node_type": "intersection",
         "name": "OSM_275914474",
         "metadata": {
           "source": "osm",
@@ -103,7 +129,7 @@
         "lat": 54.988711,
         "x": null,
         "y": null,
-        "node_type": "boundary",
+        "node_type": "intersection",
         "name": "OSM_803550115",
         "metadata": {
           "source": "osm",
@@ -121,6 +147,19 @@
         "metadata": {
           "source": "osm",
           "osm_id": "414634137"
+        }
+      },
+      {
+        "id": "OSM_4391354537",
+        "lon": 82.902081,
+        "lat": 54.986396,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "OSM_4391354537",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "4391354537"
         }
       },
       {
@@ -142,7 +181,7 @@
         "lat": 54.986401,
         "x": null,
         "y": null,
-        "node_type": "boundary",
+        "node_type": "intersection",
         "name": "OSM_252133762",
         "metadata": {
           "source": "osm",
@@ -155,7 +194,7 @@
         "lat": 54.980973,
         "x": null,
         "y": null,
-        "node_type": "boundary",
+        "node_type": "intersection",
         "name": "OSM_1838332126",
         "metadata": {
           "source": "osm",
@@ -189,6 +228,19 @@
         }
       },
       {
+        "id": "OSM_3472914646",
+        "lon": 82.905631,
+        "lat": 54.988594,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "OSM_3472914646",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "3472914646"
+        }
+      },
+      {
         "id": "OSM_323102421",
         "lon": 82.905873,
         "lat": 54.988541,
@@ -202,12 +254,25 @@
         }
       },
       {
+        "id": "OSM_5114000980",
+        "lon": 82.900681,
+        "lat": 54.985792,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "OSM_5114000980",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "5114000980"
+        }
+      },
+      {
         "id": "OSM_10732431781",
         "lon": 82.90815,
         "lat": 54.990194,
         "x": null,
         "y": null,
-        "node_type": "boundary",
+        "node_type": "intersection",
         "name": "OSM_10732431781",
         "metadata": {
           "source": "osm",
@@ -220,7 +285,7 @@
         "lat": 54.985496,
         "x": null,
         "y": null,
-        "node_type": "boundary",
+        "node_type": "intersection",
         "name": "OSM_2509084690",
         "metadata": {
           "source": "osm",
@@ -245,10 +310,6 @@
             [
               82.90996,
               54.98662
-            ],
-            [
-              82.909895,
-              54.986652
             ],
             [
               82.905884,
@@ -281,7 +342,6 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": ""
         }
       },
@@ -334,7 +394,6 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": ""
         }
       },
@@ -387,7 +446,6 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": ""
         }
       },
@@ -395,9 +453,9 @@
         "id": "L4",
         "name": "Геодезическая улица",
         "start_node_id": "OSM_1870880697",
-        "end_node_id": "OSM_275914474",
+        "end_node_id": "OSM_2092440668",
         "link_type": "straight",
-        "length_km": 0.5816,
+        "length_km": 0.4839,
         "traffic_counts": {
           "car": 600
         },
@@ -409,29 +467,17 @@
               54.988965
             ],
             [
-              82.902015,
-              54.991035
-            ],
-            [
               82.900207,
               54.991979
-            ],
-            [
-              82.899717,
-              54.992323
-            ],
-            [
-              82.899433,
-              54.992725
             ]
           ],
           "lon_start": 82.905677,
           "lat_start": 54.988965,
-          "lon_end": 82.899433,
-          "lat_end": 54.992725
+          "lon_end": 82.900207,
+          "lat_end": 54.991979
         },
         "parameters": {
-          "length_km": 0.5816,
+          "length_km": 0.4839,
           "lanes_total": 1,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
@@ -445,6 +491,214 @@
           "source": "osm_xml",
           "osm_way_id": "29373814",
           "osm_start_ref": "1870880697",
+          "osm_end_ref": "2092440668",
+          "osm_oneway_raw": "",
+          "osm_direction": "forward",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "tertiary",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L5",
+        "name": "Геодезическая улица",
+        "start_node_id": "OSM_2092440668",
+        "end_node_id": "OSM_1870880697",
+        "link_type": "straight",
+        "length_km": 0.4839,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.900207,
+              54.991979
+            ],
+            [
+              82.905677,
+              54.988965
+            ]
+          ],
+          "lon_start": 82.900207,
+          "lat_start": 54.991979,
+          "lon_end": 82.905677,
+          "lat_end": 54.988965
+        },
+        "parameters": {
+          "length_km": 0.4839,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "29373814",
+          "osm_start_ref": "1870880697",
+          "osm_end_ref": "2092440668",
+          "osm_oneway_raw": "",
+          "osm_direction": "reverse",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "tertiary",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L6",
+        "name": "Геодезическая улица",
+        "start_node_id": "OSM_2092440668",
+        "end_node_id": "OSM_3959012361",
+        "link_type": "straight",
+        "length_km": 0.0495,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.900207,
+              54.991979
+            ],
+            [
+              82.899717,
+              54.992323
+            ]
+          ],
+          "lon_start": 82.900207,
+          "lat_start": 54.991979,
+          "lon_end": 82.899717,
+          "lat_end": 54.992323
+        },
+        "parameters": {
+          "length_km": 0.0495,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "29373814",
+          "osm_start_ref": "2092440668",
+          "osm_end_ref": "3959012361",
+          "osm_oneway_raw": "",
+          "osm_direction": "forward",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "tertiary",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L7",
+        "name": "Геодезическая улица",
+        "start_node_id": "OSM_3959012361",
+        "end_node_id": "OSM_2092440668",
+        "link_type": "straight",
+        "length_km": 0.0495,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.899717,
+              54.992323
+            ],
+            [
+              82.900207,
+              54.991979
+            ]
+          ],
+          "lon_start": 82.899717,
+          "lat_start": 54.992323,
+          "lon_end": 82.900207,
+          "lat_end": 54.991979
+        },
+        "parameters": {
+          "length_km": 0.0495,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "29373814",
+          "osm_start_ref": "2092440668",
+          "osm_end_ref": "3959012361",
+          "osm_oneway_raw": "",
+          "osm_direction": "reverse",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "tertiary",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L8",
+        "name": "Геодезическая улица",
+        "start_node_id": "OSM_3959012361",
+        "end_node_id": "OSM_275914474",
+        "link_type": "straight",
+        "length_km": 0.0482,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.899717,
+              54.992323
+            ],
+            [
+              82.899433,
+              54.992725
+            ]
+          ],
+          "lon_start": 82.899717,
+          "lat_start": 54.992323,
+          "lon_end": 82.899433,
+          "lat_end": 54.992725
+        },
+        "parameters": {
+          "length_km": 0.0482,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "29373814",
+          "osm_start_ref": "3959012361",
           "osm_end_ref": "275914474",
           "osm_oneway_raw": "",
           "osm_direction": "forward",
@@ -452,17 +706,16 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L5",
+        "id": "L9",
         "name": "Геодезическая улица",
         "start_node_id": "OSM_275914474",
-        "end_node_id": "OSM_1870880697",
+        "end_node_id": "OSM_3959012361",
         "link_type": "straight",
-        "length_km": 0.5816,
+        "length_km": 0.0482,
         "traffic_counts": {
           "car": 600
         },
@@ -476,27 +729,15 @@
             [
               82.899717,
               54.992323
-            ],
-            [
-              82.900207,
-              54.991979
-            ],
-            [
-              82.902015,
-              54.991035
-            ],
-            [
-              82.905677,
-              54.988965
             ]
           ],
           "lon_start": 82.899433,
           "lat_start": 54.992725,
-          "lon_end": 82.905677,
-          "lat_end": 54.988965
+          "lon_end": 82.899717,
+          "lat_end": 54.992323
         },
         "parameters": {
-          "length_km": 0.5816,
+          "length_km": 0.0482,
           "lanes_total": 1,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
@@ -509,7 +750,7 @@
         "metadata": {
           "source": "osm_xml",
           "osm_way_id": "29373814",
-          "osm_start_ref": "1870880697",
+          "osm_start_ref": "3959012361",
           "osm_end_ref": "275914474",
           "osm_oneway_raw": "",
           "osm_direction": "reverse",
@@ -517,12 +758,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L6",
+        "id": "L10",
         "name": "Геодезическая улица",
         "start_node_id": "OSM_1870880697",
         "end_node_id": "OSM_3472914650",
@@ -537,10 +777,6 @@
             [
               82.905677,
               54.988965
-            ],
-            [
-              82.905739,
-              54.988855
             ],
             [
               82.905759,
@@ -573,12 +809,11 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": "RU:urban"
         }
       },
       {
-        "id": "L7",
+        "id": "L11",
         "name": "Космическая улица",
         "start_node_id": "OSM_803550115",
         "end_node_id": "OSM_414634137",
@@ -593,10 +828,6 @@
             [
               82.898027,
               54.988711
-            ],
-            [
-              82.898334,
-              54.988559
             ],
             [
               82.901928,
@@ -630,12 +861,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "residential",
-          "osm_name": "Космическая улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L8",
+        "id": "L12",
         "name": "Космическая улица",
         "start_node_id": "OSM_414634137",
         "end_node_id": "OSM_803550115",
@@ -650,10 +880,6 @@
             [
               82.901928,
               54.986522
-            ],
-            [
-              82.898334,
-              54.988559
             ],
             [
               82.898027,
@@ -687,17 +913,16 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "residential",
-          "osm_name": "Космическая улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L9",
+        "id": "L13",
         "name": "Космическая улица",
         "start_node_id": "OSM_414634137",
-        "end_node_id": "OSM_459485494",
+        "end_node_id": "OSM_4391354537",
         "link_type": "straight",
-        "length_km": 0.3612,
+        "length_km": 0.0171,
         "traffic_counts": {
           "car": 600
         },
@@ -711,23 +936,15 @@
             [
               82.902081,
               54.986396
-            ],
-            [
-              82.90584,
-              54.984317
-            ],
-            [
-              82.905972,
-              54.984254
             ]
           ],
           "lon_start": 82.901928,
           "lat_start": 54.986522,
-          "lon_end": 82.905972,
-          "lat_end": 54.984254
+          "lon_end": 82.902081,
+          "lat_end": 54.986396
         },
         "parameters": {
-          "length_km": 0.3612,
+          "length_km": 0.0171,
           "lanes_total": 1,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
@@ -741,6 +958,110 @@
           "source": "osm_xml",
           "osm_way_id": "35359352",
           "osm_start_ref": "414634137",
+          "osm_end_ref": "4391354537",
+          "osm_oneway_raw": "",
+          "osm_direction": "forward",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "residential",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L14",
+        "name": "Космическая улица",
+        "start_node_id": "OSM_4391354537",
+        "end_node_id": "OSM_414634137",
+        "link_type": "straight",
+        "length_km": 0.0171,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.902081,
+              54.986396
+            ],
+            [
+              82.901928,
+              54.986522
+            ]
+          ],
+          "lon_start": 82.902081,
+          "lat_start": 54.986396,
+          "lon_end": 82.901928,
+          "lat_end": 54.986522
+        },
+        "parameters": {
+          "length_km": 0.0171,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "35359352",
+          "osm_start_ref": "414634137",
+          "osm_end_ref": "4391354537",
+          "osm_oneway_raw": "",
+          "osm_direction": "reverse",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "residential",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L15",
+        "name": "Космическая улица",
+        "start_node_id": "OSM_4391354537",
+        "end_node_id": "OSM_459485494",
+        "link_type": "straight",
+        "length_km": 0.3441,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.902081,
+              54.986396
+            ],
+            [
+              82.905972,
+              54.984254
+            ]
+          ],
+          "lon_start": 82.902081,
+          "lat_start": 54.986396,
+          "lon_end": 82.905972,
+          "lat_end": 54.984254
+        },
+        "parameters": {
+          "length_km": 0.3441,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "35359352",
+          "osm_start_ref": "4391354537",
           "osm_end_ref": "459485494",
           "osm_oneway_raw": "",
           "osm_direction": "forward",
@@ -748,17 +1069,16 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "residential",
-          "osm_name": "Космическая улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L10",
+        "id": "L16",
         "name": "Космическая улица",
         "start_node_id": "OSM_459485494",
-        "end_node_id": "OSM_414634137",
+        "end_node_id": "OSM_4391354537",
         "link_type": "straight",
-        "length_km": 0.3612,
+        "length_km": 0.3441,
         "traffic_counts": {
           "car": 600
         },
@@ -770,25 +1090,17 @@
               54.984254
             ],
             [
-              82.90584,
-              54.984317
-            ],
-            [
               82.902081,
               54.986396
-            ],
-            [
-              82.901928,
-              54.986522
             ]
           ],
           "lon_start": 82.905972,
           "lat_start": 54.984254,
-          "lon_end": 82.901928,
-          "lat_end": 54.986522
+          "lon_end": 82.902081,
+          "lat_end": 54.986396
         },
         "parameters": {
-          "length_km": 0.3612,
+          "length_km": 0.3441,
           "lanes_total": 1,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
@@ -801,7 +1113,7 @@
         "metadata": {
           "source": "osm_xml",
           "osm_way_id": "35359352",
-          "osm_start_ref": "414634137",
+          "osm_start_ref": "4391354537",
           "osm_end_ref": "459485494",
           "osm_oneway_raw": "",
           "osm_direction": "reverse",
@@ -809,12 +1121,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "residential",
-          "osm_name": "Космическая улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L11",
+        "id": "L17",
         "name": "улица Лыщинского",
         "start_node_id": "OSM_276163047",
         "end_node_id": "OSM_252133762",
@@ -829,18 +1140,6 @@
             [
               82.90996,
               54.98662
-            ],
-            [
-              82.910026,
-              54.986594
-            ],
-            [
-              82.910121,
-              54.986569
-            ],
-            [
-              82.910374,
-              54.986539
             ],
             [
               82.913658,
@@ -874,12 +1173,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "улица Лыщинского",
           "maxspeed": ""
         }
       },
       {
-        "id": "L12",
+        "id": "L18",
         "name": "улица Лыщинского",
         "start_node_id": "OSM_252133762",
         "end_node_id": "OSM_276163047",
@@ -894,18 +1192,6 @@
             [
               82.913658,
               54.986401
-            ],
-            [
-              82.910374,
-              54.986539
-            ],
-            [
-              82.910121,
-              54.986569
-            ],
-            [
-              82.910026,
-              54.986594
             ],
             [
               82.90996,
@@ -939,12 +1225,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "улица Лыщинского",
           "maxspeed": ""
         }
       },
       {
-        "id": "L13",
+        "id": "L19",
         "name": "Новогодняя улица",
         "start_node_id": "OSM_1838332126",
         "end_node_id": "OSM_459485494",
@@ -992,12 +1277,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L14",
+        "id": "L20",
         "name": "Новогодняя улица",
         "start_node_id": "OSM_459485494",
         "end_node_id": "OSM_1838332126",
@@ -1045,12 +1329,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L15",
+        "id": "L21",
         "name": "Новогодняя улица",
         "start_node_id": "OSM_459485494",
         "end_node_id": "OSM_276162633",
@@ -1098,12 +1381,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L16",
+        "id": "L22",
         "name": "Новогодняя улица",
         "start_node_id": "OSM_276162633",
         "end_node_id": "OSM_459485494",
@@ -1151,12 +1433,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L17",
+        "id": "L23",
         "name": "Новогодняя улица",
         "start_node_id": "OSM_276162633",
         "end_node_id": "OSM_276163047",
@@ -1204,12 +1485,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L18",
+        "id": "L24",
         "name": "Новогодняя улица",
         "start_node_id": "OSM_276163047",
         "end_node_id": "OSM_276162633",
@@ -1257,17 +1537,16 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
           "maxspeed": ""
         }
       },
       {
-        "id": "L19",
+        "id": "L25",
         "name": "Геодезическая улица",
         "start_node_id": "OSM_3472914649",
-        "end_node_id": "OSM_323102421",
+        "end_node_id": "OSM_3472914646",
         "link_type": "straight",
-        "length_km": 0.0287,
+        "length_km": 0.0121,
         "traffic_counts": {
           "car": 600
         },
@@ -1281,19 +1560,15 @@
             [
               82.905631,
               54.988594
-            ],
-            [
-              82.905873,
-              54.988541
             ]
           ],
           "lon_start": 82.90544,
           "lat_start": 54.988592,
-          "lon_end": 82.905873,
-          "lat_end": 54.988541
+          "lon_end": 82.905631,
+          "lat_end": 54.988594
         },
         "parameters": {
-          "length_km": 0.0287,
+          "length_km": 0.0121,
           "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
@@ -1307,18 +1582,68 @@
           "source": "osm_xml",
           "osm_way_id": "340082881",
           "osm_start_ref": "3472914649",
+          "osm_end_ref": "3472914646",
+          "osm_oneway_raw": "yes",
+          "osm_direction": "forward",
+          "osm_is_oneway": true,
+          "osm_bidirectional_source_way": false,
+          "highway": "tertiary",
+          "maxspeed": "RU:urban"
+        }
+      },
+      {
+        "id": "L26",
+        "name": "Геодезическая улица",
+        "start_node_id": "OSM_3472914646",
+        "end_node_id": "OSM_323102421",
+        "link_type": "straight",
+        "length_km": 0.0166,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.905631,
+              54.988594
+            ],
+            [
+              82.905873,
+              54.988541
+            ]
+          ],
+          "lon_start": 82.905631,
+          "lat_start": 54.988594,
+          "lon_end": 82.905873,
+          "lat_end": 54.988541
+        },
+        "parameters": {
+          "length_km": 0.0166,
+          "lanes_total": 2,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "340082881",
+          "osm_start_ref": "3472914646",
           "osm_end_ref": "323102421",
           "osm_oneway_raw": "yes",
           "osm_direction": "forward",
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": "RU:urban"
         }
       },
       {
-        "id": "L20",
+        "id": "L27",
         "name": "Геодезическая улица",
         "start_node_id": "OSM_3472914650",
         "end_node_id": "OSM_323102421",
@@ -1333,10 +1658,6 @@
             [
               82.905759,
               54.988779
-            ],
-            [
-              82.905786,
-              54.98869
             ],
             [
               82.905873,
@@ -1369,12 +1690,11 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": "RU:urban"
         }
       },
       {
-        "id": "L21",
+        "id": "L28",
         "name": "Геодезическая улица",
         "start_node_id": "OSM_323102421",
         "end_node_id": "OSM_276162633",
@@ -1421,12 +1741,115 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
           "maxspeed": "RU:urban"
         }
       },
       {
-        "id": "L24",
+        "id": "L29",
+        "name": "проспект Карла Маркса",
+        "start_node_id": "OSM_5114000980",
+        "end_node_id": "OSM_414634137",
+        "link_type": "straight",
+        "length_km": 0.1137,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.900681,
+              54.985792
+            ],
+            [
+              82.901928,
+              54.986522
+            ]
+          ],
+          "lon_start": 82.900681,
+          "lat_start": 54.985792,
+          "lon_end": 82.901928,
+          "lat_end": 54.986522
+        },
+        "parameters": {
+          "length_km": 0.1137,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "525741745",
+          "osm_start_ref": "5114000980",
+          "osm_end_ref": "414634137",
+          "osm_oneway_raw": "",
+          "osm_direction": "forward",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "primary",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L30",
+        "name": "проспект Карла Маркса",
+        "start_node_id": "OSM_414634137",
+        "end_node_id": "OSM_5114000980",
+        "link_type": "straight",
+        "length_km": 0.1137,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.901928,
+              54.986522
+            ],
+            [
+              82.900681,
+              54.985792
+            ]
+          ],
+          "lon_start": 82.901928,
+          "lat_start": 54.986522,
+          "lon_end": 82.900681,
+          "lat_end": 54.985792
+        },
+        "parameters": {
+          "length_km": 0.1137,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "525741745",
+          "osm_start_ref": "5114000980",
+          "osm_end_ref": "414634137",
+          "osm_oneway_raw": "",
+          "osm_direction": "reverse",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "primary",
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L31",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_414634137",
         "end_node_id": "OSM_3472914649",
@@ -1474,12 +1897,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L25",
+        "id": "L32",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_3472914649",
         "end_node_id": "OSM_414634137",
@@ -1527,12 +1949,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L26",
+        "id": "L33",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_3472914649",
         "end_node_id": "OSM_3472914650",
@@ -1580,12 +2001,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L27",
+        "id": "L34",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_3472914650",
         "end_node_id": "OSM_3472914649",
@@ -1633,12 +2053,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L28",
+        "id": "L35",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_3472914650",
         "end_node_id": "OSM_280682928",
@@ -1686,12 +2105,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L29",
+        "id": "L36",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_280682928",
         "end_node_id": "OSM_3472914650",
@@ -1739,12 +2157,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L30",
+        "id": "L37",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_280682928",
         "end_node_id": "OSM_10732431781",
@@ -1792,12 +2209,11 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L31",
+        "id": "L38",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_10732431781",
         "end_node_id": "OSM_280682928",
@@ -1845,74 +2261,16 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
           "maxspeed": ""
         }
       },
       {
-        "id": "L23",
-        "name": "проспект Карла Маркса",
-        "start_node_id": "OSM_414634137",
-        "end_node_id": "OSM_2509084690",
-        "link_type": "straight",
-        "length_km": 0.1598,
-        "traffic_counts": {
-          "car": 600
-        },
-        "coords": {
-          "type": "polyline",
-          "points": [
-            [
-              82.901928,
-              54.986522
-            ],
-            [
-              82.900175,
-              54.985496
-            ]
-          ],
-          "lon_start": 82.901928,
-          "lat_start": 54.986522,
-          "lon_end": 82.900175,
-          "lat_end": 54.985496
-        },
-        "parameters": {
-          "length_km": 0.1598,
-          "lanes_total": 1,
-          "lanes_bus": 0,
-          "capacity_per_lane_base": 1800,
-          "lane_width_m": 3.5,
-          "grade_percent": 0.0,
-          "parking_present": false,
-          "heavy_vehicles_percent": 0.0
-        },
-        "results": {},
-        "metadata": {
-          "source": "osm_xml",
-          "osm_way_id": "525741745",
-          "osm_start_ref": "5114000980",
-          "osm_end_ref": "414634137",
-          "osm_oneway_raw": "",
-          "osm_direction": "reverse",
-          "osm_is_oneway": false,
-          "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
-          "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": "",
-          "merged_link_ids": [
-            "L23",
-            "L33"
-          ]
-        }
-      },
-      {
-        "id": "L32",
+        "id": "L39",
         "name": "проспект Карла Маркса",
         "start_node_id": "OSM_2509084690",
-        "end_node_id": "OSM_414634137",
+        "end_node_id": "OSM_5114000980",
         "link_type": "straight",
-        "length_km": 0.1598,
+        "length_km": 0.046,
         "traffic_counts": {
           "car": 600
         },
@@ -1924,17 +2282,17 @@
               54.985496
             ],
             [
-              82.901928,
-              54.986522
+              82.900681,
+              54.985792
             ]
           ],
           "lon_start": 82.900175,
           "lat_start": 54.985496,
-          "lon_end": 82.901928,
-          "lat_end": 54.986522
+          "lon_end": 82.900681,
+          "lat_end": 54.985792
         },
         "parameters": {
-          "length_km": 0.1598,
+          "length_km": 0.046,
           "lanes_total": 1,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
@@ -1955,12 +2313,59 @@
           "osm_bidirectional_source_way": true,
           "lanes_direction_assumption": "split_total_lanes_equally",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": "",
-          "merged_link_ids": [
-            "L32",
-            "L22"
-          ]
+          "maxspeed": ""
+        }
+      },
+      {
+        "id": "L40",
+        "name": "проспект Карла Маркса",
+        "start_node_id": "OSM_5114000980",
+        "end_node_id": "OSM_2509084690",
+        "link_type": "straight",
+        "length_km": 0.046,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.900681,
+              54.985792
+            ],
+            [
+              82.900175,
+              54.985496
+            ]
+          ],
+          "lon_start": 82.900681,
+          "lat_start": 54.985792,
+          "lon_end": 82.900175,
+          "lat_end": 54.985496
+        },
+        "parameters": {
+          "length_km": 0.046,
+          "lanes_total": 1,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "525741746",
+          "osm_start_ref": "2509084690",
+          "osm_end_ref": "5114000980",
+          "osm_oneway_raw": "",
+          "osm_direction": "reverse",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_equally",
+          "highway": "primary",
+          "maxspeed": ""
         }
       }
     ],

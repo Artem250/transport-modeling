@@ -230,6 +230,8 @@ class TrafficLink(QGraphicsPathItem):
         self.end_node = end_node
         self.app_callback = app_callback
         self.intermediate_points = []
+        self.shape_handles = []
+        self.visual_offset_px = 0.0
 
         self.time_index = 0
         self.cell_points = []  # Массив массивов координат для ячеек
@@ -237,7 +239,7 @@ class TrafficLink(QGraphicsPathItem):
         coords = link_model.coords or {}
         if coords.get("type") == "polyline":
             for p in coords.get("points", [])[1:-1]:
-                self.intermediate_points.append(project_coords(p[0], p[1]))
+                self.intermediate_points.append(QPointF(*project_coords(p[0], p[1])))
 
         self.start_node.add_link(self)
         self.end_node.add_link(self)
@@ -250,10 +252,11 @@ class TrafficLink(QGraphicsPathItem):
         self.prepareGeometryChange()
 
         base_points = [self.start_node.scenePos()]
-        for pt in self.intermediate_points: base_points.append(QPointF(pt[0], pt[1]))
+        for pt in self.intermediate_points:
+            base_points.append(QPointF(pt))
         base_points.append(self.end_node.scenePos())
 
-        OFFSET_PX = 4.0
+        OFFSET_PX = self.visual_offset_px
         shifted_points = []
         for i in range(len(base_points)):
             if i == 0:
@@ -361,6 +364,32 @@ class TrafficLink(QGraphicsPathItem):
                     painter.drawPolygon(arrow_head)
 
         painter.restore()
+
+
+class ShapePointHandle(QGraphicsEllipseItem):
+    def __init__(self, bindings, pos_point):
+        radius = 5.0
+        super().__init__(-radius, -radius, radius * 2.0, radius * 2.0)
+        self.bindings = bindings
+        self.setPos(QPointF(pos_point))
+        self.setBrush(QBrush(QColor(255, 255, 255)))
+        self.setPen(QPen(QColor(35, 35, 35), 1.2))
+        self.setFlags(
+            QGraphicsItem.ItemIsMovable
+            | QGraphicsItem.ItemIsSelectable
+            | QGraphicsItem.ItemSendsGeometryChanges
+        )
+        self.setZValue(90)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionChange and hasattr(self, "bindings"):
+            updated_links = {}
+            for link_item, point_index in self.bindings:
+                link_item.intermediate_points[point_index] = QPointF(value)
+                updated_links[id(link_item)] = link_item
+            for link_item in updated_links.values():
+                link_item.update_geometry()
+        return super().itemChange(change, value)
 
 
 class MapViewer(QGraphicsView):
@@ -518,8 +547,69 @@ class MainWindow(QMainWindow):
             self.scene.addItem(link_item)
             self.viz_links.append(link_item)
 
+        self.apply_link_offsets()
+        self.create_shared_shape_handles()
+
         if self.viz_links:
             self.view.fitInView(self.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+
+    def apply_link_offsets(self):
+        geometry_keys = {
+            link: self.link_geometry_key(link.link_model)
+            for link in self.viz_links
+        }
+        key_counts = {}
+        for key in geometry_keys.values():
+            if key:
+                key_counts[key] = key_counts.get(key, 0) + 1
+
+        for link, key in geometry_keys.items():
+            has_reverse_geometry = bool(key and tuple(reversed(key)) in key_counts)
+            link.visual_offset_px = 4.0 if has_reverse_geometry else 0.0
+            link.update_geometry()
+
+    def create_shared_shape_handles(self):
+        handle_specs = {}
+        for link in self.viz_links:
+            link.shape_handles = []
+            coords = link.link_model.coords or {}
+            if coords.get("type") != "polyline":
+                continue
+            points = coords.get("points", [])
+            for point_index, lon_lat in enumerate(points[1:-1]):
+                key = self.lon_lat_key(lon_lat)
+                if key not in handle_specs:
+                    handle_specs[key] = {
+                        "pos": QPointF(link.intermediate_points[point_index]),
+                        "bindings": [],
+                    }
+                handle_specs[key]["bindings"].append((link, point_index))
+
+        for spec in handle_specs.values():
+            handle = ShapePointHandle(spec["bindings"], spec["pos"])
+            self.scene.addItem(handle)
+            for link, _ in spec["bindings"]:
+                link.shape_handles.append(handle)
+
+    def link_geometry_key(self, link_model):
+        coords = link_model.coords or {}
+        points = coords.get("points", [])
+        if len(points) >= 2:
+            return tuple(self.lon_lat_key(point) for point in points)
+
+        lon_start = coords.get("lon_start")
+        lat_start = coords.get("lat_start")
+        lon_end = coords.get("lon_end")
+        lat_end = coords.get("lat_end")
+        if None in (lon_start, lat_start, lon_end, lat_end):
+            return None
+        return (
+            self.lon_lat_key((lon_start, lat_start)),
+            self.lon_lat_key((lon_end, lat_end)),
+        )
+
+    def lon_lat_key(self, lon_lat):
+        return (round(float(lon_lat[0]), 6), round(float(lon_lat[1]), 6))
 
     def on_node_click(self, node_model):
         self.last_clicked_link = None  # Сброс выбора дороги
@@ -566,17 +656,31 @@ class MainWindow(QMainWindow):
 
     def save_current_positions_to_project(self):
         if self.project is None: return
+        updated_nodes = set()
         for link in self.viz_links:
             p1 = link.start_node.scenePos()
             p2 = link.end_node.scenePos()
             lon_s, lat_s = unproject_coords(p1.x(), p1.y())
             lon_e, lat_e = unproject_coords(p2.x(), p2.y())
+            for node_item, lon, lat in (
+                (link.start_node, lon_s, lat_s),
+                (link.end_node, lon_e, lat_e),
+            ):
+                if node_item.id in updated_nodes:
+                    continue
+                node_item.node_model.lon = round(lon, 6)
+                node_item.node_model.lat = round(lat, 6)
+                updated_nodes.add(node_item.id)
+
             coords = link.link_model.coords or {}
-            if coords.get("type") == "polyline" and len(coords.get("points", [])) >= 2:
-                points = coords["points"]
+            if coords.get("type") == "polyline" or link.intermediate_points:
+                intermediate_points = []
+                for point in link.intermediate_points:
+                    lon_i, lat_i = unproject_coords(point.x(), point.y())
+                    intermediate_points.append([round(lon_i, 6), round(lat_i, 6)])
                 link.link_model.coords = {
                     "type": "polyline",
-                    "points": [[round(lon_s, 6), round(lat_s, 6)], *points[1:-1], [round(lon_e, 6), round(lat_e, 6)]],
+                    "points": [[round(lon_s, 6), round(lat_s, 6)], *intermediate_points, [round(lon_e, 6), round(lat_e, 6)]],
                     "lon_start": round(lon_s, 6),
                     "lat_start": round(lat_s, 6),
                     "lon_end": round(lon_e, 6),
