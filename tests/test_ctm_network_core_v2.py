@@ -6,7 +6,7 @@ from ctm_network_core_v2 import (
     Incident,
     TriangularFundamentalDiagram,
 )
-from ctm_simulator_test import CTMSimulator
+from ctm_simulator_test import CTMScenarioConfig, CTMSimulator
 from models import Link, Network, Node, Project
 from project_loader import ProjectLoader
 
@@ -207,6 +207,20 @@ class CTMNetworkCoreV2Test(unittest.TestCase):
 
 
 class CTMMovementTableTest(unittest.TestCase):
+    def test_default_config_is_saved_to_metadata(self):
+        project = movement_test_project()
+        simulator = CTMSimulator(project)
+
+        self.assertIn("ctm_scenario_config", project.metadata)
+        self.assertEqual(
+            project.metadata["ctm_scenario_config"]["simulation_minutes"],
+            simulator.config.simulation_minutes,
+        )
+        self.assertEqual(
+            project.metadata["node_solver"],
+            "proportional_split_with_optional_partial_fifo",
+        )
+
     def test_polyline_turn_angle_uses_segments_near_intersection(self):
         project = movement_test_project()
         project.network.links["L_IN"].coords = {
@@ -249,6 +263,52 @@ class CTMMovementTableTest(unittest.TestCase):
             1.0,
             places=6,
         )
+
+    def test_same_road_bonuses_are_read_from_config(self):
+        default_project = movement_test_project()
+        default_simulator = CTMSimulator(default_project)
+        default_ratio = next(
+            movement["turn_ratio"]
+            for movement in default_simulator.movements_by_node["N"]["L_IN"]
+            if movement["out_link_id"] == "L_STRAIGHT"
+        )
+
+        weak_bonus_project = movement_test_project()
+        weak_bonuses = dict(CTMScenarioConfig().same_road_bonuses)
+        weak_bonuses["same_osm_way_id"] = 1.0
+        weak_bonuses["same_osm_name"] = 1.0
+        weak_bonuses["same_visible_name"] = 1.0
+        weak_simulator = CTMSimulator(
+            weak_bonus_project,
+            CTMScenarioConfig(same_road_bonuses=weak_bonuses),
+        )
+        weak_ratio = next(
+            movement["turn_ratio"]
+            for movement in weak_simulator.movements_by_node["N"]["L_IN"]
+            if movement["out_link_id"] == "L_STRAIGHT"
+        )
+
+        self.assertLess(weak_ratio, default_ratio)
+        self.assertEqual(
+            weak_bonus_project.metadata["ctm_scenario_config"]["same_road_bonuses"]["same_osm_way_id"],
+            1.0,
+        )
+
+    def test_movement_summary_contains_solver_and_ratio_diagnostics(self):
+        project = movement_test_project()
+        CTMSimulator(project)
+
+        summary = project.metadata["ctm_movement_summary"]
+
+        self.assertEqual(
+            summary["node_solver"],
+            "proportional_split_with_optional_partial_fifo",
+        )
+        self.assertEqual(summary["fifo_strength"], 0.0)
+        self.assertGreater(summary["movement_count"], 0)
+        self.assertGreaterEqual(summary["max_turn_ratio"], 0.0)
+        self.assertIn("turn_ratio_gt_0_9_count", summary)
+        self.assertIn("turn_ratio_gt_0_95_count", summary)
 
     def test_manual_override_replaces_inferred_ratios(self):
         project = movement_test_project(
@@ -295,6 +355,24 @@ class CTMMovementTableTest(unittest.TestCase):
         with self.assertRaises(CTMStateError):
             CTMSimulator(project)
 
+    def test_manual_override_rejects_ratio_outside_unit_interval(self):
+        project = movement_test_project(
+            metadata={
+                "turn_ratio_overrides": {
+                    "N": {
+                        "L_IN": {
+                            "L_STRAIGHT": 1.1,
+                            "L_LEFT": -0.1,
+                            "L_RIGHT": 0.0,
+                        }
+                    }
+                }
+            }
+        )
+
+        with self.assertRaises(CTMStateError):
+            CTMSimulator(project)
+
     def test_manual_override_rejects_non_outgoing_link(self):
         project = movement_test_project(
             metadata={
@@ -312,11 +390,140 @@ class CTMMovementTableTest(unittest.TestCase):
         with self.assertRaises(CTMStateError):
             CTMSimulator(project)
 
+    def test_configured_incident_metadata_uses_actual_link(self):
+        project = movement_test_project()
+        CTMSimulator(project, CTMScenarioConfig(incident_link_id="L_IN"))
+
+        self.assertEqual(project.metadata["ctm_incident"]["link_id"], "L_IN")
+        self.assertIn("incident", project.network.links["L_IN"].results)
+
+
+class CTMScenarioConfigTest(unittest.TestCase):
+    def test_rejects_invalid_scalar_config_values(self):
+        invalid_kwargs = [
+            {"dt_seconds": 0.0},
+            {"simulation_minutes": 0},
+            {"snapshot_interval_sec": 0},
+            {"cell_length_target_m": 0.0},
+            {"jam_density_pcu_km_per_lane": 0.0},
+            {"backward_wave_speed_kph": 0.0},
+            {"incident_start_sec": 10.0, "incident_end_sec": 10.0},
+            {"incident_capacity_factor": -0.1},
+            {"incident_capacity_factor": 1.1},
+            {"incident_speed_factor": -0.1},
+            {"fifo_strength": -0.1},
+            {"fifo_strength": 1.1},
+        ]
+
+        for kwargs in invalid_kwargs:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    CTMScenarioConfig(**kwargs)
+
+    def test_rejects_invalid_highway_params(self):
+        params = dict(CTMScenarioConfig().highway_params)
+        params["default"] = {"speed_kph": 40, "cap_per_lane": 600}
+
+        with self.assertRaises(ValueError):
+            CTMScenarioConfig(highway_params=params)
+
+
+class CTMPartialFIFOTest(unittest.TestCase):
+    def _solve_once(self, fifo_strength):
+        project = movement_test_project()
+        simulator = CTMSimulator(project, CTMScenarioConfig(fifo_strength=fifo_strength))
+        demands = {link_id: 0.0 for link_id in simulator.ctm_links}
+        supplies = {link_id: 10.0 for link_id in simulator.ctm_links}
+        demands["L_IN"] = 1.0
+        supplies["L_STRAIGHT"] = 0.05
+        actual_inflows = {link_id: 0.0 for link_id in simulator.ctm_links}
+        actual_outflows = {link_id: 0.0 for link_id in simulator.ctm_links}
+
+        simulator._solve_nodes(demands, supplies, actual_inflows, actual_outflows)
+        return simulator, actual_inflows, actual_outflows
+
+    def test_fifo_strength_zero_matches_nonfifo_solver(self):
+        simulator, actual_inflows, actual_outflows = self._solve_once(0.0)
+        movements = {
+            movement["out_link_id"]: movement
+            for movement in simulator.movements_by_node["N"]["L_IN"]
+        }
+        expected_outflow = sum(
+            movements[out_id]["turn_ratio"]
+            * (
+                0.05 / movements[out_id]["turn_ratio"]
+                if out_id == "L_STRAIGHT"
+                else 1.0
+            )
+            for out_id in movements
+        )
+
+        self.assertAlmostEqual(actual_inflows["L_STRAIGHT"], 0.05)
+        self.assertAlmostEqual(actual_outflows["L_IN"], expected_outflow)
+        self.assertTrue(
+            all(movement["fifo_limited_count"] == 0 for movement in movements.values())
+        )
+        self.assertTrue(
+            any(movement["potential_fifo_limited_count"] > 0 for movement in movements.values())
+        )
+
+    def test_fifo_strength_one_applies_same_fifo_factor_to_incoming(self):
+        simulator, actual_inflows, actual_outflows = self._solve_once(1.0)
+        movements = simulator.movements_by_node["N"]["L_IN"]
+        fifo_factor = min(movement["min_fifo_factor"] for movement in movements)
+
+        self.assertAlmostEqual(actual_outflows["L_IN"], fifo_factor)
+        for movement in movements:
+            self.assertAlmostEqual(movement["min_restriction_factor"], fifo_factor)
+        self.assertTrue(any(movement["fifo_limited_count"] > 0 for movement in movements))
+        self.assertLess(actual_inflows["L_LEFT"], movements[1]["turn_ratio"])
+
+    def test_partial_fifo_is_between_nonfifo_and_strict_fifo(self):
+        _, _, nonfifo_outflows = self._solve_once(0.0)
+        _, _, half_fifo_outflows = self._solve_once(0.5)
+        _, _, strict_fifo_outflows = self._solve_once(1.0)
+
+        self.assertGreater(nonfifo_outflows["L_IN"], half_fifo_outflows["L_IN"])
+        self.assertGreater(half_fifo_outflows["L_IN"], strict_fifo_outflows["L_IN"])
+
+    def test_fifo_diagnostics_record_factor_ranges(self):
+        simulator, _, _ = self._solve_once(0.5)
+        movement = next(
+            movement
+            for movement in simulator.movements_by_node["N"]["L_IN"]
+            if movement["out_link_id"] == "L_LEFT"
+        )
+
+        self.assertLess(movement["min_fifo_factor"], 1.0)
+        self.assertAlmostEqual(movement["min_nonfifo_factor"], 1.0)
+        self.assertGreater(movement["min_restriction_factor"], movement["min_fifo_factor"])
+        self.assertLess(movement["min_restriction_factor"], movement["min_nonfifo_factor"])
+
+    def test_factor_diagnostics_ignore_zero_desired_flow_steps(self):
+        project = movement_test_project()
+        simulator = CTMSimulator(project, CTMScenarioConfig(fifo_strength=1.0))
+        demands = {link_id: 0.0 for link_id in simulator.ctm_links}
+        supplies = {link_id: 0.0 for link_id in simulator.ctm_links}
+        actual_inflows = {link_id: 0.0 for link_id in simulator.ctm_links}
+        actual_outflows = {link_id: 0.0 for link_id in simulator.ctm_links}
+
+        simulator._solve_nodes(demands, supplies, actual_inflows, actual_outflows)
+        movement = simulator.movements_by_node["N"]["L_IN"][0]
+
+        self.assertEqual(movement["_flow_sample_count"], 1)
+        self.assertEqual(movement["_factor_sample_count"], 0)
+        self.assertEqual(movement["blocked_by_supply_count"], 0)
+        self.assertEqual(movement["fifo_limited_count"], 0)
+        self.assertEqual(movement["potential_fifo_limited_count"], 0)
+        self.assertEqual(movement["min_fifo_factor"], 1.0)
+        self.assertEqual(movement["min_nonfifo_factor"], 1.0)
+        self.assertEqual(movement["min_restriction_factor"], 1.0)
+
 
 class CTMSimulatorRegressionTest(unittest.TestCase):
     def test_source_queue_accumulates_unadmitted_boundary_demand(self):
         project = ProjectLoader().load("osm_network_project_map_nstu.json")
-        simulator = CTMSimulator(project)
+        simulator = CTMSimulator(project, CTMScenarioConfig(simulation_minutes=50))
         blocked_source_id = simulator.sources[0]
         blocked_source = simulator.ctm_links[blocked_source_id]
         blocked_source.cells[0].density = blocked_source.diagram.jam_density
@@ -336,7 +543,7 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
 
     def test_nstu_simulator_uses_strict_core_and_preserves_mass(self):
         project = ProjectLoader().load("osm_network_project_map_nstu.json")
-        simulator = CTMSimulator(project)
+        simulator = CTMSimulator(project, CTMScenarioConfig(simulation_minutes=50))
 
         simulator.run()
 
@@ -346,9 +553,17 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
         self.assertLess(abs(metadata["demand_balance_error_pcu"]), 0.01)
         self.assertLess(abs(metadata["sum_link_conservation_error_pcu"]), 0.01)
         self.assertTrue(metadata["validate_cfl"])
+        self.assertEqual(metadata["simulation_minutes"], 50)
+        self.assertEqual(
+            metadata["node_solver"],
+            "proportional_split_with_optional_partial_fifo",
+        )
+        self.assertEqual(metadata["fifo_strength"], 0.0)
         self.assertIn("total_generated_pcu", metadata)
         self.assertIn("total_external_queue_pcu", metadata)
+        self.assertIn("ctm_scenario_config", project.metadata)
         self.assertIn("ctm_movements", project.metadata)
+        self.assertIn("ctm_movement_summary", project.metadata)
         self.assertTrue(project.metadata["ctm_movements"])
 
         l7_movements = [
@@ -359,6 +574,17 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
         self.assertTrue(l7_movements)
         self.assertTrue(all("avg_flow_veh_h" in movement for movement in l7_movements))
         self.assertTrue(all("blocked_by_supply_count" in movement for movement in l7_movements))
+        self.assertTrue(all("avg_fifo_factor" in movement for movement in l7_movements))
+        self.assertTrue(all("avg_nonfifo_factor" in movement for movement in l7_movements))
+        self.assertTrue(all("avg_restriction_factor" in movement for movement in l7_movements))
+
+        summary = project.metadata["ctm_movement_summary"]
+        self.assertEqual(
+            summary["node_solver"],
+            "proportional_split_with_optional_partial_fifo",
+        )
+        self.assertIn("turn_ratio_gt_0_9_count", summary)
+        self.assertIn("turn_ratio_gt_0_95_count", summary)
 
         incident = project.metadata["ctm_incident"]
         link = project.network.links[incident["link_id"]]
