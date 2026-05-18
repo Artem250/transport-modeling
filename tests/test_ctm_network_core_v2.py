@@ -7,6 +7,7 @@ from ctm_network_core_v2 import (
     TriangularFundamentalDiagram,
 )
 from ctm_simulator_test import CTMSimulator
+from models import Link, Network, Node, Project
 from project_loader import ProjectLoader
 
 
@@ -16,6 +17,117 @@ def diagram():
         backward_wave_speed_kph=18.0,
         capacity_pcu_h=1800.0,
         jam_density_pcu_km=150.0,
+    )
+
+
+def movement_test_project(metadata=None) -> Project:
+    network = Network()
+    for node in (
+        Node(id="A", lon=82.0, lat=55.0, node_type="boundary"),
+        Node(id="N", lon=82.001, lat=55.0, node_type="intersection"),
+        Node(id="B", lon=82.002, lat=55.0, node_type="boundary"),
+        Node(id="C", lon=82.001, lat=55.001, node_type="boundary"),
+        Node(id="D", lon=82.001, lat=54.999, node_type="boundary"),
+    ):
+        network.add_node(node)
+
+    common_counts = {"car": 600}
+    common_parameters = {"lanes_total": 1}
+    links = [
+        Link(
+            id="L_IN",
+            name="Main",
+            start_node_id="A",
+            end_node_id="N",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters=common_parameters,
+            coords={"type": "polyline", "points": [[82.0, 55.0], [82.001, 55.0]]},
+            metadata={
+                "highway": "residential",
+                "osm_way_id": "10",
+                "osm_name": "Main",
+                "osm_direction": "forward",
+                "osm_is_oneway": True,
+            },
+        ),
+        Link(
+            id="L_STRAIGHT",
+            name="Main",
+            start_node_id="N",
+            end_node_id="B",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters=common_parameters,
+            coords={"type": "polyline", "points": [[82.001, 55.0], [82.002, 55.0]]},
+            metadata={
+                "highway": "residential",
+                "osm_way_id": "10",
+                "osm_name": "Main",
+                "osm_direction": "forward",
+                "osm_is_oneway": True,
+            },
+        ),
+        Link(
+            id="L_LEFT",
+            name="Side",
+            start_node_id="N",
+            end_node_id="C",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters=common_parameters,
+            coords={"type": "polyline", "points": [[82.001, 55.0], [82.001, 55.001]]},
+            metadata={
+                "highway": "residential",
+                "osm_way_id": "20",
+                "osm_name": "Side",
+                "osm_direction": "forward",
+                "osm_is_oneway": True,
+            },
+        ),
+        Link(
+            id="L_RIGHT",
+            name="Side",
+            start_node_id="N",
+            end_node_id="D",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters=common_parameters,
+            coords={"type": "polyline", "points": [[82.001, 55.0], [82.001, 54.999]]},
+            metadata={
+                "highway": "residential",
+                "osm_way_id": "30",
+                "osm_name": "Side",
+                "osm_direction": "forward",
+                "osm_is_oneway": True,
+            },
+        ),
+        Link(
+            id="L_UTURN",
+            name="Main",
+            start_node_id="N",
+            end_node_id="A",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters=common_parameters,
+            coords={"type": "polyline", "points": [[82.001, 55.0], [82.0, 55.0]]},
+            metadata={
+                "highway": "residential",
+                "osm_way_id": "10",
+                "osm_name": "Main",
+                "osm_direction": "reverse",
+                "osm_is_oneway": True,
+            },
+        ),
+    ]
+    for link in links:
+        network.add_link(link)
+
+    return Project(
+        project_name="movement test",
+        pcu_coefficients={"car": 1.0},
+        network=network,
+        metadata=metadata or {},
     )
 
 
@@ -94,6 +206,113 @@ class CTMNetworkCoreV2Test(unittest.TestCase):
         self.assertLessEqual(max(model.densities()), model.diagram.jam_density)
 
 
+class CTMMovementTableTest(unittest.TestCase):
+    def test_polyline_turn_angle_uses_segments_near_intersection(self):
+        project = movement_test_project()
+        project.network.links["L_IN"].coords = {
+            "type": "polyline",
+            "points": [[82.0, 55.0], [82.001, 54.999], [82.001, 55.0]],
+        }
+        simulator = CTMSimulator(project)
+
+        angle = simulator._calc_turn_angle(
+            project.network.links["L_IN"],
+            project.network.links["L_STRAIGHT"],
+        )
+
+        self.assertAlmostEqual(angle, -90.0, delta=1.0)
+
+    def test_inferred_movements_prefer_same_road_and_block_u_turn(self):
+        project = movement_test_project()
+        simulator = CTMSimulator(project)
+
+        movements = {
+            movement["out_link_id"]: movement
+            for movement in simulator.movements_by_node["N"]["L_IN"]
+        }
+
+        self.assertIn("L_STRAIGHT", movements)
+        self.assertIn("L_LEFT", movements)
+        self.assertIn("L_RIGHT", movements)
+        self.assertNotIn("L_UTURN", movements)
+        self.assertGreater(
+            movements["L_STRAIGHT"]["turn_ratio"],
+            movements["L_LEFT"]["turn_ratio"],
+        )
+        self.assertGreater(
+            movements["L_STRAIGHT"]["turn_ratio"],
+            movements["L_RIGHT"]["turn_ratio"],
+        )
+        self.assertIn("same_osm_way_id", movements["L_STRAIGHT"]["flags"])
+        self.assertAlmostEqual(
+            sum(movement["turn_ratio"] for movement in movements.values()),
+            1.0,
+            places=6,
+        )
+
+    def test_manual_override_replaces_inferred_ratios(self):
+        project = movement_test_project(
+            metadata={
+                "turn_ratio_overrides": {
+                    "N": {
+                        "L_IN": {
+                            "L_STRAIGHT": 0.7,
+                            "L_LEFT": 0.2,
+                            "L_RIGHT": 0.1,
+                        }
+                    }
+                }
+            }
+        )
+        simulator = CTMSimulator(project)
+
+        movements = {
+            movement["out_link_id"]: movement
+            for movement in simulator.movements_by_node["N"]["L_IN"]
+        }
+
+        self.assertEqual(set(movements), {"L_STRAIGHT", "L_LEFT", "L_RIGHT"})
+        self.assertEqual(movements["L_STRAIGHT"]["source"], "manual")
+        self.assertIn("manual_override", movements["L_STRAIGHT"]["flags"])
+        self.assertAlmostEqual(movements["L_STRAIGHT"]["turn_ratio"], 0.7)
+        self.assertAlmostEqual(movements["L_LEFT"]["turn_ratio"], 0.2)
+        self.assertAlmostEqual(movements["L_RIGHT"]["turn_ratio"], 0.1)
+
+    def test_manual_override_rejects_invalid_sum(self):
+        project = movement_test_project(
+            metadata={
+                "turn_ratio_overrides": {
+                    "N": {
+                        "L_IN": {
+                            "L_STRAIGHT": 0.7,
+                            "L_LEFT": 0.2,
+                        }
+                    }
+                }
+            }
+        )
+
+        with self.assertRaises(CTMStateError):
+            CTMSimulator(project)
+
+    def test_manual_override_rejects_non_outgoing_link(self):
+        project = movement_test_project(
+            metadata={
+                "turn_ratio_overrides": {
+                    "N": {
+                        "L_IN": {
+                            "L_STRAIGHT": 0.7,
+                            "L_IN": 0.3,
+                        }
+                    }
+                }
+            }
+        )
+
+        with self.assertRaises(CTMStateError):
+            CTMSimulator(project)
+
+
 class CTMSimulatorRegressionTest(unittest.TestCase):
     def test_source_queue_accumulates_unadmitted_boundary_demand(self):
         project = ProjectLoader().load("osm_network_project_map_nstu.json")
@@ -129,6 +348,17 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
         self.assertTrue(metadata["validate_cfl"])
         self.assertIn("total_generated_pcu", metadata)
         self.assertIn("total_external_queue_pcu", metadata)
+        self.assertIn("ctm_movements", project.metadata)
+        self.assertTrue(project.metadata["ctm_movements"])
+
+        l7_movements = [
+            movement
+            for movement in project.metadata["ctm_movements"]
+            if movement["in_link_id"] == "L7"
+        ]
+        self.assertTrue(l7_movements)
+        self.assertTrue(all("avg_flow_veh_h" in movement for movement in l7_movements))
+        self.assertTrue(all("blocked_by_supply_count" in movement for movement in l7_movements))
 
         incident = project.metadata["ctm_incident"]
         link = project.network.links[incident["link_id"]]
