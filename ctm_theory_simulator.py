@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+import math
 
-from ctm_network_core_v2 import CTMStateError, Incident
+from ctm_fd import make_triangular_fd_from_capacity
+from ctm_network_core_v2 import CTMModel, CTMStateError, Incident
 from ctm_node_solver import NodeMovement, solve_ctm_node
 from ctm_simulator_test import (
     CTMScenarioConfig as BaseCTMScenarioConfig,
@@ -25,15 +27,16 @@ DEFAULT_MOVEMENT_CAPACITY_FACTORS = {
 
 @dataclass
 class CTMScenarioConfig(BaseCTMScenarioConfig):
-    """Scenario config with two controlled extensions.
+    """Scenario config with controlled theory-oriented extensions.
 
-    The default model still uses the same inputs as the earlier simulator. The
-    additional parameters are intentionally small and explicit:
+    The model now uses a consistent triangular fundamental diagram. For each
+    link, the scenario provides interpretable inputs v, Q and rho_jam; the
+    backward wave speed w is derived from the triangular FD relation instead of
+    being treated as another independent coefficient.
+
+    Additional scenario assumptions:
     - incident_blocked_lanes: optional lane-aware incident severity;
     - movement_capacity_factors: optional finite saturation limits for movements.
-
-    They are not claimed to be calibrated field data. They are scenario
-    assumptions for controlled computational experiments.
     """
 
     incident_blocked_lanes: int | None = 1
@@ -54,11 +57,11 @@ class CTMSimulator(BaseCTMSimulator):
     """Theory-oriented network CTM simulator.
 
     Compared with the historical ctm_simulator_test.py implementation, this
-    class keeps the link CTM unchanged but replaces the implicit node heuristic
-    with an explicit solver:
-    - diverge: FIFO split formula;
-    - merge: priority allocation under downstream supply;
-    - general node: proportional fallback with optional partial FIFO.
+    class keeps the conservative link update but changes the theoretical model:
+    - each link FD is a self-consistent triangular diagram;
+    - diverge nodes use a FIFO split formula;
+    - merge nodes use priority allocation under downstream supply;
+    - arbitrary many-to-many nodes use a proportional fallback.
     """
 
     config: CTMScenarioConfig
@@ -66,6 +69,52 @@ class CTMSimulator(BaseCTMSimulator):
     def __init__(self, project: Project, config: CTMScenarioConfig | None = None):
         super().__init__(project, config or CTMScenarioConfig())
         self.project.metadata["node_solver"] = THEORY_NODE_SOLVER_NAME
+
+    def _init_physics(self) -> None:
+        print("Initializing theory-oriented CTM link models...")
+        fd_metadata = {}
+        for link in self.network.links.values():
+            hw = link.metadata.get("highway", "default")
+            params = self.config.highway_params.get(hw, self.config.highway_params["default"])
+            lanes = max(int(link.parameters.get("lanes_total", 1) or 1), 1)
+
+            capacity_pcu_h = float(params["cap_per_lane"]) * lanes
+            jam_density_pcu_km = float(self.config.jam_density_pcu_km_per_lane) * lanes
+            diagram, diagram_metadata = make_triangular_fd_from_capacity(
+                free_flow_speed_kph=float(params["speed_kph"]),
+                capacity_pcu_h=capacity_pcu_h,
+                jam_density_pcu_km=jam_density_pcu_km,
+            )
+
+            max_wave_speed = max(diagram.free_flow_speed, diagram.backward_wave_speed)
+            min_cfl_cell_length = self.dt * max_wave_speed
+            cell_length_target = max(self.config.cell_length_target_m, min_cfl_cell_length)
+            length_m = max(link.length_km * 1000.0, min_cfl_cell_length)
+            cell_count = max(1, math.floor(length_m / cell_length_target))
+
+            ctm = CTMModel.create_uniform_link(
+                length=length_m,
+                cell_length=length_m / cell_count,
+                diagram=diagram,
+                dt=self.dt,
+                validate_cfl=True,
+            )
+
+            link.results = {
+                "cell_count": cell_count,
+                "history_cells_density_pcu_km": [],
+                "history_flow_veh_h": [],
+                "ctm_length_m": round(length_m, 3),
+                "ctm_cell_length_m": round(length_m / cell_count, 3),
+                "fundamental_diagram": dict(diagram_metadata.__dict__),
+            }
+            fd_metadata[link.id] = dict(diagram_metadata.__dict__)
+            self.ctm_links[link.id] = ctm
+        self.project.metadata["ctm_fundamental_diagram_model"] = {
+            "parameterization": "v_Q_rhojam_with_derived_w",
+            "formula": "Q = v*w/(v+w)*rho_jam; w = Q/(rho_jam - Q/v)",
+            "links": fd_metadata,
+        }
 
     def _add_movement(
         self,
