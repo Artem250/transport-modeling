@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-import math
-from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
 
 from ctm_network_core_v2 import CTMStateError, Incident
+from ctm_node_solver import NodeMovement, solve_ctm_node
 from ctm_simulator_test import (
     CTMScenarioConfig as BaseCTMScenarioConfig,
     CTMSimulator as BaseCTMSimulator,
     EPS,
-    NODE_SOLVER_NAME,
 )
 from models import Link, Project
 
 
+THEORY_NODE_SOLVER_NAME = "explicit_diverge_merge_general_ctm_node_solver"
 DEFAULT_MOVEMENT_CAPACITY_FACTORS = {
     "same_road_continuation": 1.00,
     "straight": 1.00,
@@ -27,17 +25,15 @@ DEFAULT_MOVEMENT_CAPACITY_FACTORS = {
 
 @dataclass
 class CTMScenarioConfig(BaseCTMScenarioConfig):
-    """Scenario config with two theory-oriented additions.
+    """Scenario config with two controlled extensions.
 
-    1. incident_blocked_lanes makes an incident lane-aware. If it is set, an
-       incident does not automatically reduce the whole link to one scalar
-       capacity_factor. Instead, capacity is reduced according to the share of
-       lanes still open. If all lanes are blocked, incident_capacity_factor is
-       used as the residual emergency capacity.
+    The default model still uses the same inputs as the earlier simulator. The
+    additional parameters are intentionally small and explicit:
+    - incident_blocked_lanes: optional lane-aware incident severity;
+    - movement_capacity_factors: optional finite saturation limits for movements.
 
-    2. movement_capacity_factors add finite capacities to intersection
-       movements. This keeps the node from being only a zero-storage splitter:
-       left/right/through movements can have different saturation assumptions.
+    They are not claimed to be calibrated field data. They are scenario
+    assumptions for controlled computational experiments.
     """
 
     incident_blocked_lanes: int | None = 1
@@ -55,19 +51,21 @@ class CTMScenarioConfig(BaseCTMScenarioConfig):
 
 
 class CTMSimulator(BaseCTMSimulator):
-    """CTM simulator with lane-aware incidents and movement capacities.
+    """Theory-oriented network CTM simulator.
 
-    It intentionally reuses the existing link CTM core and most network logic.
-    The changes are limited to places where the previous model was too far from
-    traffic-flow theory:
-    - incidents can close part of a road instead of implicitly affecting all lanes;
-    - node movements have finite saturation capacities.
+    Compared with the historical ctm_simulator_test.py implementation, this
+    class keeps the link CTM unchanged but replaces the implicit node heuristic
+    with an explicit solver:
+    - diverge: FIFO split formula;
+    - merge: priority allocation under downstream supply;
+    - general node: proportional fallback with optional partial FIFO.
     """
 
     config: CTMScenarioConfig
 
     def __init__(self, project: Project, config: CTMScenarioConfig | None = None):
         super().__init__(project, config or CTMScenarioConfig())
+        self.project.metadata["node_solver"] = THEORY_NODE_SOLVER_NAME
 
     def _add_movement(
         self,
@@ -98,16 +96,10 @@ class CTMSimulator(BaseCTMSimulator):
         movement_capacity_pcu_s = self._movement_capacity_pcu_s(in_link, out_link, turn_type)
         movement["movement_capacity_pcu_h"] = round(movement_capacity_pcu_s * 3600.0, 3)
         movement["movement_capacity_limited_count"] = 0
+        movement["node_solver_case"] = ""
+        movement["active_constraints"] = []
 
     def _movement_capacity_pcu_s(self, in_link: Link, out_link: Link, turn_type: str) -> float:
-        """Finite saturation capacity for one node movement.
-
-        This is not a full signal/lane-group model. It is a bounded movement
-        capacity derived from the smaller of incoming/outgoing link capacities
-        and a turn-type factor. It makes intersections finite without requiring
-        OD matrices or detailed lane data.
-        """
-
         factor = self.config.movement_capacity_factors.get(turn_type, 1.0)
         if factor <= 0.0:
             return 0.0
@@ -118,8 +110,6 @@ class CTMSimulator(BaseCTMSimulator):
         return min(in_ctm.diagram.capacity, out_ctm.diagram.capacity) * factor
 
     def _effective_incident_capacity_factor(self, link: Link) -> float:
-        """Return capacity factor with optional lane-aware closure logic."""
-
         direct_factor = float(self.config.incident_capacity_factor)
         if direct_factor >= 1.0:
             return 1.0
@@ -191,70 +181,86 @@ class CTMSimulator(BaseCTMSimulator):
         actual_inflows: dict[str, float],
         actual_outflows: dict[str, float],
     ) -> None:
+        case_counts: dict[str, int] = getattr(self, "node_solver_case_counts", {})
         for movements_by_in_link in self.movements_by_node.values():
-            outlink_total_demand = defaultdict(float)
-            desired_by_movement: dict[int, float] = {}
-            nonfifo_factor_by_movement: dict[int, float] = {}
-            fifo_factor_by_in_link: dict[str, float] = {}
+            flat_movements = [movement for movements in movements_by_in_link.values() for movement in movements]
+            if not flat_movements:
+                continue
 
-            for in_id, movements in movements_by_in_link.items():
-                for movement in movements:
-                    out_id = movement["out_link_id"]
-                    base_desired_flow = demands[in_id] * movement["turn_ratio"]
-                    movement_capacity = float(movement.get("movement_capacity_pcu_h", float("inf"))) / 3600.0
-                    desired_flow = min(base_desired_flow, movement_capacity)
-                    if base_desired_flow > desired_flow + EPS:
-                        movement["movement_capacity_limited_count"] = movement.get("movement_capacity_limited_count", 0) + 1
-                    desired_by_movement[id(movement)] = desired_flow
-                    outlink_total_demand[out_id] += desired_flow
-
-            for in_id, movements in movements_by_in_link.items():
-                incoming_factors = []
-                for movement in movements:
-                    out_id = movement["out_link_id"]
-                    total_demand = outlink_total_demand[out_id]
-                    factor = 1.0 if total_demand <= 0.0 else min(1.0, supplies[out_id] / total_demand)
-                    nonfifo_factor_by_movement[id(movement)] = factor
-                    incoming_factors.append(factor)
-                fifo_factor_by_in_link[in_id] = min(incoming_factors) if incoming_factors else 1.0
-
-            for in_id, movements in movements_by_in_link.items():
-                fifo_factor = fifo_factor_by_in_link[in_id]
-                for movement in movements:
-                    out_id = movement["out_link_id"]
-                    desired_flow = desired_by_movement[id(movement)]
-                    nonfifo_factor = nonfifo_factor_by_movement[id(movement)]
-                    restriction_factor = (
-                        (1.0 - self.config.fifo_strength) * nonfifo_factor
-                        + self.config.fifo_strength * fifo_factor
+            solver_movements: list[NodeMovement] = []
+            movement_by_key = {}
+            for movement in flat_movements:
+                key = (movement["in_link_id"], movement["out_link_id"])
+                movement_by_key[key] = movement
+                solver_movements.append(
+                    NodeMovement(
+                        in_link_id=movement["in_link_id"],
+                        out_link_id=movement["out_link_id"],
+                        turn_ratio=float(movement["turn_ratio"]),
+                        priority=self._movement_priority(movement),
+                        metadata={"turn_type": movement.get("turn_type", "")},
                     )
-                    actual_flow = desired_flow * restriction_factor
+                )
 
-                    has_desired_flow = desired_flow > EPS
-                    if has_desired_flow and nonfifo_factor < 1.0 - EPS:
-                        movement["blocked_by_supply_count"] += 1
-                    if has_desired_flow and fifo_factor < nonfifo_factor - EPS:
-                        movement["potential_fifo_limited_count"] += 1
-                    if (
-                        has_desired_flow
-                        and self.config.fifo_strength > 0.0
-                        and fifo_factor < nonfifo_factor - EPS
-                    ):
-                        movement["fifo_limited_count"] += 1
+            result = solve_ctm_node(
+                solver_movements,
+                demands,
+                supplies,
+                fifo_strength=self.config.fifo_strength,
+            )
+            case_counts[result.case] = case_counts.get(result.case, 0) + 1
 
-                    actual_inflows[out_id] += actual_flow
-                    actual_outflows[in_id] += actual_flow
-                    self._record_movement_step(
-                        movement=movement,
-                        actual_flow=actual_flow,
-                        desired_flow=desired_flow,
-                        fifo_factor=fifo_factor,
-                        nonfifo_factor=nonfifo_factor,
-                        restriction_factor=restriction_factor,
-                    )
+            for key, flow in result.flows.items():
+                in_id, out_id = key
+                movement = movement_by_key[key]
+                movement_capacity = float(movement.get("movement_capacity_pcu_h", float("inf"))) / 3600.0
+                limited_flow = min(flow, movement_capacity)
+                if flow > limited_flow + EPS:
+                    movement["movement_capacity_limited_count"] = movement.get("movement_capacity_limited_count", 0) + 1
+                    active_constraints = list(result.diagnostics[key].active_constraints) + ["movement_capacity"]
+                else:
+                    active_constraints = list(result.diagnostics[key].active_constraints)
 
-    def _movement_summary(self) -> dict[str, Any]:
+                actual_inflows[out_id] += limited_flow
+                actual_outflows[in_id] += limited_flow
+
+                movement["node_solver_case"] = result.case
+                movement["active_constraints"] = sorted(set(active_constraints))
+                diag = result.diagnostics[key]
+                movement["blocked_by_supply_count"] += sum(
+                    1 for item in active_constraints if item.startswith("supply:")
+                )
+                if any(item.startswith("fifo:") for item in active_constraints):
+                    movement["fifo_limited_count"] += 1
+                if diag.desired_flow > limited_flow + EPS and "movement_capacity" in active_constraints:
+                    movement["movement_capacity_limited_count"] = movement.get("movement_capacity_limited_count", 0) + 1
+
+                self._record_movement_step(
+                    movement=movement,
+                    actual_flow=limited_flow,
+                    desired_flow=diag.desired_flow,
+                    fifo_factor=diag.restriction_factor,
+                    nonfifo_factor=diag.restriction_factor,
+                    restriction_factor=diag.restriction_factor,
+                )
+
+        self.node_solver_case_counts = case_counts
+
+    def _movement_priority(self, movement: dict) -> float:
+        """Priority used only for merge nodes.
+
+        To avoid adding another arbitrary dataset, priority is simply derived
+        from the existing turn ratio. Equal turn ratios imply equal merge
+        priority; explicit turn-ratio overrides therefore also define the merge
+        priority in controlled scenarios.
+        """
+
+        return max(float(movement.get("turn_ratio", 0.0)), EPS)
+
+    def _movement_summary(self) -> dict[str, object]:
         summary = super()._movement_summary()
+        summary["node_solver"] = THEORY_NODE_SOLVER_NAME
+        summary["node_solver_case_counts"] = getattr(self, "node_solver_case_counts", {})
         summary["movement_capacity_model"] = "turn_type_factor_times_min_link_capacity"
         summary["movement_capacity_limited_count"] = sum(
             movement.get("movement_capacity_limited_count", 0) for movement in self.movements
