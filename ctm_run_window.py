@@ -4,10 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (
     QApplication,
-    QCheckBox,
     QComboBox,
     QFileDialog,
     QFormLayout,
@@ -78,12 +77,16 @@ class CTMRunWindow(QMainWindow):
         files_layout = QFormLayout(files_group)
         self.project_edit = QLineEdit("osm_network_project_map_nstu.json")
         self.output_edit = QLineEdit("ctm_experiments")
+        self.map_edit = QLineEdit("map_nstu.osm")
         self.project_btn = QPushButton("Выбрать...")
         self.output_btn = QPushButton("Выбрать...")
+        self.map_btn = QPushButton("Выбрать...")
         self.project_btn.clicked.connect(self.choose_project)
         self.output_btn.clicked.connect(self.choose_output_dir)
+        self.map_btn.clicked.connect(self.choose_map)
         files_layout.addRow("Проект JSON:", self._row(self.project_edit, self.project_btn))
         files_layout.addRow("Папка результатов:", self._row(self.output_edit, self.output_btn))
+        files_layout.addRow("OSM-подложка:", self._row(self.map_edit, self.map_btn))
         layout.addWidget(files_group)
 
         params_group = QGroupBox("Основные параметры CTM")
@@ -167,6 +170,11 @@ class CTMRunWindow(QMainWindow):
         if path:
             self.output_edit.setText(path)
 
+    def choose_map(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Выберите OSM-файл", "", "OSM (*.osm);;XML (*.xml);;All files (*)")
+        if path:
+            self.map_edit.setText(path)
+
     def validate_float(self, edit: QLineEdit, label: str) -> float:
         try:
             return float(edit.text().strip())
@@ -246,14 +254,12 @@ class CTMRunWindow(QMainWindow):
         if not result_file.exists():
             QMessageBox.warning(self, "Визуализация", f"Файл не найден:\n{result_file}")
             return
-        command = [sys.executable, "traffic_viz_test.py"]
-        env_note = (
-            "traffic_viz_test.py по умолчанию открывает ctm_results_viz.json. "
-            "Для просмотра выбранного файла временно скопируйте его в ctm_results_viz.json "
-            "или запустите визуализатор после изменения data_file в коде.\n\n"
-            f"Выбранный файл: {result_file}"
-        )
-        QMessageBox.information(self, "Визуализация", env_note)
+        command = [
+            sys.executable,
+            "ctm_dynamic_viz.py",
+            "--map", self.map_edit.text().strip(),
+            "--results", str(result_file),
+        ]
         subprocess.Popen(command)
 
 
