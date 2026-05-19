@@ -1,9 +1,10 @@
 """Stable import name for the CTM network simulator.
 
-The implementation still lives in ``ctm_simulator_test.py`` to avoid breaking
-existing scripts and tests. New code should import from this module instead.
+New code should import from this module. The current implementation adds two
+small theory-oriented improvements over the historical ctm_simulator_test.py:
+lane-aware incidents and finite movement capacities at nodes.
 """
 
-from ctm_simulator_test import CTMScenarioConfig, CTMSimulator
+from ctm_theory_simulator import CTMScenarioConfig, CTMSimulator
 
 __all__ = ["CTMScenarioConfig", "CTMSimulator"]
