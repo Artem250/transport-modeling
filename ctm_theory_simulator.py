@@ -215,33 +215,32 @@ class CTMSimulator(BaseCTMSimulator):
                 movement = movement_by_key[key]
                 movement_capacity = float(movement.get("movement_capacity_pcu_h", float("inf"))) / 3600.0
                 limited_flow = min(flow, movement_capacity)
-                if flow > limited_flow + EPS:
+                diag = result.diagnostics[key]
+                active_constraints = list(diag.active_constraints)
+                capacity_limited = flow > limited_flow + EPS
+                if capacity_limited:
+                    active_constraints.append("movement_capacity")
                     movement["movement_capacity_limited_count"] = movement.get("movement_capacity_limited_count", 0) + 1
-                    active_constraints = list(result.diagnostics[key].active_constraints) + ["movement_capacity"]
-                else:
-                    active_constraints = list(result.diagnostics[key].active_constraints)
 
                 actual_inflows[out_id] += limited_flow
                 actual_outflows[in_id] += limited_flow
 
                 movement["node_solver_case"] = result.case
                 movement["active_constraints"] = sorted(set(active_constraints))
-                diag = result.diagnostics[key]
-                movement["blocked_by_supply_count"] += sum(
-                    1 for item in active_constraints if item.startswith("supply:")
+                movement["blocked_by_supply_count"] += int(
+                    any(item.startswith("supply:") for item in active_constraints)
                 )
                 if any(item.startswith("fifo:") for item in active_constraints):
                     movement["fifo_limited_count"] += 1
-                if diag.desired_flow > limited_flow + EPS and "movement_capacity" in active_constraints:
-                    movement["movement_capacity_limited_count"] = movement.get("movement_capacity_limited_count", 0) + 1
 
+                restriction_factor = 1.0 if diag.desired_flow <= EPS else limited_flow / diag.desired_flow
                 self._record_movement_step(
                     movement=movement,
                     actual_flow=limited_flow,
                     desired_flow=diag.desired_flow,
-                    fifo_factor=diag.restriction_factor,
-                    nonfifo_factor=diag.restriction_factor,
-                    restriction_factor=diag.restriction_factor,
+                    fifo_factor=restriction_factor,
+                    nonfifo_factor=restriction_factor,
+                    restriction_factor=restriction_factor,
                 )
 
         self.node_solver_case_counts = case_counts
@@ -267,3 +266,15 @@ class CTMSimulator(BaseCTMSimulator):
         )
         summary["incident_model"] = "lane_aware_capacity_drop"
         return summary
+
+    def run(self) -> None:
+        super().run()
+        self.project.metadata["node_solver"] = THEORY_NODE_SOLVER_NAME
+        self.project.metadata.setdefault("ctm_movement_summary", {})["node_solver"] = THEORY_NODE_SOLVER_NAME
+        self.project.metadata.setdefault("ctm_movement_summary", {})[
+            "node_solver_case_counts"
+        ] = getattr(self, "node_solver_case_counts", {})
+        self.project.metadata.setdefault("ctm_simulation", {})["node_solver"] = THEORY_NODE_SOLVER_NAME
+        self.project.metadata.setdefault("ctm_simulation", {})[
+            "node_solver_case_counts"
+        ] = getattr(self, "node_solver_case_counts", {})
