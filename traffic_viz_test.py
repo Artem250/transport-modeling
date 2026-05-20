@@ -720,6 +720,21 @@ class MainWindow(QMainWindow):
         movements = self.project.metadata.get("ctm_movements", []) if self.project else []
         return [movement for movement in movements if movement.get("node_id") == node_id]
 
+    def scenario_name(self):
+        if not self.project:
+            return "н/д"
+        return self.project.metadata.get("ctm_experiment_name", "н/д")
+
+    def turn_type_label(self, turn_type):
+        labels = {
+            "straight": "прямо",
+            "left": "налево",
+            "right": "направо",
+            "u_turn": "разворот",
+            "same_road_continuation": "продолжение той же дороги",
+        }
+        return labels.get(str(turn_type), str(turn_type))
+
     def build_node_details_html(self, node_model):
         incoming = self.project.network.get_incoming_links(node_model.id)
         outgoing = self.project.network.get_outgoing_links(node_model.id)
@@ -736,6 +751,7 @@ class MainWindow(QMainWindow):
 
         html = f"<h3>Узел: {escape(node_model.name or node_model.id)}</h3>"
         html += f"<b>ID:</b> {escape(node_model.id)}<br>"
+        html += f"<b>Сценарий:</b> {escape(str(self.scenario_name()))}<br>"
         html += f"<b>Тип:</b> {escape(str(node_model.node_type))}<br>"
         html += f"<b>Время:</b> {self.format_time_min()} мин<br><br>"
         html += f"<b>Входящие участки ({len(incoming)}):</b><br>{self.list_link_labels(incoming)}<br><br>"
@@ -766,7 +782,7 @@ class MainWindow(QMainWindow):
             )
             html += "<tr>"
             html += f"<td>{in_id} -> {out_id}</td>"
-            html += f"<td>{escape(str(movement.get('turn_type', '')))}</td>"
+            html += f"<td>{escape(self.turn_type_label(movement.get('turn_type', '')))}</td>"
             html += f"<td>{self.format_number(movement.get('turn_ratio'), 3)}</td>"
             html += f"<td>{flow_text}</td>"
             html += "</tr>"
@@ -833,6 +849,7 @@ class MainWindow(QMainWindow):
 
         html = f"<h3>Участок: {escape(link_model.name or link_model.id)}</h3>"
         html += f"<b>ID:</b> {escape(link_model.id)}<br>"
+        html += f"<b>Сценарий:</b> {escape(str(self.scenario_name()))}<br>"
         html += f"<b>Откуда -> куда:</b> {escape(link_model.start_node_id)} -> {escape(link_model.end_node_id)}<br>"
         html += f"<b>Длина:</b> {self.format_number(link_model.length_km, 3)} км<br>"
         html += f"<b>Полосы:</b> {self.format_number(lanes, 0)}<br>"
@@ -843,7 +860,7 @@ class MainWindow(QMainWindow):
         html += f"Нормальная пропускная способность: {self.format_number(normal_capacity, 1)} авт/ч<br>"
         html += f"Критическая плотность: {self.format_number(critical_density, 1)} pcu/км<br>"
         html += f"Плотность затора: {self.format_number(jam_density, 1)} pcu/км<br>"
-        html += f"Поток / нормальная capacity: {self.format_number(flow_to_capacity, 3)}<br>"
+        html += f"Поток / нормальная пропускная способность: {self.format_number(flow_to_capacity, 3)}<br>"
         html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} авт/ч<br>"
         html += f"Текущая эффективная пропускная способность: {self.format_number(current_effective_capacity, 1)} авт/ч<br>"
         html += (
@@ -861,7 +878,7 @@ class MainWindow(QMainWindow):
             html += "<br><b>Аварийное ограничение:</b><br>"
             html += f"Модель ограничения: {escape(str(incident.get('incident_model', 'нет')))}<br>"
             html += f"Заблокировано полос: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
-            html += f"Коэффициент capacity: {self.format_number(capacity_factor, 3)}<br>"
+            html += f"Коэффициент пропускной способности: {self.format_number(capacity_factor, 3)}<br>"
             html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} авт/ч<br>"
             html += f"Ограничение активно сейчас: {escape(incident_active)}<br>"
 
