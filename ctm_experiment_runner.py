@@ -208,7 +208,7 @@ def plot_experiments(result_files: dict[str, Path], output_dir: Path) -> None:
     _plot_source_queue(loaded, output_dir / "plot_source_queue.png")
     heatmap_project = (
         loaded.get("lane_blockage")
-        or loaded.get("lane_blockage_added_lane")
+        or loaded.get("severe_bottleneck")
         or next(iter(loaded.values()))
     )
     _plot_incident_heatmap(
@@ -394,7 +394,7 @@ def _plot_mass_balance(projects: dict[str, Any], path: Path) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run final baseline/lane-blockage CTM experiments.")
+    parser = argparse.ArgumentParser(description="Run final baseline/lane-blockage/severe-bottleneck CTM experiments.")
     parser.add_argument("--project", default="osm_network_project_map_nstu.json")
     parser.add_argument("--output-dir", default="ctm_experiments")
     parser.add_argument("--dt", type=float, default=0.5)
@@ -405,10 +405,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--incident-link", default=None)
     parser.add_argument("--incident-start", type=float, default=300.0)
     parser.add_argument("--incident-end", type=float, default=900.0)
-    parser.add_argument("--incident-capacity-factor", type=float, default=0.1)
+    parser.add_argument("--incident-capacity-factor", type=float, default=0.35)
     parser.add_argument("--incident-speed-factor", type=float, default=1.0)
     parser.add_argument("--incident-blocked-lanes", type=int, default=1)
-    parser.add_argument("--added-lane-delta", type=int, default=1)
     parser.add_argument("--fifo-strength", type=float, default=1.0)
     return parser
 
@@ -453,12 +452,11 @@ def main() -> None:
             incident_blocked_lanes=args.incident_blocked_lanes,
         ),
         ExperimentSpec(
-            name="lane_blockage_added_lane",
+            name="severe_bottleneck",
             fifo_strength=args.fifo_strength,
-            incident_capacity_factor=1.0,
+            incident_capacity_factor=args.incident_capacity_factor,
             incident_speed_factor=args.incident_speed_factor,
-            incident_blocked_lanes=args.incident_blocked_lanes,
-            lane_delta_by_link={incident_link_id: args.added_lane_delta},
+            incident_blocked_lanes=None,
         ),
     ]
 

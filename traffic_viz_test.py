@@ -734,26 +734,26 @@ class MainWindow(QMainWindow):
         node_solver = self.project.metadata.get("node_solver", "н/д") if self.project else "н/д"
         case_text = ", ".join(node_solver_cases) if node_solver_cases else escape(str(node_solver))
 
-        html = f"<h3>Node: {escape(node_model.name or node_model.id)}</h3>"
+        html = f"<h3>Узел: {escape(node_model.name or node_model.id)}</h3>"
         html += f"<b>ID:</b> {escape(node_model.id)}<br>"
-        html += f"<b>Type:</b> {escape(str(node_model.node_type))}<br>"
-        html += f"<b>Time:</b> {self.format_time_min()} min<br><br>"
-        html += f"<b>Incoming links ({len(incoming)}):</b><br>{self.list_link_labels(incoming)}<br><br>"
-        html += f"<b>Outgoing links ({len(outgoing)}):</b><br>{self.list_link_labels(outgoing)}<br><br>"
-        html += f"<b>Node solver case:</b> {escape(case_text)}<br>"
+        html += f"<b>Тип:</b> {escape(str(node_model.node_type))}<br>"
+        html += f"<b>Время:</b> {self.format_time_min()} мин<br><br>"
+        html += f"<b>Входящие участки ({len(incoming)}):</b><br>{self.list_link_labels(incoming)}<br><br>"
+        html += f"<b>Исходящие участки ({len(outgoing)}):</b><br>{self.list_link_labels(outgoing)}<br><br>"
+        html += f"<b>Тип узлового решателя:</b> {escape(case_text)}<br>"
 
         if not movements:
-            html += "<br><b>Movements:</b> нет данных<br>"
+            html += "<br><b>Таблица поворотных движений:</b> нет данных<br>"
             return html
 
         html += """
-        <br><b>Movements table:</b>
+        <br><b>Таблица поворотных движений:</b>
         <table border="1" cellspacing="0" cellpadding="3">
         <tr>
-            <th>in -> out</th>
-            <th>turn_type</th>
-            <th>ratio</th>
-            <th>avg/max/current flow, veh/h</th>
+            <th>вход -> выход</th>
+            <th>тип манёвра</th>
+            <th>доля поворота</th>
+            <th>средний / максимальный / текущий поток, авт/ч</th>
         </tr>
         """
         for movement in sorted(movements, key=lambda item: (item.get("in_link_id", ""), item.get("out_link_id", ""))):
@@ -790,10 +790,10 @@ class MainWindow(QMainWindow):
             avg_dens, max_dens, current_flow = None, None, None
             los_avg, los_max = "н/д", "н/д"
 
-        capacity, critical_density, jam_density = self.link_fd_values(link_model)
+        normal_capacity, critical_density, jam_density = self.link_fd_values(link_model)
         flow_to_capacity = (
-            float(current_flow) / capacity
-            if current_flow is not None and capacity not in (None, 0.0)
+            float(current_flow) / normal_capacity
+            if current_flow is not None and normal_capacity not in (None, 0.0)
             else None
         )
         incident = self.link_incident_data(link_model)
@@ -804,60 +804,71 @@ class MainWindow(QMainWindow):
             capacity_factor_value == 1.0
             and (speed_factor_value is None or speed_factor_value == 1.0)
         )
-        effective_incident_capacity = (
-            capacity * capacity_factor_value
-            if capacity is not None and capacity_factor_value is not None
-            else None
-        )
-        effective_capacity_for_ratio = effective_incident_capacity if effective_incident_capacity is not None else capacity
-        flow_to_effective_capacity = (
-            float(current_flow) / effective_capacity_for_ratio
-            if current_flow is not None and effective_capacity_for_ratio not in (None, 0.0)
+        incident_capacity = (
+            normal_capacity * capacity_factor_value
+            if normal_capacity is not None and capacity_factor_value is not None
             else None
         )
         incident_start = incident.get("start_time_sec")
         incident_end = incident.get("end_time_sec")
         incident_active = "н/д"
+        incident_is_active = False
         if incident_start is not None and incident_end is not None and not is_control_link:
             t_sec = self.current_time_min() * 60.0
-            incident_active = "yes" if float(incident_start) <= t_sec < float(incident_end) else "no"
+            incident_is_active = float(incident_start) <= t_sec < float(incident_end)
+            incident_active = "да" if incident_is_active else "нет"
+        current_effective_capacity = (
+            incident_capacity
+            if incident_is_active and incident_capacity is not None
+            else normal_capacity
+        )
+        flow_to_current_effective_capacity = (
+            float(current_flow) / current_effective_capacity
+            if current_flow is not None and current_effective_capacity not in (None, 0.0)
+            else None
+        )
 
         source_inflows = self.project.metadata.get("ctm_source_inflows_veh_h", {}) if self.project else {}
         source_inflow = source_inflows.get(link_model.id)
 
-        html = f"<h3>Link: {escape(link_model.name or link_model.id)}</h3>"
+        html = f"<h3>Участок: {escape(link_model.name or link_model.id)}</h3>"
         html += f"<b>ID:</b> {escape(link_model.id)}<br>"
-        html += f"<b>From -> to:</b> {escape(link_model.start_node_id)} -> {escape(link_model.end_node_id)}<br>"
-        html += f"<b>Length:</b> {self.format_number(link_model.length_km, 3)} km<br>"
-        html += f"<b>Lanes:</b> {self.format_number(lanes, 0)}<br>"
-        html += f"<b>OSM highway:</b> {escape(str(link_model.metadata.get('highway', 'н/д')))}<br>"
-        html += f"<b>Time:</b> {self.format_time_min()} min<br><br>"
+        html += f"<b>Откуда -> куда:</b> {escape(link_model.start_node_id)} -> {escape(link_model.end_node_id)}<br>"
+        html += f"<b>Длина:</b> {self.format_number(link_model.length_km, 3)} км<br>"
+        html += f"<b>Полосы:</b> {self.format_number(lanes, 0)}<br>"
+        html += f"<b>Класс OSM:</b> {escape(str(link_model.metadata.get('highway', 'н/д')))}<br>"
+        html += f"<b>Время:</b> {self.format_time_min()} мин<br><br>"
 
         html += "<b>CTM / FD:</b><br>"
-        html += f"Capacity: {self.format_number(capacity, 1)} veh/h<br>"
-        html += f"Critical density: {self.format_number(critical_density, 1)} pcu/km<br>"
-        html += f"Jam density: {self.format_number(jam_density, 1)} pcu/km<br>"
-        html += f"Current flow / capacity: {self.format_number(flow_to_capacity, 3)}<br>"
-        html += f"Current flow / effective capacity: {self.format_number(flow_to_effective_capacity, 3)}<br>"
+        html += f"Нормальная пропускная способность: {self.format_number(normal_capacity, 1)} авт/ч<br>"
+        html += f"Критическая плотность: {self.format_number(critical_density, 1)} pcu/км<br>"
+        html += f"Плотность затора: {self.format_number(jam_density, 1)} pcu/км<br>"
+        html += f"Поток / нормальная capacity: {self.format_number(flow_to_capacity, 3)}<br>"
+        html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} авт/ч<br>"
+        html += f"Текущая эффективная пропускная способность: {self.format_number(current_effective_capacity, 1)} авт/ч<br>"
+        html += (
+            "Поток / текущая эффективная пропускная способность: "
+            f"{self.format_number(flow_to_current_effective_capacity, 3)}<br>"
+        )
         if source_inflow is not None:
-            html += f"Source inflow: {self.format_number(source_inflow, 1)} veh/h<br>"
+            html += f"Входной спрос источника: {self.format_number(source_inflow, 1)} авт/ч<br>"
 
-        html += "<br><b>Incident:</b><br>"
         if is_control_link:
-            html += "нет активного ограничения / control link<br>"
+            html += "<br><b>Аварийное ограничение:</b> нет, выбран контрольный участок<br>"
         elif not incident:
-            html += "нет<br>"
+            html += "<br><b>Аварийное ограничение:</b> нет<br>"
         else:
-            html += f"Incident model: {escape(str(incident.get('incident_model', 'нет')))}<br>"
-            html += f"Blocked lanes: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
-            html += f"Capacity factor: {self.format_number(capacity_factor, 3)}<br>"
-            html += f"Effective incident capacity: {self.format_number(effective_incident_capacity, 1)} veh/h<br>"
-            html += f"Incident active now: {escape(incident_active)}<br>"
+            html += "<br><b>Аварийное ограничение:</b><br>"
+            html += f"Модель ограничения: {escape(str(incident.get('incident_model', 'нет')))}<br>"
+            html += f"Заблокировано полос: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
+            html += f"Коэффициент capacity: {self.format_number(capacity_factor, 3)}<br>"
+            html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} авт/ч<br>"
+            html += f"Ограничение активно сейчас: {escape(incident_active)}<br>"
 
-        html += f"<br><b>Dynamics CTM ({self.format_time_min()} min):</b><br>"
-        html += f"<b>Output flow:</b> {self.format_number(current_flow, 1)} veh/h<br>"
-        html += f"<b>Density avg:</b> {self.format_number(avg_dens, 1)} pcu/km (LOS {escape(str(los_avg))})<br>"
-        html += f"<b>Density max cell:</b> {self.format_number(max_dens, 1)} pcu/km (LOS {escape(str(los_max))})<br>"
+        html += f"<br><b>Динамика CTM ({self.format_time_min()} мин):</b><br>"
+        html += f"<b>Выходной поток:</b> {self.format_number(current_flow, 1)} авт/ч<br>"
+        html += f"<b>Средняя плотность:</b> {self.format_number(avg_dens, 1)} pcu/км (LOS {escape(str(los_avg))})<br>"
+        html += f"<b>Макс. плотность ячейки:</b> {self.format_number(max_dens, 1)} pcu/км (LOS {escape(str(los_max))})<br>"
         return html
 
     def on_node_click(self, node_model):
