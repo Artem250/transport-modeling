@@ -2,6 +2,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 import math
+from html import escape
 
 from PyQt5.QtCore import QPointF, QRectF, Qt
 from PyQt5.QtGui import QColor, QBrush, QFont, QPainter, QPainterPath, QPen, QPolygonF, QWheelEvent, QPainterPathStroker
@@ -420,7 +421,7 @@ class MapViewer(QGraphicsView):
 class MainWindow(QMainWindow):
     def __init__(self, map_file="map_nstu.osm", data_file="ctm_results_viz.json"):
         super().__init__()
-        self.setWindowTitle("Транспортный визуализатор CTM (С динамикой)")
+        self.setWindowTitle("Транспортный визуализатор CTM")
         self.resize(1400, 900)
 
         self.loader = ProjectLoader()
@@ -430,6 +431,8 @@ class MainWindow(QMainWindow):
         self.map_data = self.parse_osm(map_file)
         self.viz_links = []
         self.current_time_index = 0
+        self.last_clicked_link = None
+        self.last_clicked_node = None
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -481,24 +484,33 @@ class MainWindow(QMainWindow):
         config = self.project.metadata.get("ctm_scenario_config", {}) or {}
         return int(config.get("snapshot_interval_sec", 60) or 60)
 
+    def current_time_min(self) -> float:
+        return self.current_time_index * self.snapshot_interval_sec() / 60.0
+
+    def format_time_min(self) -> str:
+        minutes = self.current_time_min()
+        if abs(minutes - round(minutes)) < 1e-9:
+            return str(int(round(minutes)))
+        return f"{minutes:.1f}"
+
     def on_time_changed(self, value):
         self.current_time_index = value
-
-        minutes = value * self.snapshot_interval_sec() / 60.0
-        if abs(minutes - round(minutes)) < 1e-9:
-            self.lbl_time.setText(f"Время: {int(round(minutes))} мин")
-        else:
-            self.lbl_time.setText(f"Время: {minutes:.1f} мин")
 
         for link in self.viz_links:
             link.update_visuals(self.current_time_index)
 
-        if hasattr(self, 'last_clicked_link') and self.last_clicked_link:
+        self.lbl_time.setText(f"Время: {self.format_time_min()} мин")
+
+        if self.last_clicked_link:
             self.on_link_click(self.last_clicked_link)
+        elif self.last_clicked_node:
+            self.on_node_click(self.last_clicked_node)
 
     def reload_project_and_redraw(self):
         self.scene.clear()
         self.viz_links = []
+        self.last_clicked_link = None
+        self.last_clicked_node = None
         self.draw_map()
 
         try:
@@ -532,7 +544,7 @@ class MainWindow(QMainWindow):
                 nodes[n.get("id")] = project_coords(float(n.get("lon")), float(n.get("lat")))
             roads = []
             buildings = []
-            allowed_highways = {"primary", "secondary", "tertiary", "residential", "trunk"}
+            allowed_highways = {"primary", "secondary", "tertiary", "residential", "trunk", "service"}
             for w in tree.findall(".//way"):
                 tags = {t.get("k"): t.get("v") for t in w.findall("tag")}
                 coords = [nodes[nd.get("ref")] for nd in w.findall("nd") if nd.get("ref") in nodes]
@@ -633,48 +645,215 @@ class MainWindow(QMainWindow):
     def lon_lat_key(self, lon_lat):
         return (round(float(lon_lat[0]), 6), round(float(lon_lat[1]), 6))
 
-    def on_node_click(self, node_model):
-        self.last_clicked_link = None  # Сброс выбора дороги
+    def format_number(self, value, digits=1, suffix=""):
+        if value is None or value == "":
+            return "н/д"
+        try:
+            return f"{float(value):.{digits}f}{suffix}"
+        except (TypeError, ValueError):
+            return escape(str(value))
+
+    def link_label(self, link):
+        name = link.name or link.id
+        return f"{escape(link.id)} ({escape(name)})"
+
+    def list_link_labels(self, links):
+        if not links:
+            return "нет"
+        return "<br>".join(self.link_label(link) for link in links)
+
+    def link_fd_values(self, link_model):
+        res = link_model.results or {}
+        fd = res.get("fundamental_diagram") or {}
+        metadata_links = (
+            self.project.metadata
+            .get("ctm_fundamental_diagram_model", {})
+            .get("links", {})
+            if self.project else {}
+        )
+        if not fd:
+            fd = metadata_links.get(link_model.id, {}) or {}
+
+        capacity = fd.get("capacity_pcu_h")
+        critical_density = fd.get("critical_density_pcu_km")
+        jam_density = fd.get("jam_density_pcu_km")
+        if capacity is not None and critical_density is not None and jam_density is not None:
+            return float(capacity), float(critical_density), float(jam_density)
+
+        config = self.project.metadata.get("ctm_scenario_config", {}) if self.project else {}
+        highway_params = config.get("highway_params", {}) or {}
+        highway = link_model.metadata.get("highway", "default")
+        params = highway_params.get(highway, highway_params.get("default", {})) or {}
+        lanes = float(link_model.parameters.get("lanes_total", 1) or 1)
+        speed = float(params.get("speed_kph", 0.0) or 0.0)
+        cap_per_lane = float(params.get("cap_per_lane", 0.0) or 0.0)
+        jam_per_lane = float(config.get("jam_density_pcu_km_per_lane", 140.0) or 140.0)
+        capacity = cap_per_lane * lanes if cap_per_lane > 0.0 else None
+        critical_density = capacity / speed if capacity is not None and speed > 0.0 else None
+        jam_density = jam_per_lane * lanes
+        return capacity, critical_density, jam_density
+
+    def link_incident_data(self, link_model):
+        incident = dict((link_model.results or {}).get("incident", {}) or {})
+        project_incident = self.project.metadata.get("ctm_incident", {}) if self.project else {}
+        if project_incident.get("link_id") == link_model.id:
+            merged = dict(project_incident)
+            merged.update(incident)
+            incident = merged
+        return incident
+
+    def movement_current_flow(self, movement):
+        history = movement.get("history_flow_veh_h", []) or []
+        if self.current_time_index < len(history):
+            return history[self.current_time_index]
+        return None
+
+    def movements_for_node(self, node_id):
+        movements = self.project.metadata.get("ctm_movements", []) if self.project else []
+        return [movement for movement in movements if movement.get("node_id") == node_id]
+
+    def build_node_details_html(self, node_model):
         incoming = self.project.network.get_incoming_links(node_model.id)
         outgoing = self.project.network.get_outgoing_links(node_model.id)
-        html = f"<h3>Узел: {node_model.name or node_model.id}</h3>"
-        html += f"<b>Входящих дорог:</b> {len(incoming)}<br>"
-        html += f"<b>Исходящих дорог:</b> {len(outgoing)}<br>"
-        self.info.setHtml(html)
+        movements = self.movements_for_node(node_model.id)
+        node_solver_cases = sorted(
+            {
+                str(movement.get("node_solver_case"))
+                for movement in movements
+                if movement.get("node_solver_case")
+            }
+        )
+        node_solver = self.project.metadata.get("node_solver", "н/д") if self.project else "н/д"
+        case_text = ", ".join(node_solver_cases) if node_solver_cases else escape(str(node_solver))
 
-    def on_link_click(self, link_model):
-        self.last_clicked_link = link_model
+        html = f"<h3>Node: {escape(node_model.name or node_model.id)}</h3>"
+        html += f"<b>ID:</b> {escape(node_model.id)}<br>"
+        html += f"<b>Type:</b> {escape(str(node_model.node_type))}<br>"
+        html += f"<b>Time:</b> {self.format_time_min()} min<br><br>"
+        html += f"<b>Incoming links ({len(incoming)}):</b><br>{self.list_link_labels(incoming)}<br><br>"
+        html += f"<b>Outgoing links ({len(outgoing)}):</b><br>{self.list_link_labels(outgoing)}<br><br>"
+        html += f"<b>Node solver case:</b> {escape(case_text)}<br>"
+
+        if not movements:
+            html += "<br><b>Movements:</b> нет данных<br>"
+            return html
+
+        html += """
+        <br><b>Movements table:</b>
+        <table border="1" cellspacing="0" cellpadding="3">
+        <tr>
+            <th>in -> out</th>
+            <th>turn_type</th>
+            <th>ratio</th>
+            <th>avg/max/current flow, veh/h</th>
+            <th>active constraints</th>
+            <!-- <th>source / reason</th> -->
+        </tr>
+        """
+        for movement in sorted(movements, key=lambda item: (item.get("in_link_id", ""), item.get("out_link_id", ""))):
+            in_id = escape(str(movement.get("in_link_id", "")))
+            out_id = escape(str(movement.get("out_link_id", "")))
+            constraints = movement.get("active_constraints", []) or []
+            # reason = movement.get("reason", []) or []
+            flow_text = (
+                f"{self.format_number(movement.get('avg_flow_veh_h'), 1)} / "
+                f"{self.format_number(movement.get('max_flow_veh_h'), 1)} / "
+                f"{self.format_number(self.movement_current_flow(movement), 1)}"
+            )
+            html += "<tr>"
+            html += f"<td>{in_id} -> {out_id}</td>"
+            html += f"<td>{escape(str(movement.get('turn_type', '')))}</td>"
+            html += f"<td>{self.format_number(movement.get('turn_ratio'), 3)}</td>"
+            html += f"<td>{flow_text}</td>"
+            html += f"<td>{escape(', '.join(map(str, constraints)) or 'нет')}</td>"
+            # html += (
+            #     f"<td>{escape(str(movement.get('source', 'н/д')))}"
+            #     f"<br>{escape(', '.join(map(str, reason)) or 'нет')}</td>"
+            # )
+            html += "</tr>"
+        html += "</table>"
+        return html
+
+    def build_link_details_html(self, link_model):
         res = link_model.results or {}
+        hist_dens = res.get("history_cells_density_pcu_km", []) or []
+        hist_flow = res.get("history_flow_veh_h", []) or []
+        lanes = float(link_model.parameters.get("lanes_total", 1) or 1)
 
-        hist_dens = res.get("history_cells_density_pcu_km", [])
-        hist_flow = res.get("history_flow_veh_h", [])
-        lanes = link_model.parameters.get("lanes_total", 1)
-
-        # Получаем данные на выбранную минуту симуляции
         if hist_dens and self.current_time_index < len(hist_dens):
             current_densities = hist_dens[self.current_time_index]
             avg_dens = sum(current_densities) / len(current_densities)
             max_dens = max(current_densities)
-            current_flow = hist_flow[self.current_time_index] if hist_flow else 0
-
+            current_flow = hist_flow[self.current_time_index] if self.current_time_index < len(hist_flow) else None
             los_avg, _ = get_los_and_color_from_density(avg_dens / lanes)
             los_max, _ = get_los_and_color_from_density(max_dens / lanes)
         else:
-            avg_dens, max_dens, current_flow = 0, 0, 0
-            los_avg, los_max = "Н/Д", "Н/Д"
+            avg_dens, max_dens, current_flow = None, None, None
+            los_avg, los_max = "н/д", "н/д"
 
-        html = f"<h3>{link_model.name}</h3>"
-        html += f"<b>ID:</b> {link_model.id}<br>"
-        html += f"<b>Длина:</b> {link_model.length_km} км<br>"
-        html += f"<b>Полос:</b> {lanes}<br>"
-        html += f"<b>Класс OSM:</b> {link_model.metadata.get('highway', 'Н/Д')}<br><br>"
+        capacity, critical_density, jam_density = self.link_fd_values(link_model)
+        flow_to_capacity = (
+            float(current_flow) / capacity
+            if current_flow is not None and capacity not in (None, 0.0)
+            else None
+        )
+        incident = self.link_incident_data(link_model)
+        capacity_factor = incident.get("capacity_factor")
+        effective_incident_capacity = (
+            capacity * float(capacity_factor)
+            if capacity is not None and capacity_factor not in (None, "")
+            else None
+        )
+        incident_start = incident.get("start_time_sec")
+        incident_end = incident.get("end_time_sec")
+        incident_active = "н/д"
+        if incident_start is not None and incident_end is not None:
+            t_sec = self.current_time_min() * 60.0
+            incident_active = "yes" if float(incident_start) <= t_sec < float(incident_end) else "no"
 
-        html += f"<b>==== Динамика CTM ({self.current_time_index} мин) ====</b><br>"
-        html += f"<b>Выходной поток:</b> {current_flow} авт/ч<br>"
-        html += f"<b>Плотность (Ср):</b> {avg_dens:.1f} авт/км (LOS {los_avg})<br>"
-        html += f"<b>Плотность (Макс ячейка):</b> {max_dens:.1f} авт/км (LOS {los_max})<br>"
+        source_inflows = self.project.metadata.get("ctm_source_inflows_veh_h", {}) if self.project else {}
+        source_inflow = source_inflows.get(link_model.id)
 
-        self.info.setHtml(html)
+        html = f"<h3>Link: {escape(link_model.name or link_model.id)}</h3>"
+        html += f"<b>ID:</b> {escape(link_model.id)}<br>"
+        html += f"<b>From -> to:</b> {escape(link_model.start_node_id)} -> {escape(link_model.end_node_id)}<br>"
+        html += f"<b>Length:</b> {self.format_number(link_model.length_km, 3)} km<br>"
+        html += f"<b>Lanes:</b> {self.format_number(lanes, 0)}<br>"
+        html += f"<b>OSM highway:</b> {escape(str(link_model.metadata.get('highway', 'н/д')))}<br>"
+        html += f"<b>Time:</b> {self.format_time_min()} min<br><br>"
+
+        html += "<b>CTM / FD:</b><br>"
+        html += f"Capacity: {self.format_number(capacity, 1)} veh/h<br>"
+        html += f"Critical density: {self.format_number(critical_density, 1)} pcu/km<br>"
+        html += f"Jam density: {self.format_number(jam_density, 1)} pcu/km<br>"
+        html += f"Current flow / capacity: {self.format_number(flow_to_capacity, 3)}<br>"
+        if source_inflow is not None:
+            html += f"Source inflow: {self.format_number(source_inflow, 1)} veh/h<br>"
+
+        html += "<br><b>Incident:</b><br>"
+        html += f"Incident model: {escape(str(incident.get('incident_model', 'нет')))}<br>"
+        html += f"Blocked lanes: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
+        html += f"Capacity factor: {self.format_number(capacity_factor, 3)}<br>"
+        html += f"Effective incident capacity: {self.format_number(effective_incident_capacity, 1)} veh/h<br>"
+        html += f"Incident active now: {escape(incident_active)}<br>"
+
+        html += f"<br><b>Dynamics CTM ({self.format_time_min()} min):</b><br>"
+        html += f"<b>Output flow:</b> {self.format_number(current_flow, 1)} veh/h<br>"
+        html += f"<b>Density avg:</b> {self.format_number(avg_dens, 1)} pcu/km (LOS {escape(str(los_avg))})<br>"
+        html += f"<b>Density max cell:</b> {self.format_number(max_dens, 1)} pcu/km (LOS {escape(str(los_max))})<br>"
+        return html
+
+    def on_node_click(self, node_model):
+        self.last_clicked_link = None
+        self.last_clicked_node = node_model
+        self.info.setHtml(self.build_node_details_html(node_model))
+        return
+
+    def on_link_click(self, link_model):
+        self.last_clicked_link = link_model
+        self.last_clicked_node = None
+        self.info.setHtml(self.build_link_details_html(link_model))
+        return
 
     def save_current_positions_to_project(self):
         if self.project is None: return

@@ -450,6 +450,7 @@ class CTMSimulator:
             "flags": sorted(set(flags)),
             "avg_flow_veh_h": 0.0,
             "max_flow_veh_h": 0.0,
+            "history_flow_veh_h": [],
             "blocked_by_supply_count": 0,
             "fifo_limited_count": 0,
             "potential_fifo_limited_count": 0,
@@ -465,6 +466,7 @@ class CTMSimulator:
             "_fifo_factor_sum": 0.0,
             "_nonfifo_factor_sum": 0.0,
             "_restriction_factor_sum": 0.0,
+            "_last_flow_veh_h": 0.0,
         }
         self.movements.append(movement)
         self.movements_by_node[node_id][in_link.id].append(movement)
@@ -739,6 +741,10 @@ class CTMSimulator:
 
         self._solve_nodes(demands, supplies, actual_inflows, actual_outflows)
 
+        is_snapshot_step = t_sec % self.config.snapshot_interval_sec < self.dt
+        if is_snapshot_step:
+            self._record_movement_snapshot()
+
         for link_id, ctm in self.ctm_links.items():
             diagnostics = ctm.step_with_boundary_flows(
                 upstream_flow=actual_inflows[link_id],
@@ -751,7 +757,7 @@ class CTMSimulator:
                 abs(conservation_error),
             )
 
-            if t_sec % self.config.snapshot_interval_sec < self.dt:
+            if is_snapshot_step:
                 cells_densities = [round(cell.density * 1000, 1) for cell in ctm.cells]
                 avg_flow_veh_h = actual_outflows[link_id] * 3600.0
 
@@ -839,6 +845,7 @@ class CTMSimulator:
         restriction_factor: float,
     ) -> None:
         flow_veh_h = actual_flow * 3600.0
+        movement["_last_flow_veh_h"] = flow_veh_h
         movement["_flow_sum_veh_h"] += flow_veh_h
         movement["_flow_sample_count"] += 1
         movement["max_flow_veh_h"] = max(movement["max_flow_veh_h"], flow_veh_h)
@@ -850,6 +857,10 @@ class CTMSimulator:
             movement["min_fifo_factor"] = min(movement["min_fifo_factor"], fifo_factor)
             movement["min_nonfifo_factor"] = min(movement["min_nonfifo_factor"], nonfifo_factor)
             movement["min_restriction_factor"] = min(movement["min_restriction_factor"], restriction_factor)
+
+    def _record_movement_snapshot(self) -> None:
+        for movement in self.movements:
+            movement["history_flow_veh_h"].append(round(movement.get("_last_flow_veh_h", 0.0), 1))
 
     def run(self) -> None:
         total_steps = int((self.config.simulation_minutes * 60) / self.dt)
