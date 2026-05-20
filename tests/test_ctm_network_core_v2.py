@@ -6,7 +6,12 @@ from ctm_network_core_v2 import (
     Incident,
     TriangularFundamentalDiagram,
 )
+from ctm_experiment_runner import apply_lane_changes
 from ctm_simulator_test import CTMScenarioConfig, CTMSimulator
+from ctm_theory_simulator import (
+    CTMScenarioConfig as TheoryCTMScenarioConfig,
+    CTMSimulator as TheoryCTMSimulator,
+)
 from models import Link, Network, Node, Project
 from project_loader import ProjectLoader
 
@@ -128,6 +133,62 @@ def movement_test_project(metadata=None) -> Project:
         pcu_coefficients={"car": 1.0},
         network=network,
         metadata=metadata or {},
+    )
+
+
+def source_inflow_test_project() -> Project:
+    network = Network()
+    for node in (
+        Node(id="S1", lon=82.0, lat=55.0, node_type="boundary"),
+        Node(id="S2", lon=82.0, lat=55.001, node_type="boundary"),
+        Node(id="N", lon=82.001, lat=55.0, node_type="intersection"),
+        Node(id="T", lon=82.002, lat=55.0, node_type="boundary"),
+    ):
+        network.add_node(node)
+
+    common_counts = {"car": 600}
+    links = [
+        Link(
+            id="L_SRC_FAST",
+            name="Fast source",
+            start_node_id="S1",
+            end_node_id="N",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters={"lanes_total": 1},
+            coords={"type": "polyline", "points": [[82.0, 55.0], [82.001, 55.0]]},
+            metadata={"highway": "primary", "osm_direction": "forward", "osm_is_oneway": True},
+        ),
+        Link(
+            id="L_SRC_SLOW",
+            name="Slow source",
+            start_node_id="S2",
+            end_node_id="N",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters={"lanes_total": 1},
+            coords={"type": "polyline", "points": [[82.0, 55.001], [82.001, 55.0]]},
+            metadata={"highway": "residential", "osm_direction": "forward", "osm_is_oneway": True},
+        ),
+        Link(
+            id="L_OUT",
+            name="Out",
+            start_node_id="N",
+            end_node_id="T",
+            length_km=0.12,
+            traffic_counts=common_counts,
+            parameters={"lanes_total": 2},
+            coords={"type": "polyline", "points": [[82.001, 55.0], [82.002, 55.0]]},
+            metadata={"highway": "primary", "osm_direction": "forward", "osm_is_oneway": True},
+        ),
+    ]
+    for link in links:
+        network.add_link(link)
+
+    return Project(
+        project_name="source inflow test",
+        pcu_coefficients={"car": 1.0},
+        network=network,
     )
 
 
@@ -294,6 +355,39 @@ class CTMMovementTableTest(unittest.TestCase):
             1.0,
         )
 
+    def test_movement_lane_weight_uses_base_lanes_when_scenario_changes_capacity(self):
+        base_project = movement_test_project()
+        base_simulator = CTMSimulator(base_project)
+        base_left_ratio = next(
+            movement["turn_ratio"]
+            for movement in base_simulator.movements_by_node["N"]["L_IN"]
+            if movement["out_link_id"] == "L_LEFT"
+        )
+
+        scenario_project = movement_test_project()
+        scenario_project.network.links["L_LEFT"].parameters = {
+            "lanes_total": 3,
+            "lanes_total_base": 1,
+        }
+        scenario_simulator = CTMSimulator(scenario_project)
+        scenario_left_ratio = next(
+            movement["turn_ratio"]
+            for movement in scenario_simulator.movements_by_node["N"]["L_IN"]
+            if movement["out_link_id"] == "L_LEFT"
+        )
+
+        direct_project = movement_test_project()
+        direct_project.network.links["L_LEFT"].parameters = {"lanes_total": 3}
+        direct_simulator = CTMSimulator(direct_project)
+        direct_left_ratio = next(
+            movement["turn_ratio"]
+            for movement in direct_simulator.movements_by_node["N"]["L_IN"]
+            if movement["out_link_id"] == "L_LEFT"
+        )
+
+        self.assertAlmostEqual(scenario_left_ratio, base_left_ratio)
+        self.assertGreater(direct_left_ratio, scenario_left_ratio)
+
     def test_movement_summary_contains_solver_and_ratio_diagnostics(self):
         project = movement_test_project()
         CTMSimulator(project)
@@ -405,6 +499,9 @@ class CTMScenarioConfigTest(unittest.TestCase):
             {"simulation_minutes": 0},
             {"snapshot_interval_sec": 0},
             {"cell_length_target_m": 0.0},
+            {"inflow_veh_per_hour": -1.0},
+            {"source_inflow_allocation": "unknown"},
+            {"source_inflows_veh_per_hour": {"L1": -1.0}},
             {"jam_density_pcu_km_per_lane": 0.0},
             {"backward_wave_speed_kph": 0.0},
             {"incident_start_sec": 10.0, "incident_end_sec": 10.0},
@@ -426,6 +523,169 @@ class CTMScenarioConfigTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             CTMScenarioConfig(highway_params=params)
+
+
+class CTMTheoryIncidentTest(unittest.TestCase):
+    def test_direct_capacity_factor_is_used_when_blocked_lanes_is_none(self):
+        project = movement_test_project()
+        TheoryCTMSimulator(
+            project,
+            TheoryCTMScenarioConfig(
+                incident_link_id="L_IN",
+                incident_capacity_factor=0.25,
+                incident_blocked_lanes=None,
+            ),
+        )
+
+        incident = project.metadata["ctm_incident"]
+        self.assertEqual(incident["incident_model"], "direct_capacity_factor")
+        self.assertAlmostEqual(incident["capacity_factor"], 0.25)
+        self.assertEqual(incident["configured_capacity_factor"], 0.25)
+
+    def test_lane_blockage_capacity_factor_uses_open_lane_share(self):
+        project = movement_test_project()
+        project.network.links["L_IN"].parameters = {"lanes_total": 2}
+
+        TheoryCTMSimulator(
+            project,
+            TheoryCTMScenarioConfig(
+                incident_link_id="L_IN",
+                incident_capacity_factor=1.0,
+                incident_blocked_lanes=1,
+            ),
+        )
+
+        incident = project.metadata["ctm_incident"]
+        self.assertEqual(incident["incident_model"], "lane_blockage")
+        self.assertEqual(incident["blocked_lanes"], 1)
+        self.assertEqual(incident["lanes_total"], 2)
+        self.assertAlmostEqual(incident["capacity_factor"], 0.5)
+
+    def test_lane_blockage_can_close_single_lane_link(self):
+        project = movement_test_project()
+        project.network.links["L_IN"].parameters = {"lanes_total": 1}
+
+        TheoryCTMSimulator(
+            project,
+            TheoryCTMScenarioConfig(
+                incident_link_id="L_IN",
+                incident_capacity_factor=1.0,
+                incident_blocked_lanes=1,
+            ),
+        )
+
+        self.assertAlmostEqual(project.metadata["ctm_incident"]["capacity_factor"], 0.0)
+
+    def test_baseline_direct_capacity_factor_can_remain_one(self):
+        project = movement_test_project()
+        TheoryCTMSimulator(
+            project,
+            TheoryCTMScenarioConfig(
+                incident_link_id="L_IN",
+                incident_capacity_factor=1.0,
+                incident_blocked_lanes=None,
+            ),
+        )
+
+        incident = project.metadata["ctm_incident"]
+        self.assertEqual(incident["incident_model"], "direct_capacity_factor")
+        self.assertAlmostEqual(incident["capacity_factor"], 1.0)
+
+
+class CTMExperimentRunnerTest(unittest.TestCase):
+    def test_apply_lane_changes_updates_link_and_preserves_base_lanes(self):
+        project = source_inflow_test_project()
+
+        apply_lane_changes(project, {"L_SRC_FAST": 1})
+
+        link = project.network.links["L_SRC_FAST"]
+        self.assertEqual(link.parameters["lanes_total_base"], 1)
+        self.assertEqual(link.parameters["lanes_total"], 2)
+        self.assertEqual(link.parameters["lanes_total_scenario"], 2)
+        self.assertEqual(link.metadata["lane_scenario_delta"], 1)
+
+    def test_apply_lane_changes_rejects_unknown_link(self):
+        project = source_inflow_test_project()
+
+        with self.assertRaises(ValueError):
+            apply_lane_changes(project, {"UNKNOWN": 1})
+
+
+class CTMSourceInflowAllocationTest(unittest.TestCase):
+    def test_split_total_by_capacity_is_default(self):
+        project = source_inflow_test_project()
+        simulator = CTMSimulator(project, CTMScenarioConfig(inflow_veh_per_hour=2200.0))
+
+        fast_capacity = simulator.ctm_links["L_SRC_FAST"].diagram.capacity * 3600.0
+        slow_capacity = simulator.ctm_links["L_SRC_SLOW"].diagram.capacity * 3600.0
+        capacity_sum = fast_capacity + slow_capacity
+        expected_fast = 2200.0 * fast_capacity / capacity_sum
+        expected_slow = 2200.0 * slow_capacity / capacity_sum
+
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_FAST"] * 3600.0, expected_fast)
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_SLOW"] * 3600.0, expected_slow)
+        self.assertEqual(project.metadata["ctm_source_inflow_allocation"], "split_total_by_capacity")
+        self.assertAlmostEqual(
+            sum(project.metadata["ctm_source_inflows_veh_h"].values()),
+            2200.0,
+            places=3,
+        )
+
+    def test_split_total_equal_divides_total_between_sources(self):
+        project = source_inflow_test_project()
+        simulator = CTMSimulator(
+            project,
+            CTMScenarioConfig(
+                inflow_veh_per_hour=1800.0,
+                source_inflow_allocation="split_total_equal",
+            ),
+        )
+
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_FAST"] * 3600.0, 900.0)
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_SLOW"] * 3600.0, 900.0)
+
+    def test_uniform_per_source_preserves_legacy_semantics(self):
+        project = source_inflow_test_project()
+        simulator = CTMSimulator(
+            project,
+            CTMScenarioConfig(
+                inflow_veh_per_hour=1800.0,
+                source_inflow_allocation="uniform_per_source",
+            ),
+        )
+
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_FAST"] * 3600.0, 1800.0)
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_SLOW"] * 3600.0, 1800.0)
+
+    def test_manual_source_inflow_override_uses_remaining_total(self):
+        project = source_inflow_test_project()
+        simulator = CTMSimulator(
+            project,
+            CTMScenarioConfig(
+                inflow_veh_per_hour=2200.0,
+                source_inflows_veh_per_hour={"L_SRC_FAST": 700.0},
+            ),
+        )
+
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_FAST"] * 3600.0, 700.0)
+        self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_SLOW"] * 3600.0, 1500.0)
+
+    def test_step_generates_total_demand_once_in_split_total_mode(self):
+        project = source_inflow_test_project()
+        simulator = CTMSimulator(
+            project,
+            CTMScenarioConfig(
+                dt_seconds=1.0,
+                inflow_veh_per_hour=3600.0,
+                source_inflow_allocation="split_total_equal",
+            ),
+        )
+
+        simulator.step(0.0)
+
+        self.assertAlmostEqual(simulator.mass_generated, 1.0)
+        self.assertTrue(simulator.movements)
+        self.assertTrue(all(movement["history_flow_veh_h"] for movement in simulator.movements))
 
 
 class CTMPartialFIFOTest(unittest.TestCase):
@@ -543,7 +803,13 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
 
     def test_nstu_simulator_uses_strict_core_and_preserves_mass(self):
         project = ProjectLoader().load("osm_network_project_map_nstu.json")
-        simulator = CTMSimulator(project, CTMScenarioConfig(simulation_minutes=50))
+        simulator = CTMSimulator(
+            project,
+            CTMScenarioConfig(
+                simulation_minutes=50,
+                source_inflow_allocation="uniform_per_source",
+            ),
+        )
 
         simulator.run()
 

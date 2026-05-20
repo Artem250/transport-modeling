@@ -120,7 +120,7 @@ class CTMRunWindow(QMainWindow):
         incident_layout.addRow("Заблокировано полос:", self.incident_blocked_lanes_edit)
         incident_layout.addRow("Добавить полос в mitigation:", self.added_lane_delta_edit)
         incident_layout.addRow("FIFO strength:", self.fifo_strength_edit)
-        incident_layout.addRow("Коэффициент capacity:", self.incident_cap_edit)
+        incident_layout.addRow("Коэффициент capacity (direct-mode, не в 3 основных сценариях):", self.incident_cap_edit)
         incident_layout.addRow("Коэффициент скорости:", self.incident_speed_edit)
         layout.addWidget(incident_group)
 

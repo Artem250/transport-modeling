@@ -653,6 +653,14 @@ class MainWindow(QMainWindow):
         except (TypeError, ValueError):
             return escape(str(value))
 
+    def optional_float(self, value):
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     def link_label(self, link):
         name = link.name or link.id
         return f"{escape(link.id)} ({escape(name)})"
@@ -746,15 +754,11 @@ class MainWindow(QMainWindow):
             <th>turn_type</th>
             <th>ratio</th>
             <th>avg/max/current flow, veh/h</th>
-            <th>active constraints</th>
-            <!-- <th>source / reason</th> -->
         </tr>
         """
         for movement in sorted(movements, key=lambda item: (item.get("in_link_id", ""), item.get("out_link_id", ""))):
             in_id = escape(str(movement.get("in_link_id", "")))
             out_id = escape(str(movement.get("out_link_id", "")))
-            constraints = movement.get("active_constraints", []) or []
-            # reason = movement.get("reason", []) or []
             flow_text = (
                 f"{self.format_number(movement.get('avg_flow_veh_h'), 1)} / "
                 f"{self.format_number(movement.get('max_flow_veh_h'), 1)} / "
@@ -765,11 +769,6 @@ class MainWindow(QMainWindow):
             html += f"<td>{escape(str(movement.get('turn_type', '')))}</td>"
             html += f"<td>{self.format_number(movement.get('turn_ratio'), 3)}</td>"
             html += f"<td>{flow_text}</td>"
-            html += f"<td>{escape(', '.join(map(str, constraints)) or 'нет')}</td>"
-            # html += (
-            #     f"<td>{escape(str(movement.get('source', 'н/д')))}"
-            #     f"<br>{escape(', '.join(map(str, reason)) or 'нет')}</td>"
-            # )
             html += "</tr>"
         html += "</table>"
         return html
@@ -799,15 +798,27 @@ class MainWindow(QMainWindow):
         )
         incident = self.link_incident_data(link_model)
         capacity_factor = incident.get("capacity_factor")
+        capacity_factor_value = self.optional_float(capacity_factor)
+        speed_factor_value = self.optional_float(incident.get("speed_factor"))
+        is_control_link = bool(incident) and (
+            capacity_factor_value == 1.0
+            and (speed_factor_value is None or speed_factor_value == 1.0)
+        )
         effective_incident_capacity = (
-            capacity * float(capacity_factor)
-            if capacity is not None and capacity_factor not in (None, "")
+            capacity * capacity_factor_value
+            if capacity is not None and capacity_factor_value is not None
+            else None
+        )
+        effective_capacity_for_ratio = effective_incident_capacity if effective_incident_capacity is not None else capacity
+        flow_to_effective_capacity = (
+            float(current_flow) / effective_capacity_for_ratio
+            if current_flow is not None and effective_capacity_for_ratio not in (None, 0.0)
             else None
         )
         incident_start = incident.get("start_time_sec")
         incident_end = incident.get("end_time_sec")
         incident_active = "н/д"
-        if incident_start is not None and incident_end is not None:
+        if incident_start is not None and incident_end is not None and not is_control_link:
             t_sec = self.current_time_min() * 60.0
             incident_active = "yes" if float(incident_start) <= t_sec < float(incident_end) else "no"
 
@@ -827,15 +838,21 @@ class MainWindow(QMainWindow):
         html += f"Critical density: {self.format_number(critical_density, 1)} pcu/km<br>"
         html += f"Jam density: {self.format_number(jam_density, 1)} pcu/km<br>"
         html += f"Current flow / capacity: {self.format_number(flow_to_capacity, 3)}<br>"
+        html += f"Current flow / effective capacity: {self.format_number(flow_to_effective_capacity, 3)}<br>"
         if source_inflow is not None:
             html += f"Source inflow: {self.format_number(source_inflow, 1)} veh/h<br>"
 
         html += "<br><b>Incident:</b><br>"
-        html += f"Incident model: {escape(str(incident.get('incident_model', 'нет')))}<br>"
-        html += f"Blocked lanes: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
-        html += f"Capacity factor: {self.format_number(capacity_factor, 3)}<br>"
-        html += f"Effective incident capacity: {self.format_number(effective_incident_capacity, 1)} veh/h<br>"
-        html += f"Incident active now: {escape(incident_active)}<br>"
+        if is_control_link:
+            html += "нет активного ограничения / control link<br>"
+        elif not incident:
+            html += "нет<br>"
+        else:
+            html += f"Incident model: {escape(str(incident.get('incident_model', 'нет')))}<br>"
+            html += f"Blocked lanes: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
+            html += f"Capacity factor: {self.format_number(capacity_factor, 3)}<br>"
+            html += f"Effective incident capacity: {self.format_number(effective_incident_capacity, 1)} veh/h<br>"
+            html += f"Incident active now: {escape(incident_active)}<br>"
 
         html += f"<br><b>Dynamics CTM ({self.format_time_min()} min):</b><br>"
         html += f"<b>Output flow:</b> {self.format_number(current_flow, 1)} veh/h<br>"
@@ -867,11 +884,12 @@ class MainWindow(QMainWindow):
                 (link.start_node, lon_s, lat_s),
                 (link.end_node, lon_e, lat_e),
             ):
-                if node_item.id in updated_nodes:
+                node_id = node_item.node_model.id
+                if node_id in updated_nodes:
                     continue
                 node_item.node_model.lon = round(lon, 6)
                 node_item.node_model.lat = round(lat, 6)
-                updated_nodes.add(node_item.id)
+                updated_nodes.add(node_id)
 
             coords = link.link_model.coords or {}
             if coords.get("type") == "polyline" or link.intermediate_points:
