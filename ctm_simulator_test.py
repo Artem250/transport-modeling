@@ -24,13 +24,23 @@ SNAPSHOT_INTERVAL_SEC = 60
 CELL_LENGTH_TARGET = 15.0
 INFLOW_VEH_PER_HOUR = 475.0
 
+# HIGHWAY_PARAMS = {
+#     "primary": {"speed_kph": 60, "cap_per_lane": 1000, "weight": 3.0},
+#     "secondary": {"speed_kph": 50, "cap_per_lane": 800, "weight": 2.0},
+#     "tertiary": {"speed_kph": 40, "cap_per_lane": 700, "weight": 1.0},
+#     "residential": {"speed_kph": 30, "cap_per_lane": 500, "weight": 0.5},
+#     "trunk": {"speed_kph": 80, "cap_per_lane": 1400, "weight": 4.0},
+#     "default": {"speed_kph": 40, "cap_per_lane": 600, "weight": 1.0},
+# }
+
+
 HIGHWAY_PARAMS = {
-    "primary": {"speed_kph": 60, "cap_per_lane": 1000, "weight": 3.0},
-    "secondary": {"speed_kph": 50, "cap_per_lane": 800, "weight": 2.0},
-    "tertiary": {"speed_kph": 40, "cap_per_lane": 700, "weight": 1.0},
-    "residential": {"speed_kph": 30, "cap_per_lane": 500, "weight": 0.5},
-    "trunk": {"speed_kph": 80, "cap_per_lane": 1400, "weight": 4.0},
-    "default": {"speed_kph": 40, "cap_per_lane": 600, "weight": 1.0},
+    "trunk":       {"speed_kph": 80, "cap_per_lane": 1800, "weight": 4.0},
+    "primary":     {"speed_kph": 60, "cap_per_lane": 1500, "weight": 3.0},
+    "secondary":   {"speed_kph": 50, "cap_per_lane": 1200, "weight": 2.0},
+    "tertiary":    {"speed_kph": 40, "cap_per_lane": 1000, "weight": 1.0},
+    "residential": {"speed_kph": 40, "cap_per_lane": 700,  "weight": 0.5},
+    "default":     {"speed_kph": 40, "cap_per_lane": 1000, "weight": 1.0},
 }
 
 TURN_WEIGHTS = {
