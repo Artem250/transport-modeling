@@ -74,6 +74,8 @@ class CTMScenarioConfig:
     snapshot_interval_sec: int = SNAPSHOT_INTERVAL_SEC
     cell_length_target_m: float = CELL_LENGTH_TARGET
     inflow_veh_per_hour: float = INFLOW_VEH_PER_HOUR
+    source_inflow_allocation: str = "split_total_by_capacity"
+    source_inflows_veh_per_hour: dict[str, float] = field(default_factory=dict)
     highway_params: dict[str, dict[str, float]] = field(default_factory=lambda: deepcopy(HIGHWAY_PARAMS))
     turn_weights: dict[str, float] = field(default_factory=lambda: deepcopy(TURN_WEIGHTS))
     same_road_bonuses: dict[str, float] = field(default_factory=lambda: deepcopy(SAME_ROAD_BONUSES))
@@ -97,6 +99,21 @@ class CTMScenarioConfig:
             raise ValueError("snapshot_interval_sec must be positive")
         if self.cell_length_target_m <= 0.0:
             raise ValueError("cell_length_target_m must be positive")
+        if self.inflow_veh_per_hour < 0.0:
+            raise ValueError("inflow_veh_per_hour must be non-negative")
+        allowed_source_modes = {
+            "uniform_per_source",
+            "split_total_equal",
+            "split_total_by_capacity",
+        }
+        if self.source_inflow_allocation not in allowed_source_modes:
+            raise ValueError(
+                "source_inflow_allocation must be one of: "
+                + ", ".join(sorted(allowed_source_modes))
+            )
+        for source_id, value in self.source_inflows_veh_per_hour.items():
+            if float(value) < 0.0:
+                raise ValueError(f"source_inflows_veh_per_hour[{source_id!r}] must be non-negative")
         if self.jam_density_pcu_km_per_lane <= 0.0:
             raise ValueError("jam_density_pcu_km_per_lane must be positive")
         if self.backward_wave_speed_kph <= 0.0:
@@ -142,6 +159,7 @@ class CTMSimulator:
         self.movement_warnings: list[str] = []
         self.sources: list[str] = []
         self.sinks: list[str] = []
+        self.source_inflow_rates_pcu_s: dict[str, float] = {}
 
         self.mass_generated = 0.0
         self.mass_entered = 0.0
@@ -156,6 +174,7 @@ class CTMSimulator:
 
         self._init_physics()
         self._build_movements()
+        self._init_source_inflows()
         self._init_source_queue_history()
         self._plan_incident()
 
@@ -222,6 +241,67 @@ class CTMSimulator:
         self._validate_movements()
         self._refresh_movement_metadata()
         print(f"Traffic sources: {len(self.sources)}, sinks: {len(self.sinks)}")
+
+    def _init_source_inflows(self) -> None:
+        self.source_inflow_rates_pcu_s = {}
+        if not self.sources:
+            self.project.metadata["ctm_source_inflows_veh_h"] = {}
+            self.project.metadata["ctm_source_inflow_allocation"] = self.config.source_inflow_allocation
+            return
+
+        manual = dict(self.config.source_inflows_veh_per_hour or {})
+        unknown_manual_sources = sorted(source_id for source_id in manual if source_id not in self.sources)
+        if unknown_manual_sources:
+            self.movement_warnings.append(
+                "source_inflows_veh_per_hour ignored non-source links: "
+                + ", ".join(unknown_manual_sources)
+            )
+
+        for source_id, value in manual.items():
+            if source_id in self.sources:
+                self.source_inflow_rates_pcu_s[source_id] = max(0.0, float(value)) / 3600.0
+
+        remaining_sources = [
+            source_id
+            for source_id in self.sources
+            if source_id not in self.source_inflow_rates_pcu_s
+        ]
+        total_inflow_veh_h = max(0.0, float(self.config.inflow_veh_per_hour))
+        already_manual_veh_h = sum(rate * 3600.0 for rate in self.source_inflow_rates_pcu_s.values())
+        remaining_total_veh_h = max(0.0, total_inflow_veh_h - already_manual_veh_h)
+        mode = self.config.source_inflow_allocation
+
+        if remaining_sources:
+            if mode == "uniform_per_source":
+                for source_id in remaining_sources:
+                    self.source_inflow_rates_pcu_s[source_id] = total_inflow_veh_h / 3600.0
+            elif mode == "split_total_equal":
+                value_veh_h = remaining_total_veh_h / len(remaining_sources)
+                for source_id in remaining_sources:
+                    self.source_inflow_rates_pcu_s[source_id] = value_veh_h / 3600.0
+            elif mode == "split_total_by_capacity":
+                weights = {
+                    source_id: max(0.0, self.ctm_links[source_id].diagram.capacity * 3600.0)
+                    for source_id in remaining_sources
+                }
+                weight_sum = sum(weights.values())
+                if weight_sum <= EPS:
+                    value_veh_h = remaining_total_veh_h / len(remaining_sources)
+                    for source_id in remaining_sources:
+                        self.source_inflow_rates_pcu_s[source_id] = value_veh_h / 3600.0
+                else:
+                    for source_id in remaining_sources:
+                        value_veh_h = remaining_total_veh_h * weights[source_id] / weight_sum
+                        self.source_inflow_rates_pcu_s[source_id] = value_veh_h / 3600.0
+            else:
+                raise CTMStateError(f"unknown source_inflow_allocation: {mode}")
+
+        self.project.metadata["ctm_source_inflow_allocation"] = mode
+        self.project.metadata["ctm_source_inflows_veh_h"] = {
+            source_id: round(rate * 3600.0, 3)
+            for source_id, rate in sorted(self.source_inflow_rates_pcu_s.items())
+        }
+        self._refresh_movement_metadata()
 
     def _apply_manual_override(
         self,
@@ -634,8 +714,8 @@ class CTMSimulator:
         actual_inflows = {link_id: 0.0 for link_id in self.ctm_links}
         actual_outflows = {link_id: 0.0 for link_id in self.ctm_links}
 
-        source_rate = self.config.inflow_veh_per_hour / 3600.0
         for source_id in self.sources:
+            source_rate = self.source_inflow_rates_pcu_s.get(source_id, 0.0)
             ctm = self.ctm_links[source_id]
             generated = source_rate * self.dt
             ctm.external_queue += generated

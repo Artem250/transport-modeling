@@ -1454,7 +1454,7 @@
         },
         "parameters": {
           "length_km": 0.3212,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1507,7 +1507,7 @@
         },
         "parameters": {
           "length_km": 0.3212,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1560,7 +1560,7 @@
         },
         "parameters": {
           "length_km": 0.0291,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1613,7 +1613,7 @@
         },
         "parameters": {
           "length_km": 0.0291,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1666,7 +1666,7 @@
         },
         "parameters": {
           "length_km": 0.0124,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1719,7 +1719,7 @@
         },
         "parameters": {
           "length_km": 0.0124,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1772,7 +1772,7 @@
         },
         "parameters": {
           "length_km": 0.2067,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1825,7 +1825,7 @@
         },
         "parameters": {
           "length_km": 0.2067,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1878,7 +1878,7 @@
         },
         "parameters": {
           "length_km": 0.1598,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,
@@ -1935,7 +1935,7 @@
         },
         "parameters": {
           "length_km": 0.1598,
-          "lanes_total": 1,
+          "lanes_total": 2,
           "lanes_bus": 0,
           "capacity_per_lane_base": 1800,
           "lane_width_m": 3.5,

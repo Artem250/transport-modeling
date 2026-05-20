@@ -9771,7 +9771,7 @@
   <nd ref="1215698824"/>
   <nd ref="10732431781"/>
   <tag k="highway" v="primary"/>
-  <tag k="lanes" v="2"/>
+  <tag k="lanes" v="4"/>
   <tag k="lit" v="yes"/>
   <tag k="name" v="проспект Карла Маркса"/>
   <tag k="name:en" v="Karl Marx avenue"/>
@@ -9784,7 +9784,7 @@
   <nd ref="2509084690"/>
   <nd ref="5114000980"/>
   <tag k="highway" v="primary"/>
-  <tag k="lanes" v="2"/>
+  <tag k="lanes" v="4"/>
   <tag k="name" v="проспект Карла Маркса"/>
   <tag k="name:en" v="Karl Marx avenue"/>
   <tag k="name:etymology:wikidata" v="Q9061"/>
