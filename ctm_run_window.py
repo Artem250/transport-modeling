@@ -100,7 +100,7 @@ class CTMRunWindow(QMainWindow):
         params_layout.addRow("Длительность, мин:", self.minutes_edit)
         params_layout.addRow("Шаг сохранения истории, сек:", self.snapshot_edit)
         params_layout.addRow("Целевая длина ячейки, м:", self.cell_length_edit)
-        params_layout.addRow("Входной поток на источник, авт/ч:", self.inflow_edit)
+        params_layout.addRow("Общий входной поток, авт/ч:", self.inflow_edit)
         layout.addWidget(params_group)
 
         incident_group = QGroupBox("Аварийный участок / bottleneck")
@@ -111,9 +111,15 @@ class CTMRunWindow(QMainWindow):
         self.incident_end_edit = QLineEdit("900")
         self.incident_cap_edit = QLineEdit("0.1")
         self.incident_speed_edit = QLineEdit("1.0")
+        self.incident_blocked_lanes_edit = QLineEdit("1")
+        self.added_lane_delta_edit = QLineEdit("1")
+        self.fifo_strength_edit = QLineEdit("1.0")
         incident_layout.addRow("Link аварии:", self.incident_link_edit)
         incident_layout.addRow("Начало аварии, сек:", self.incident_start_edit)
         incident_layout.addRow("Конец аварии, сек:", self.incident_end_edit)
+        incident_layout.addRow("Заблокировано полос:", self.incident_blocked_lanes_edit)
+        incident_layout.addRow("Добавить полос в mitigation:", self.added_lane_delta_edit)
+        incident_layout.addRow("FIFO strength:", self.fifo_strength_edit)
         incident_layout.addRow("Коэффициент capacity:", self.incident_cap_edit)
         incident_layout.addRow("Коэффициент скорости:", self.incident_speed_edit)
         layout.addWidget(incident_group)
@@ -126,8 +132,8 @@ class CTMRunWindow(QMainWindow):
         self.result_combo = QComboBox()
         self.result_combo.addItems([
             "ctm_results_baseline.json",
-            "ctm_results_incident_nonfifo.json",
-            "ctm_results_incident_fifo.json",
+            "ctm_results_lane_blockage.json",
+            "ctm_results_lane_blockage_added_lane.json",
         ])
         actions.addWidget(self.run_btn)
         actions.addWidget(QLabel("Файл для визуализации:"))
@@ -144,7 +150,7 @@ class CTMRunWindow(QMainWindow):
         self.summary.setReadOnly(True)
         self.summary.setFixedHeight(120)
         self.summary.setPlainText(
-            "Runner создаёт baseline, incident_nonfifo и incident_fifo; "
+            "Runner создаёт baseline, lane_blockage и lane_blockage_added_lane; "
             "сохраняет JSON, CSV-метрики и PNG-графики. "
             "Для ВКР особенно полезны ctm_metrics.csv, plot_incident_link_density.png, "
             "plot_incident_link_flow.png и plot_source_queue.png."
@@ -198,6 +204,9 @@ class CTMRunWindow(QMainWindow):
             incident_end = self.validate_float(self.incident_end_edit, "Конец аварии")
             incident_cap = self.validate_float(self.incident_cap_edit, "Коэффициент capacity")
             incident_speed = self.validate_float(self.incident_speed_edit, "Коэффициент скорости")
+            incident_blocked_lanes = self.validate_int(self.incident_blocked_lanes_edit, "Заблокировано полос")
+            added_lane_delta = self.validate_int(self.added_lane_delta_edit, "Добавить полос")
+            fifo_strength = self.validate_float(self.fifo_strength_edit, "FIFO strength")
             if dt <= 0 or minutes <= 0 or snapshot <= 0 or cell_length <= 0 or inflow < 0:
                 raise ValueError("dt, длительность, шаг истории и длина ячейки должны быть положительными; входной поток неотрицательный")
             if incident_end <= incident_start:
@@ -206,6 +215,12 @@ class CTMRunWindow(QMainWindow):
                 raise ValueError("Коэффициент capacity должен быть в [0, 1]")
             if incident_speed < 0:
                 raise ValueError("Коэффициент скорости не может быть отрицательным")
+            if incident_blocked_lanes < 0:
+                raise ValueError("Количество заблокированных полос не может быть отрицательным")
+            if added_lane_delta < 0:
+                raise ValueError("Добавляемое число полос не может быть отрицательным")
+            if not 0 <= fifo_strength <= 1:
+                raise ValueError("FIFO strength должен быть в [0, 1]")
         except ValueError as exc:
             QMessageBox.warning(self, "Параметры", str(exc))
             return
@@ -224,6 +239,9 @@ class CTMRunWindow(QMainWindow):
             "--incident-end", str(incident_end),
             "--incident-capacity-factor", str(incident_cap),
             "--incident-speed-factor", str(incident_speed),
+            "--incident-blocked-lanes", str(incident_blocked_lanes),
+            "--added-lane-delta", str(added_lane_delta),
+            "--fifo-strength", str(fifo_strength),
         ]
         incident_link = self.incident_link_edit.text().strip()
         if incident_link:

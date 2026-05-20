@@ -490,7 +490,11 @@ class CTMSimulator:
 
         hw = out_link.metadata.get("highway", "default")
         score *= self.config.highway_params.get(hw, self.config.highway_params["default"])["weight"]
-        score *= out_link.parameters.get("lanes_total", 1)
+        lane_weight = out_link.parameters.get(
+            "lanes_total_base",
+            out_link.parameters.get("lanes_total", 1),
+        )
+        score *= lane_weight
         reason.extend(["highway_weight", "lane_weight"])
         return score, reason, flags
 

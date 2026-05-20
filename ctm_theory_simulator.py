@@ -39,7 +39,7 @@ class CTMScenarioConfig(BaseCTMScenarioConfig):
     - movement_capacity_factors: optional finite saturation limits for movements.
     """
 
-    incident_blocked_lanes: int | None = 1
+    incident_blocked_lanes: int | None = None
     movement_capacity_factors: dict[str, float] = field(
         default_factory=lambda: deepcopy(DEFAULT_MOVEMENT_CAPACITY_FACTORS)
     )
@@ -159,20 +159,13 @@ class CTMSimulator(BaseCTMSimulator):
         return min(in_ctm.diagram.capacity, out_ctm.diagram.capacity) * factor
 
     def _effective_incident_capacity_factor(self, link: Link) -> float:
-        direct_factor = float(self.config.incident_capacity_factor)
-        if direct_factor >= 1.0:
-            return 1.0
-
         blocked_lanes = self.config.incident_blocked_lanes
-        if blocked_lanes is None:
-            return direct_factor
+        if blocked_lanes is not None:
+            lanes = max(int(link.parameters.get("lanes_total", 1) or 1), 1)
+            blocked = min(max(int(blocked_lanes), 0), lanes)
+            return (lanes - blocked) / lanes
 
-        lanes = max(int(link.parameters.get("lanes_total", 1) or 1), 1)
-        blocked = min(max(int(blocked_lanes), 0), lanes)
-        open_lanes = lanes - blocked
-        if open_lanes > 0:
-            return open_lanes / lanes
-        return direct_factor
+        return float(self.config.incident_capacity_factor)
 
     def _plan_incident(self) -> None:
         if self.config.incident_link_id is not None:
@@ -201,6 +194,11 @@ class CTMSimulator(BaseCTMSimulator):
         )
         ctm.incidents.append(incident)
         incident_data = {
+            "incident_model": (
+                "lane_blockage"
+                if self.config.incident_blocked_lanes is not None
+                else "direct_capacity_factor"
+            ),
             "cell_index": self.incident_cell_index,
             "start_time_sec": incident.start_time,
             "end_time_sec": incident.end_time,
@@ -313,7 +311,7 @@ class CTMSimulator(BaseCTMSimulator):
         summary["movement_capacity_limited_count"] = sum(
             movement.get("movement_capacity_limited_count", 0) for movement in self.movements
         )
-        summary["incident_model"] = "lane_aware_capacity_drop"
+        summary["incident_model"] = "lane_blockage_or_direct_capacity_factor"
         return summary
 
     def run(self) -> None:

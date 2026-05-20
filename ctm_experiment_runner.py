@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +20,10 @@ except Exception:  # pragma: no cover - plotting is optional in headless envs
 class ExperimentSpec:
     name: str
     fifo_strength: float
-    incident_capacity_factor: float
+    incident_capacity_factor: float = 1.0
     incident_speed_factor: float = 1.0
+    incident_blocked_lanes: int | None = None
+    lane_delta_by_link: dict[str, int] = field(default_factory=dict)
 
 
 def choose_default_incident_link(project_file: str, base_config: CTMScenarioConfig) -> str | None:
@@ -30,6 +32,21 @@ def choose_default_incident_link(project_file: str, base_config: CTMScenarioConf
     project = ProjectLoader().load(project_file)
     probe = CTMSimulator(project, base_config)
     return probe.incident_link_id
+
+
+def apply_lane_changes(project, lane_delta_by_link: dict[str, int]) -> None:
+    for link_id, delta in lane_delta_by_link.items():
+        link = project.network.links.get(link_id)
+        if link is None:
+            raise ValueError(f"lane_delta_by_link references unknown link: {link_id}")
+
+        old_lanes = max(int(link.parameters.get("lanes_total", 1) or 1), 1)
+        new_lanes = max(1, old_lanes + int(delta))
+
+        link.parameters["lanes_total_base"] = old_lanes
+        link.parameters["lanes_total"] = new_lanes
+        link.parameters["lanes_total_scenario"] = new_lanes
+        link.metadata["lane_scenario_delta"] = int(delta)
 
 
 def run_experiment(
@@ -48,6 +65,7 @@ def run_experiment(
 ) -> tuple[dict[str, Any], Path]:
     project = ProjectLoader().load(project_file)
     project.metadata["ctm_experiment_name"] = spec.name
+    apply_lane_changes(project, spec.lane_delta_by_link)
 
     config = CTMScenarioConfig(
         dt_seconds=dt_seconds,
@@ -60,6 +78,7 @@ def run_experiment(
         incident_end_sec=incident_end_sec,
         incident_capacity_factor=spec.incident_capacity_factor,
         incident_speed_factor=spec.incident_speed_factor,
+        incident_blocked_lanes=spec.incident_blocked_lanes,
         fifo_strength=spec.fifo_strength,
     )
 
@@ -77,6 +96,12 @@ def collect_metrics(project, scenario_name: str) -> dict[str, Any]:
     sim = project.metadata.get("ctm_simulation", {}) or {}
     incident = project.metadata.get("ctm_incident", {}) or {}
     movement_summary = project.metadata.get("ctm_movement_summary", {}) or {}
+    source_inflows = project.metadata.get("ctm_source_inflows_veh_h", {}) or {}
+    lane_delta_links = []
+    for link in project.network.links.values():
+        delta = link.metadata.get("lane_scenario_delta")
+        if delta is not None:
+            lane_delta_links.append(f"{link.id}:{delta}")
 
     max_density = 0.0
     avg_density_sum = 0.0
@@ -109,9 +134,15 @@ def collect_metrics(project, scenario_name: str) -> dict[str, Any]:
         "scenario_name": scenario_name,
         "fifo_strength": sim.get("fifo_strength"),
         "incident_link_id": incident_link_id or "",
+        "incident_model": incident.get("incident_model", ""),
         "incident_capacity_factor": incident.get("capacity_factor", ""),
+        "configured_capacity_factor": incident.get("configured_capacity_factor", ""),
+        "blocked_lanes": incident.get("blocked_lanes", ""),
+        "lanes_total": incident.get("lanes_total", ""),
         "incident_start_sec": incident.get("start_time_sec", ""),
         "incident_end_sec": incident.get("end_time_sec", ""),
+        "lane_delta_links": ";".join(sorted(lane_delta_links)),
+        "source_inflow_total_veh_h": round(sum(float(v) for v in source_inflows.values()), 3),
         "total_generated_pcu": sim.get("total_generated_pcu", 0.0),
         "total_entered_pcu": sim.get("total_entered_pcu", 0.0),
         "total_exited_pcu": sim.get("total_exited_pcu", 0.0),
@@ -175,8 +206,13 @@ def plot_experiments(result_files: dict[str, Path], output_dir: Path) -> None:
     _plot_incident_density(loaded, incident_link_id, output_dir / "plot_incident_link_density.png")
     _plot_incident_flow(loaded, incident_link_id, output_dir / "plot_incident_link_flow.png")
     _plot_source_queue(loaded, output_dir / "plot_source_queue.png")
+    heatmap_project = (
+        loaded.get("lane_blockage")
+        or loaded.get("lane_blockage_added_lane")
+        or next(iter(loaded.values()))
+    )
     _plot_incident_heatmap(
-        loaded.get("incident_fifo") or next(iter(loaded.values())),
+        heatmap_project,
         incident_link_id,
         output_dir / "plot_incident_link_heatmap.png",
     )
@@ -226,6 +262,15 @@ def _density_reference_lines(project, link_id: str) -> None:
     plt.axhline(jam_density, linestyle=":", linewidth=1, label="jam density")
 
 
+def _same_incident_lanes(projects: dict[str, Any], link_id: str) -> bool:
+    lanes = set()
+    for project in projects.values():
+        link = project.network.links.get(link_id)
+        if link is not None:
+            lanes.add(int(link.parameters.get("lanes_total", 1) or 1))
+    return len(lanes) <= 1
+
+
 def _plot_incident_density(projects: dict[str, Any], link_id: str, path: Path) -> None:
     plt.figure()
     for name, project in projects.items():
@@ -236,7 +281,8 @@ def _plot_incident_density(projects: dict[str, Any], link_id: str, path: Path) -
         series = [sum(snapshot) / len(snapshot) if snapshot else 0.0 for snapshot in history]
         plt.plot(_time_axis(len(series), _snapshot_interval(project)), series, label=name)
     first_project = next(iter(projects.values()))
-    _density_reference_lines(first_project, link_id)
+    if _same_incident_lanes(projects, link_id):
+        _density_reference_lines(first_project, link_id)
     _shade_incident_window(projects)
     plt.xlabel("Время, мин")
     plt.ylabel("Средняя плотность на аварийном link, pcu/km")
@@ -348,7 +394,7 @@ def _plot_mass_balance(projects: dict[str, Any], path: Path) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run baseline/incident/FIFO CTM experiments.")
+    parser = argparse.ArgumentParser(description="Run final baseline/lane-blockage CTM experiments.")
     parser.add_argument("--project", default="osm_network_project_map_nstu.json")
     parser.add_argument("--output-dir", default="ctm_experiments")
     parser.add_argument("--dt", type=float, default=0.5)
@@ -361,6 +407,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--incident-end", type=float, default=900.0)
     parser.add_argument("--incident-capacity-factor", type=float, default=0.1)
     parser.add_argument("--incident-speed-factor", type=float, default=1.0)
+    parser.add_argument("--incident-blocked-lanes", type=int, default=1)
+    parser.add_argument("--added-lane-delta", type=int, default=1)
+    parser.add_argument("--fifo-strength", type=float, default=1.0)
     return parser
 
 
@@ -380,15 +429,37 @@ def main() -> None:
         incident_end_sec=args.incident_end,
         incident_capacity_factor=1.0,
         incident_speed_factor=args.incident_speed_factor,
-        fifo_strength=0.0,
+        incident_blocked_lanes=None,
+        fifo_strength=args.fifo_strength,
     )
     incident_link_id = args.incident_link or choose_default_incident_link(args.project, base_config)
+    if incident_link_id is None:
+        raise ValueError("could not choose an incident/control link")
     print(f"Incident/control link: {incident_link_id}")
 
     specs = [
-        ExperimentSpec("baseline", fifo_strength=0.0, incident_capacity_factor=1.0),
-        ExperimentSpec("incident_nonfifo", fifo_strength=0.0, incident_capacity_factor=args.incident_capacity_factor),
-        ExperimentSpec("incident_fifo", fifo_strength=1.0, incident_capacity_factor=args.incident_capacity_factor),
+        ExperimentSpec(
+            name="baseline",
+            fifo_strength=args.fifo_strength,
+            incident_capacity_factor=1.0,
+            incident_speed_factor=args.incident_speed_factor,
+            incident_blocked_lanes=None,
+        ),
+        ExperimentSpec(
+            name="lane_blockage",
+            fifo_strength=args.fifo_strength,
+            incident_capacity_factor=1.0,
+            incident_speed_factor=args.incident_speed_factor,
+            incident_blocked_lanes=args.incident_blocked_lanes,
+        ),
+        ExperimentSpec(
+            name="lane_blockage_added_lane",
+            fifo_strength=args.fifo_strength,
+            incident_capacity_factor=1.0,
+            incident_speed_factor=args.incident_speed_factor,
+            incident_blocked_lanes=args.incident_blocked_lanes,
+            lane_delta_by_link={incident_link_id: args.added_lane_delta},
+        ),
     ]
 
     metrics: list[dict[str, Any]] = []
