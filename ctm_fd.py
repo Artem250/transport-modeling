@@ -8,6 +8,8 @@ from ctm_network_core_v2 import CTMConfigurationError, TriangularFundamentalDiag
 
 @dataclass(frozen=True)
 class FundamentalDiagramMetadata:
+    """Метаданные фундаментальной диаграммы для записи в результаты."""
+
     parameterization: str
     free_flow_speed_kph: float
     backward_wave_speed_kph: float
@@ -23,17 +25,18 @@ def compute_backward_wave_speed_kph(
     capacity_pcu_h: float,
     jam_density_pcu_km: float,
 ) -> float:
-    """Compute congestion wave speed for a consistent triangular FD.
+    """Вычисляет скорость обратной волны для согласованной треугольной FD.
 
-    For a triangular fundamental diagram:
+    Для треугольной фундаментальной диаграммы:
         Q = v * w / (v + w) * rho_jam
 
-    Equivalently, if v, Q and rho_jam are treated as scenario inputs:
+    Если v, Q и rho_jam считаются входными сценарными параметрами, то:
         rho_crit = Q / v
         w = Q / (rho_jam - rho_crit)
 
-    All units are common traffic units: km/h, pcu/h, pcu/km. The returned w is
-    the positive magnitude of the backward congestion wave speed in km/h.
+    Все входные величины заданы в привычных транспортных единицах: км/ч,
+    pcu/ч, pcu/км. Возвращаемое значение w — положительный модуль скорости
+    обратной волны затора в км/ч.
     """
 
     if free_flow_speed_kph <= 0.0:
@@ -63,12 +66,12 @@ def make_triangular_fd_from_capacity(
     capacity_pcu_h: float,
     jam_density_pcu_km: float,
 ) -> tuple[TriangularFundamentalDiagram, FundamentalDiagramMetadata]:
-    """Build a self-consistent triangular FD from v, Q and rho_jam.
+    """Создаёт самосогласованную треугольную FD из v, Q и rho_jam.
 
-    This is the preferred parameterization in the current project because the
-    user can choose interpretable scenario inputs: free-flow speed, link capacity
-    and jam density. The backward wave speed is then not another independent
-    heuristic coefficient; it is derived from the triangular FD equation.
+    Это предпочтительная параметризация для текущего проекта: пользователь
+    задаёт интерпретируемые входные параметры — скорость свободного потока,
+    пропускную способность link и jam density. Скорость обратной волны не
+    выбирается отдельной эвристикой, а выводится из формулы треугольной FD.
     """
 
     backward_wave_speed_kph = compute_backward_wave_speed_kph(
@@ -100,10 +103,11 @@ def make_triangular_fd_with_explicit_w(
     backward_wave_speed_kph: float,
     jam_density_pcu_km: float,
 ) -> tuple[TriangularFundamentalDiagram, FundamentalDiagramMetadata]:
-    """Build a triangular FD from v, w and rho_jam by deriving capacity.
+    """Создаёт треугольную FD из v, w и rho_jam, выводя capacity.
 
-    Kept for experiments where the wave speed is the trusted input. It avoids
-    independently choosing all four FD parameters.
+    Оставлено для экспериментов, где именно скорость обратной волны считается
+    доверенным входным параметром. Такой режим всё равно не выбирает все четыре
+    параметра FD независимо: capacity выводится из той же треугольной связи.
     """
 
     if free_flow_speed_kph <= 0.0:
