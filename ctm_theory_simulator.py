@@ -16,33 +16,45 @@ from models import Link, Project
 
 
 THEORY_NODE_SOLVER_NAME = "explicit_diverge_merge_general_ctm_node_solver"
+
+# По умолчанию не вводим штрафы для левых/правых поворотов.
+# Без данных о полосах, фазах и разрешённых манёврах коэффициенты вроде 0.85/0.65
+# были бы чистой эвристикой. Поэтому все обычные манёвры нейтральны, а разворот
+# остаётся запрещённым, если он не задан явно другим сценарием.
 DEFAULT_MOVEMENT_CAPACITY_FACTORS = {
     "same_road_continuation": 1.00,
     "straight": 1.00,
-    "right": 0.85,
-    "left": 0.65,
+    "right": 1.00,
+    "left": 1.00,
     "u_turn": 0.00,
 }
 
 
 @dataclass
 class CTMScenarioConfig(BaseCTMScenarioConfig):
-    """Scenario config with controlled theory-oriented extensions.
+    """Конфигурация сценария с более защищаемыми CTM-расширениями.
 
-    The model now uses a consistent triangular fundamental diagram. For each
-    link, the scenario provides interpretable inputs v, Q and rho_jam; the
-    backward wave speed w is derived from the triangular FD relation instead of
-    being treated as another independent coefficient.
+    В этой версии фундаментальная диаграмма задаётся согласованно. Для каждого
+    link задаются интерпретируемые параметры v, Q и rho_jam; скорость обратной
+    волны w выводится из соотношения треугольной FD, а не задаётся независимым
+    коэффициентом.
 
-    Additional scenario assumptions:
-    - incident_blocked_lanes: optional lane-aware incident severity;
-    - movement_capacity_factors: optional finite saturation limits for movements.
+    Дополнительные сценарные допущения:
+    - incident_blocked_lanes: число заблокированных полос при аварии;
+    - movement_capacity_factors: опциональные ограничения для отдельных типов
+      манёвров. По умолчанию они нейтральны, кроме разворота;
+    - merge_priorities: ручные приоритеты для merge-узлов. Если они не заданы,
+      используется равный приоритет, а не priority = turn_ratio;
+    - auto_select_incident_link: сценарный авто-выбор link для аварии. По
+      умолчанию отключён, чтобы авария не возникала в модели неявно.
     """
 
     incident_blocked_lanes: int | None = None
     movement_capacity_factors: dict[str, float] = field(
         default_factory=lambda: deepcopy(DEFAULT_MOVEMENT_CAPACITY_FACTORS)
     )
+    merge_priorities: dict[str, float] = field(default_factory=dict)
+    auto_select_incident_link: bool = False
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -51,17 +63,20 @@ class CTMScenarioConfig(BaseCTMScenarioConfig):
         for turn_type, factor in self.movement_capacity_factors.items():
             if factor < 0.0:
                 raise ValueError(f"movement_capacity_factors[{turn_type!r}] must be non-negative")
+        for key, priority in self.merge_priorities.items():
+            if float(priority) < 0.0:
+                raise ValueError(f"merge_priorities[{key!r}] must be non-negative")
 
 
 class CTMSimulator(BaseCTMSimulator):
-    """Theory-oriented network CTM simulator.
+    """Сетевая CTM-модель с более явным теоретическим слоем.
 
-    Compared with the historical ctm_simulator_test.py implementation, this
-    class keeps the conservative link update but changes the theoretical model:
-    - each link FD is a self-consistent triangular diagram;
-    - diverge nodes use a FIFO split formula;
-    - merge nodes use priority allocation under downstream supply;
-    - arbitrary many-to-many nodes use a proportional fallback.
+    По сравнению с историческим `ctm_simulator_test.py` эта версия сохраняет
+    консервативное обновление links, но меняет теоретически важные части:
+    - для каждого link используется согласованная треугольная FD;
+    - diverge-узлы решаются через FIFO split-формулу;
+    - merge-узлы решаются через распределение downstream supply по приоритетам;
+    - произвольные many-to-many OSM-узлы используют пропорциональный fallback.
     """
 
     config: CTMScenarioConfig
@@ -69,6 +84,11 @@ class CTMSimulator(BaseCTMSimulator):
     def __init__(self, project: Project, config: CTMScenarioConfig | None = None):
         super().__init__(project, config or CTMScenarioConfig())
         self.project.metadata["node_solver"] = THEORY_NODE_SOLVER_NAME
+        self.project.metadata["ctm_theory_model_notes"] = {
+            "turn_ratios": "manual overrides or synthetic inferred ratios; not calibrated counts",
+            "merge_priorities": "manual overrides or equal default; turn_ratio is not used as priority",
+            "incident_selection": "explicit incident_link_id by default; auto selection only if enabled",
+        }
 
     def _init_physics(self) -> None:
         print("Initializing theory-oriented CTM link models...")
@@ -173,6 +193,13 @@ class CTMSimulator(BaseCTMSimulator):
                 raise CTMStateError(f"configured incident link {self.config.incident_link_id} does not exist")
             incident_link = self.network.links[self.config.incident_link_id]
         else:
+            self.project.metadata["ctm_incident"] = {
+                "incident_model": "none",
+                "reason": "incident_link_id is not configured",
+                "auto_select_incident_link": bool(self.config.auto_select_incident_link),
+            }
+            if not self.config.auto_select_incident_link:
+                return
             candidates = [
                 link for link in self.network.links.values()
                 if link.id not in self.sources and link.id not in self.sinks
@@ -207,6 +234,7 @@ class CTMSimulator(BaseCTMSimulator):
             "blocked_lanes": self.config.incident_blocked_lanes,
             "lanes_total": int(incident_link.parameters.get("lanes_total", 1) or 1),
             "speed_factor": incident.speed_factor,
+            "auto_select_incident_link": bool(self.config.auto_select_incident_link),
         }
         incident_link.results["incident"] = dict(incident_data)
         self.project.metadata["ctm_incident"] = {
@@ -293,25 +321,38 @@ class CTMSimulator(BaseCTMSimulator):
         self.node_solver_case_counts = case_counts
 
     def _movement_priority(self, movement: dict) -> float:
-        """Priority used only for merge nodes.
+        """Возвращает приоритет движения для merge-узлов.
 
-        To avoid adding another arbitrary dataset, priority is simply derived
-        from the existing turn ratio. Equal turn ratios imply equal merge
-        priority; explicit turn-ratio overrides therefore also define the merge
-        priority in controlled scenarios.
+        Старый вариант `priority = turn_ratio` удалён: поворотная доля и merge-
+        priority описывают разные физические сущности. Теперь приоритеты можно
+        задать вручную в `config.merge_priorities`. Поддерживаются ключи:
+        - "in_link_id->out_link_id" для конкретного движения;
+        - "in_link_id:out_link_id" как альтернативная запись;
+        - "in_link_id" для всех движений с данного входа.
+
+        Если приоритет не задан, используется равный приоритет 1.0.
         """
 
-        return max(float(movement.get("turn_ratio", 0.0)), EPS)
+        in_id = str(movement.get("in_link_id", ""))
+        out_id = str(movement.get("out_link_id", ""))
+        priorities = self.config.merge_priorities or {}
+        for key in (f"{in_id}->{out_id}", f"{in_id}:{out_id}", in_id):
+            if key in priorities:
+                return max(float(priorities[key]), EPS)
+        return 1.0
 
     def _movement_summary(self) -> dict[str, object]:
         summary = super()._movement_summary()
         summary["node_solver"] = THEORY_NODE_SOLVER_NAME
         summary["node_solver_case_counts"] = getattr(self, "node_solver_case_counts", {})
-        summary["movement_capacity_model"] = "turn_type_factor_times_min_link_capacity"
+        summary["movement_capacity_model"] = "neutral_by_default_turn_type_factor_times_min_link_capacity"
         summary["movement_capacity_limited_count"] = sum(
             movement.get("movement_capacity_limited_count", 0) for movement in self.movements
         )
-        summary["incident_model"] = "lane_blockage_or_direct_capacity_factor"
+        summary["incident_model"] = "lane_blockage_or_direct_capacity_factor_or_none"
+        summary["merge_priority_model"] = "manual_overrides_or_equal_default"
+        summary["manual_merge_priority_count"] = len(self.config.merge_priorities or {})
+        summary["turn_ratio_model"] = "manual_overrides_or_synthetic_inference"
         return summary
 
     def run(self) -> None:
