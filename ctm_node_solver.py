@@ -10,10 +10,11 @@ MovementKey = tuple[str, str]
 
 @dataclass(frozen=True)
 class NodeMovement:
-    """One allowed movement through a zero-storage CTM node.
+    """Один разрешённый манёвр через CTM-узел без внутреннего накопления.
 
-    turn_ratio is beta_{ij}: the share of demand from incoming link i that wants
-    to leave through outgoing link j.
+    `turn_ratio` — это beta_{ij}: доля demand входящего link i, которая хочет
+    выйти через исходящий link j. Это не merge-priority. Приоритет слияния —
+    отдельный параметр, который используется только в merge-узлах.
     """
 
     in_link_id: str
@@ -25,6 +26,8 @@ class NodeMovement:
 
 @dataclass
 class MovementDiagnostics:
+    """Диагностика одного манёвра за один шаг решения узла."""
+
     desired_flow: float
     actual_flow: float
     restriction_factor: float
@@ -33,6 +36,8 @@ class MovementDiagnostics:
 
 @dataclass
 class NodeSolveResult:
+    """Результат решения одного узла за один временной шаг."""
+
     case: str
     flows: dict[MovementKey, float]
     diagnostics: dict[MovementKey, MovementDiagnostics]
@@ -47,10 +52,11 @@ def movement_key(movement: NodeMovement) -> MovementKey:
 
 
 def normalize_turn_ratios(movements: list[NodeMovement]) -> list[NodeMovement]:
-    """Normalize turn ratios separately for each incoming link.
+    """Нормализует поворотные доли отдельно для каждого входящего link.
 
-    The simulator already validates ratios. This function is defensive and makes
-    the pure solver usable in tests/benchmarks as well.
+    Основной симулятор уже должен валидировать суммы turn ratios. Эта функция
+    оставлена как защитный слой, чтобы чистый solver можно было использовать в
+    тестах и маленьких экспериментах без полного CTMSimulator.
     """
 
     totals: dict[str, float] = {}
@@ -80,22 +86,24 @@ def solve_ctm_node(
     *,
     fifo_strength: float = 1.0,
 ) -> NodeSolveResult:
-    """Solve a CTM node with explicit special cases.
+    """Решает CTM-узел с явными частными случаями.
 
-    Cases:
-    - 1 incoming, N outgoing: FIFO diverge
+    Поддерживаемые случаи:
+    - 1 вход, N выходов: FIFO diverge
           y = min(D_i, S_j / beta_j)
           f_ij = beta_j * y
 
-    - N incoming, 1 outgoing: priority merge
+    - N входов, 1 выход: priority merge
           sum_i f_i <= S_j, f_i <= D_i * beta_ij,
-          scarce downstream supply is distributed by priorities with unused
-          shares redistributed.
+          дефицитная downstream supply распределяется по приоритетам;
+          неиспользованные доли перераспределяются.
 
-    - General many-to-many: proportional supply allocation with optional partial
-      FIFO across movements from the same incoming link. This is a fallback for
-      small arbitrary OSM nodes; controlled experiments should prefer the explicit
-      diverge/merge cases.
+    - общий many-to-many случай: proportional supply allocation с опциональной
+      скалярной FIFO-аппроксимацией для движений с одного входа.
+
+    Важно: общий many-to-many fallback не является полноценной lane-based
+    partial-FIFO моделью. Его нужно трактовать как консервативную инженерную
+    аппроксимацию для OSM-узлов, где нет данных о полосах и группах манёвров.
     """
 
     clean = normalize_turn_ratios(movements)
@@ -125,6 +133,14 @@ def solve_diverge_node(
     demands: dict[str, float],
     supplies: dict[str, float],
 ) -> NodeSolveResult:
+    """Решает простой расходящийся узел: один вход, несколько выходов.
+
+    Здесь используется полный FIFO: если один из выходов ограничивает движение,
+    общий выпуск с входящего link уменьшается для всех поворотных долей. Это
+    защищаемая CTM-идея для простого diverge, но она может быть слишком жёсткой
+    для реальных перекрёстков с отдельными полосами.
+    """
+
     clean = normalize_turn_ratios(movements)
     in_ids = {m.in_link_id for m in clean}
     if len(in_ids) != 1:
@@ -176,6 +192,13 @@ def solve_merge_node(
     demands: dict[str, float],
     supplies: dict[str, float],
 ) -> NodeSolveResult:
+    """Решает простой merge-узел: несколько входов, один выход.
+
+    Если суммарный желаемый поток превышает downstream supply, поток делится по
+    priority. Приоритеты должны приходить извне. Если данных нет, вызывающий код
+    должен передавать равные приоритеты, а не подменять их turn ratios.
+    """
+
     clean = normalize_turn_ratios(movements)
     out_ids = {m.out_link_id for m in clean}
     if len(out_ids) != 1:
@@ -224,6 +247,18 @@ def solve_general_node(
     *,
     fifo_strength: float = 0.0,
 ) -> NodeSolveResult:
+    """Решает произвольный many-to-many узел через пропорциональный fallback.
+
+    Алгоритм сначала считает желаемые movement flows, затем для каждого выхода
+    вычисляет supply factor. При fifo_strength > 0 часть ограничения переносится
+    на все движения с того же входящего link.
+
+    Это не полноценная модель полос и не настоящая partial FIFO из литературы:
+    нет lane groups, conflict areas и movement influence intervals. Поэтому для
+    защищаемого базового сценария лучше использовать fifo_strength=0, а значения
+    выше нуля рассматривать как анализ чувствительности.
+    """
+
     clean = normalize_turn_ratios(movements)
     desired: dict[MovementKey, float] = {
         movement_key(m): max(0.0, demands.get(m.in_link_id, 0.0)) * m.turn_ratio
@@ -285,11 +320,12 @@ def allocate_by_priority(
     priorities: dict[MovementKey, float],
     supply: float,
 ) -> dict[MovementKey, float]:
-    """Allocate scarce merge supply by priorities with redistribution.
+    """Распределяет дефицитную merge supply по приоритетам.
 
-    This implements a small water-filling algorithm: each active movement gets a
-    priority-weighted share of the remaining supply; movements whose desired flow
-    is below that share are satisfied and their unused share is redistributed.
+    Это небольшой water-filling алгоритм: каждое активное движение получает
+    priority-weighted долю оставшейся supply; движения, чей desired flow меньше
+    этой доли, удовлетворяются полностью, а неиспользованный остаток
+    перераспределяется между остальными.
     """
 
     flows = {key: 0.0 for key in desired}
