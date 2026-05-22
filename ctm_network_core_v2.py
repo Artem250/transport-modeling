@@ -1,20 +1,20 @@
 """
 ctm_network_core_v2.py
 
-Clean CTM core based on the revised plan:
-- only CTMModel is kept;
-- no LegacyHydrodynamicModel;
-- triangular fundamental diagram;
-- flows are computed as physical rates (pcu/s);
-- densities are stored as state variables (pcu/m);
-- optional input point queue prevents lost demand;
-- strict mode prevents silent clamping/mass loss;
-- CFL validation is restored;
-- incidents and fixed-cycle signals are supported.
+Чистое CTM-ядро по обновлённому плану:
+- оставлен только CTMModel;
+- LegacyHydrodynamicModel удалён;
+- используется треугольная фундаментальная диаграмма;
+- потоки считаются как физические rates (pcu/s);
+- плотности хранятся как переменные состояния (pcu/m);
+- опциональная входная точечная очередь предотвращает потерю спроса;
+- strict mode запрещает молчаливый clipping и потерю массы;
+- CFL-проверка восстановлена;
+- поддерживаются аварийные ограничения и fixed-cycle signals.
 
-The model is intentionally written for a single directed link split into cells.
-The boundary-flow methods are structured so a future Node/Junction class can
-replace upstream/downstream boundary logic.
+Модель намеренно описывает один направленный link, разбитый на ячейки.
+Методы граничных потоков устроены так, чтобы в будущем внешний Node/Junction
+класс мог заменить upstream/downstream boundary logic.
 """
 
 from __future__ import annotations
@@ -28,33 +28,33 @@ EPS = 1e-9
 
 
 class CTMConfigurationError(ValueError):
-    """Raised when CTM parameters violate physical or numerical constraints."""
+    """Ошибка конфигурации: параметры CTM нарушают физические или численные ограничения."""
 
 
 class CTMStateError(RuntimeError):
-    """Raised when a simulation step produces physically invalid state."""
+    """Ошибка состояния: шаг симуляции дал физически недопустимое состояние."""
 
 
 @dataclass(frozen=True)
 class TriangularFundamentalDiagram:
-    """Triangular fundamental diagram for one directed road link.
+    """Треугольная фундаментальная диаграмма для одного направленного link.
 
-    Units:
-    - free_flow_speed: m/s
-    - backward_wave_speed: m/s, positive magnitude of backward congestion wave
-    - capacity: pcu/s for this directed link
-    - jam_density: pcu/m for this directed link
+    Единицы:
+    - free_flow_speed: м/с;
+    - backward_wave_speed: м/с, положительный модуль обратной волны затора;
+    - capacity: pcu/s для данного направленного link;
+    - jam_density: pcu/m для данного направленного link.
 
-    Demand and supply are represented as rates:
+    Demand и supply представлены как rates:
 
         demand_i = min(v * rho_i, Q)
         supply_i = min(Q, w * (rho_jam - rho_i))
 
-    where:
-    - v is free-flow speed,
-    - w is backward wave speed magnitude,
-    - Q is capacity,
-    - rho_jam is jam density.
+    где:
+    - v — скорость свободного потока;
+    - w — модуль скорости обратной волны;
+    - Q — пропускная способность;
+    - rho_jam — jam density.
     """
 
     free_flow_speed: float
@@ -80,7 +80,7 @@ class TriangularFundamentalDiagram:
 
     @property
     def critical_density(self) -> float:
-        """Critical density in pcu/m."""
+        """Критическая плотность в pcu/m."""
         return self.capacity / self.free_flow_speed
 
     def validate(self) -> None:
@@ -101,10 +101,10 @@ class TriangularFundamentalDiagram:
 
 @dataclass
 class Cell:
-    """One CTM cell.
+    """Одна CTM-ячейка.
 
-    The primary state is density in pcu/m.
-    capacity_factor and speed_factor allow local restrictions, such as incidents.
+    Основная переменная состояния — плотность в pcu/m. `capacity_factor` и
+    `speed_factor` позволяют задавать локальные ограничения, например аварию.
     """
 
     length: float
@@ -114,7 +114,7 @@ class Cell:
 
     @property
     def occupancy(self) -> float:
-        """Number of passenger-car units currently inside the cell."""
+        """Количество passenger-car units внутри ячейки."""
         return self.density * self.length
 
     def set_occupancy(self, occupancy: float) -> None:
@@ -123,10 +123,10 @@ class Cell:
 
 @dataclass(frozen=True)
 class Incident:
-    """Temporary local restriction inside one cell.
+    """Временное локальное ограничение внутри одной ячейки.
 
-    capacity_factor multiplies the fundamental diagram capacity.
-    speed_factor multiplies the free-flow speed for demand calculation.
+    `capacity_factor` умножает capacity фундаментальной диаграммы.
+    `speed_factor` умножает free-flow speed при расчёте demand.
     """
 
     cell_index: int
@@ -141,14 +141,15 @@ class Incident:
 
 @dataclass(frozen=True)
 class FixedCycleSignal:
-    """Fixed-cycle traffic signal on a boundary between cells.
+    """Fixed-cycle светофор на границе между ячейками.
 
-    boundary_index follows the boundary-flow list convention:
-    - 0 means upstream boundary into cell 0;
-    - i means boundary between cell i-1 and cell i;
-    - cell_count means downstream boundary after the last cell.
+    `boundary_index` следует соглашению списка boundary flows:
+    - 0 означает upstream boundary в cell 0;
+    - i означает границу между cell i-1 и cell i;
+    - cell_count означает downstream boundary после последней ячейки.
 
-    For simple internal traffic lights, use boundary_index in [1, cell_count - 1].
+    Для простых внутренних светофоров используйте boundary_index в диапазоне
+    [1, cell_count - 1].
     """
 
     boundary_index: int
@@ -166,19 +167,19 @@ class FixedCycleSignal:
 
 @dataclass
 class CTMModel:
-    """Single-link CTM model with rates, queueing, incidents, and signals.
+    """Однозвенная CTM-модель с rates, очередью, авариями и светофорами.
 
-    State variable:
-    - density in each cell, pcu/m.
+    Переменная состояния:
+    - density в каждой ячейке, pcu/m.
 
-    Boundary/internal flows:
-    - rates in pcu/s.
+    Граничные и внутренние потоки:
+    - rates в pcu/s.
 
-    Update equation:
+    Уравнение обновления:
         rho_i(t+dt) = rho_i(t) + dt / L_i * (inflow_i - outflow_i)
 
-    This implementation is designed to be extended later by replacing
-    upstream_demand and downstream_capacity with a network Node/Junction model.
+    Реализация рассчитана на дальнейшее расширение: upstream_demand и
+    downstream_capacity можно заменить сетевой Node/Junction-моделью.
     """
 
     cells: list[Cell]
@@ -192,7 +193,7 @@ class CTMModel:
     incidents: list[Incident] = field(default_factory=list)
     signals: list[FixedCycleSignal] = field(default_factory=list)
 
-    external_queue: float = 0.0  # pcu waiting outside upstream boundary
+    external_queue: float = 0.0  # pcu, ожидающие перед upstream boundary
     strict: bool = True
     validate_cfl: bool = True
 
@@ -236,7 +237,7 @@ class CTMModel:
         return len(self.cells)
 
     def max_stable_dt(self) -> float:
-        """CFL-safe time step for the shortest cell."""
+        """CFL-безопасный временной шаг для самой короткой ячейки."""
         min_length = min(cell.length for cell in self.cells)
         return min_length / max(
             self.diagram.free_flow_speed,
@@ -272,7 +273,7 @@ class CTMModel:
         return max(0.0, self.diagram.capacity * cell.capacity_factor)
 
     def demand(self, cell: Cell) -> float:
-        """Sending/demand rate from a cell, pcu/s."""
+        """Sending/demand rate из ячейки, pcu/s."""
         free_flow = (
             self.diagram.free_flow_speed
             * max(0.0, cell.speed_factor)
@@ -281,7 +282,7 @@ class CTMModel:
         return min(free_flow, self.capacity_of(cell))
 
     def supply(self, cell: Cell) -> float:
-        """Receiving/supply rate into a cell, pcu/s."""
+        """Receiving/supply rate в ячейку, pcu/s."""
         available_density = max(0.0, self.diagram.jam_density - cell.density)
         congested_branch = self.diagram.backward_wave_speed * available_density
         return min(congested_branch, self.capacity_of(cell))
@@ -294,18 +295,18 @@ class CTMModel:
         return factor
 
     def compute_boundary_flows(self) -> list[float]:
-        """Compute all boundary flows as rates in pcu/s.
+        """Считает все boundary flows как rates в pcu/s.
 
-        Returns list of length cell_count + 1:
-        - flows[0]: upstream boundary into first cell;
-        - flows[i]: internal boundary from cell i-1 to cell i;
-        - flows[cell_count]: downstream boundary out of last cell.
+        Возвращает список длины cell_count + 1:
+        - flows[0]: upstream boundary в первую ячейку;
+        - flows[i]: внутренняя граница из cell i-1 в cell i;
+        - flows[cell_count]: downstream boundary из последней ячейки.
         """
 
         cells = self.cells
         flows: list[float] = []
 
-        # Upstream boundary with point queue.
+        # Upstream boundary с точечной внешней очередью.
         new_external_demand = max(0.0, self.upstream_demand(self.time)) * self.dt
         self.external_queue += new_external_demand
 
@@ -314,7 +315,7 @@ class CTMModel:
         upstream_flow = min(queued_demand_rate, first_supply_rate)
         flows.append(upstream_flow)
 
-        # Internal boundaries.
+        # Внутренние границы между ячейками.
         flows.extend(self.compute_internal_flows())
 
         # Downstream boundary.
@@ -328,7 +329,7 @@ class CTMModel:
         return flows
 
     def compute_internal_flows(self) -> list[float]:
-        """Compute internal cell-to-cell flows as rates in pcu/s."""
+        """Считает внутренние cell-to-cell flows как rates в pcu/s."""
         flows: list[float] = []
         for boundary_index in range(1, self.cell_count):
             upstream_cell = self.cells[boundary_index - 1]
@@ -348,7 +349,7 @@ class CTMModel:
         limit: float,
         label: str,
     ) -> float:
-        """Validate an externally solved network boundary flow."""
+        """Проверяет внешний network-solved boundary flow."""
         if not math.isfinite(flow):
             raise CTMStateError(f"{label} boundary flow must be finite: {flow}")
         if flow < -EPS:
@@ -360,7 +361,7 @@ class CTMModel:
         return max(0.0, flow)
 
     def _advance_with_flows(self, flows: list[float]) -> dict[str, float | list[float]]:
-        """Advance state using already computed boundary/internal CTM flows."""
+        """Продвигает состояние по уже рассчитанным boundary/internal CTM flows."""
         if len(flows) != self.cell_count + 1:
             raise CTMStateError(
                 f"expected {self.cell_count + 1} boundary flows, got {len(flows)}"
@@ -412,11 +413,11 @@ class CTMModel:
         upstream_flow: float,
         downstream_flow: float,
     ) -> dict[str, float | list[float]]:
-        """Advance one step using network-solved upstream/downstream flows.
+        """Выполняет один шаг с network-solved upstream/downstream flows.
 
-        This method is intended for network CTM simulations where a separate
-        node solver determines link boundary flows. The link still owns the
-        CTM conservation update and internal cell-to-cell flows.
+        Метод предназначен для сетевых CTM-симуляций, где отдельный node solver
+        определяет граничные потоки link. Сам link всё равно отвечает за
+        консервативное CTM-обновление и внутренние cell-to-cell flows.
         """
 
         if self.validate_cfl:
@@ -453,7 +454,7 @@ class CTMModel:
                 )
 
     def step(self) -> dict[str, float | list[float]]:
-        """Advance the model by one time step and return diagnostics."""
+        """Выполняет один временной шаг и возвращает диагностику."""
 
         if self.validate_cfl:
             self.validate_cfl_or_raise()
@@ -462,7 +463,7 @@ class CTMModel:
         flows = self.compute_boundary_flows()
         diagnostics = self._advance_with_flows(flows)
 
-        # Remove only the actually admitted upstream flow from the point queue.
+        # Из внешней очереди удаляется только реально допущенный upstream flow.
         admitted_upstream_vehicles = flows[0] * self.dt
         self.external_queue = max(0.0, self.external_queue - admitted_upstream_vehicles)
         diagnostics["external_queue_pcu"] = self.external_queue
@@ -482,7 +483,7 @@ class CTMModel:
 
 
 def demo() -> None:
-    """Small smoke-test scenario."""
+    """Маленький smoke-test сценарий."""
 
     diagram = TriangularFundamentalDiagram.from_common_units(
         free_flow_speed_kph=60.0,
@@ -497,7 +498,7 @@ def demo() -> None:
         diagram=diagram,
         dt=1.0,
         initial_density=10.0 / 1000.0,  # 10 pcu/km
-        upstream_demand=lambda _t: 0.7,  # pcu/s, intentionally above capacity
+        upstream_demand=lambda _t: 0.7,  # pcu/s, намеренно выше capacity
         downstream_capacity=lambda _t: 0.5,  # pcu/s
         incidents=[
             Incident(
