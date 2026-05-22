@@ -372,8 +372,7 @@ def _add_segment_link(
             metadata={
                 **metadata,
                 "highway": _text_value(tags.get("highway"), ""),
-                "osm_name": _text_value(tags.get("name"), ""),
-                "maxspeed": _text_value(tags.get("maxspeed"), ""),
+                "osm_name": _text_value(tags.get("name"), "")
             },
         )
     )

@@ -106,19 +106,19 @@ class CTMRunWindow(QMainWindow):
         incident_group = QGroupBox("Аварийный участок / bottleneck")
         incident_layout = QFormLayout(incident_group)
         self.incident_link_edit = QLineEdit("")
-        self.incident_link_edit.setPlaceholderText("пусто = выбрать автоматически")
+        self.incident_link_edit.setPlaceholderText("пусто = выбрать автоматически по самой длинной дороге")
         self.incident_start_edit = QLineEdit("300")
         self.incident_end_edit = QLineEdit("900")
         self.incident_cap_edit = QLineEdit("0.35")
         self.incident_speed_edit = QLineEdit("1.0")
         self.incident_blocked_lanes_edit = QLineEdit("1")
         self.fifo_strength_edit = QLineEdit("1.0")
-        incident_layout.addRow("Link аварии:", self.incident_link_edit)
+        incident_layout.addRow("Link (участок) аварии:", self.incident_link_edit)
         incident_layout.addRow("Начало аварии, сек:", self.incident_start_edit)
         incident_layout.addRow("Конец аварии, сек:", self.incident_end_edit)
         incident_layout.addRow("Заблокировано полос:", self.incident_blocked_lanes_edit)
-        incident_layout.addRow("FIFO strength:", self.fifo_strength_edit)
-        incident_layout.addRow("Коэффициент capacity для severe_bottleneck:", self.incident_cap_edit)
+        # incident_layout.addRow("FIFO strength:", self.fifo_strength_edit)
+        incident_layout.addRow("Коэффициент пропускной способности для severe_bottleneck:", self.incident_cap_edit)
         incident_layout.addRow("Коэффициент скорости:", self.incident_speed_edit)
         layout.addWidget(incident_group)
 
@@ -144,17 +144,17 @@ class CTMRunWindow(QMainWindow):
         layout.addWidget(QLabel("Лог:"))
         layout.addWidget(self.log, 1)
 
-        self.summary = QTextEdit()
-        self.summary.setReadOnly(True)
-        self.summary.setFixedHeight(120)
-        self.summary.setPlainText(
-            "Runner создаёт baseline, lane_blockage и severe_bottleneck; "
-            "сохраняет JSON, CSV-метрики и PNG-графики. "
-            "Для ВКР особенно полезны ctm_metrics.csv, plot_incident_link_density.png, "
-            "plot_incident_link_flow.png и plot_source_queue.png."
-        )
-        layout.addWidget(QLabel("Что получится:"))
-        layout.addWidget(self.summary)
+        # self.summary = QTextEdit()
+        # self.summary.setReadOnly(True)
+        # self.summary.setFixedHeight(120)
+        # self.summary.setPlainText(
+        #     "Runner создаёт baseline, lane_blockage и severe_bottleneck; "
+        #     "сохраняет JSON, CSV-метрики и PNG-графики. "
+        #     "Для ВКР особенно полезны ctm_metrics.csv, plot_incident_link_density.png, "
+        #     "plot_incident_link_flow.png и plot_source_queue.png."
+        # )
+        # layout.addWidget(QLabel("Что получится:"))
+        # layout.addWidget(self.summary)
 
     def _row(self, *widgets):
         row = QWidget()
