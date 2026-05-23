@@ -26,14 +26,6 @@ class ExperimentSpec:
     lane_delta_by_link: dict[str, int] = field(default_factory=dict)
 
 
-def choose_default_incident_link(project_file: str, base_config: CTMScenarioConfig) -> str | None:
-    """Use the simulator's current rule to choose the representative incident link."""
-
-    project = ProjectLoader().load(project_file)
-    probe = CTMSimulator(project, base_config)
-    return probe.incident_link_id
-
-
 def apply_lane_changes(project, lane_delta_by_link: dict[str, int]) -> None:
     for link_id, delta in lane_delta_by_link.items():
         link = project.network.links.get(link_id)
@@ -59,7 +51,7 @@ def run_experiment(
     snapshot_interval_sec: int,
     cell_length_target_m: float,
     inflow_veh_per_hour: float,
-    incident_link_id: str | None,
+    incident_link_id: str,
     incident_start_sec: float,
     incident_end_sec: float,
 ) -> tuple[dict[str, Any], Path]:
@@ -402,7 +394,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--snapshot-sec", type=int, default=10)
     parser.add_argument("--cell-length", type=float, default=15.0)
     parser.add_argument("--inflow", type=float, default=475.0)
-    parser.add_argument("--incident-link", default=None)
+    parser.add_argument(
+        "--incident-link",
+        required=True,
+        help="Explicit incident/control link id shared by all scenario variants.",
+    )
     parser.add_argument("--incident-start", type=float, default=300.0)
     parser.add_argument("--incident-end", type=float, default=900.0)
     parser.add_argument("--incident-capacity-factor", type=float, default=0.35)
@@ -417,23 +413,7 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    base_config = CTMScenarioConfig(
-        dt_seconds=args.dt,
-        simulation_minutes=args.minutes,
-        snapshot_interval_sec=args.snapshot_sec,
-        cell_length_target_m=args.cell_length,
-        inflow_veh_per_hour=args.inflow,
-        incident_link_id=args.incident_link,
-        incident_start_sec=args.incident_start,
-        incident_end_sec=args.incident_end,
-        incident_capacity_factor=1.0,
-        incident_speed_factor=args.incident_speed_factor,
-        incident_blocked_lanes=None,
-        fifo_strength=args.fifo_strength,
-    )
-    incident_link_id = args.incident_link or choose_default_incident_link(args.project, base_config)
-    if incident_link_id is None:
-        raise ValueError("could not choose an incident/control link")
+    incident_link_id = args.incident_link
     print(f"Incident/control link: {incident_link_id}")
 
     specs = [

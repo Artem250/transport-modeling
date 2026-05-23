@@ -302,8 +302,8 @@ class MainWindow(QMainWindow):
         self.loader = ProjectLoader()
         self.saver = ProjectSaver()
         
-        if not os.path.exists(data_file) and os.path.exists("osm_network_project_map_nstu.json"):
-            data_file = "osm_network_project_map_nstu.json"
+        if not os.path.exists(data_file) and os.path.exists("../osm_network_project_map_nstu.json"):
+            data_file = "../osm_network_project_map_nstu.json"
             
         self.data_file = data_file
         self.project = None

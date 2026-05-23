@@ -252,7 +252,7 @@ def _add_directional_segment_links(
             "osm_bidirectional_source_way": is_bidirectional,
         }
         if is_bidirectional and "lanes:forward" not in tags and "lanes:backward" not in tags:
-            metadata["lanes_direction_assumption"] = "split_total_lanes_equally"
+            metadata["lanes_direction_assumption"] = "split_total_lanes_evenly_forward_gets_odd_remainder"
 
         link_index = _add_segment_link(
             network,
@@ -282,7 +282,11 @@ def _directional_lanes(tags: dict[str, Any], direction: str, is_bidirectional: b
 
     total_lanes = _parse_lanes(tags.get("lanes"))
     if is_bidirectional:
-        return max(int(round(total_lanes / 2.0)), 1)
+        # With only total lanes available, keep the total lane count instead of
+        # rounding both directions upward for odd values such as lanes=3.
+        if direction == "forward":
+            return max(math.ceil(total_lanes / 2.0), 1)
+        return max(math.floor(total_lanes / 2.0), 1)
     return max(total_lanes, 1)
 
 

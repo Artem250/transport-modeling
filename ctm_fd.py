@@ -67,11 +67,6 @@ def make_triangular_fd_from_capacity(
     jam_density_pcu_km: float,
 ) -> tuple[TriangularFundamentalDiagram, FundamentalDiagramMetadata]:
     """Создаёт самосогласованную треугольную FD из v, Q и rho_jam.
-
-    Это предпочтительная параметризация для текущего проекта: пользователь
-    задаёт интерпретируемые входные параметры — скорость свободного потока,
-    пропускную способность link и jam density. Скорость обратной волны не
-    выбирается отдельной эвристикой, а выводится из формулы треугольной FD.
     """
 
     backward_wave_speed_kph = compute_backward_wave_speed_kph(
@@ -104,10 +99,6 @@ def make_triangular_fd_with_explicit_w(
     jam_density_pcu_km: float,
 ) -> tuple[TriangularFundamentalDiagram, FundamentalDiagramMetadata]:
     """Создаёт треугольную FD из v, w и rho_jam, выводя capacity.
-
-    Оставлено для экспериментов, где именно скорость обратной волны считается
-    доверенным входным параметром. Такой режим всё равно не выбирает все четыре
-    параметра FD независимо: capacity выводится из той же треугольной связи.
     """
 
     if free_flow_speed_kph <= 0.0:
