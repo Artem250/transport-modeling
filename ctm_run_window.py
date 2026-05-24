@@ -100,7 +100,7 @@ class CTMRunWindow(QMainWindow):
         params_layout.addRow("Длительность, мин:", self.minutes_edit)
         params_layout.addRow("Шаг сохранения истории, сек:", self.snapshot_edit)
         params_layout.addRow("Целевая длина ячейки, м:", self.cell_length_edit)
-        params_layout.addRow("Общий входной поток, авт/ч:", self.inflow_edit)
+        params_layout.addRow("Общий входной поток, pcu/ч:", self.inflow_edit)
         layout.addWidget(params_group)
 
         incident_group = QGroupBox("Аварийный участок / bottleneck")

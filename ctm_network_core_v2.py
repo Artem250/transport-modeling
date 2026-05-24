@@ -177,9 +177,6 @@ class CTMModel:
 
     Уравнение обновления:
         rho_i(t+dt) = rho_i(t) + dt / L_i * (inflow_i - outflow_i)
-
-    Реализация рассчитана на дальнейшее расширение: upstream_demand и
-    downstream_capacity можно заменить сетевой Node/Junction-моделью.
     """
 
     cells: list[Cell]

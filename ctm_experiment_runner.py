@@ -50,7 +50,7 @@ def run_experiment(
     simulation_minutes: int,
     snapshot_interval_sec: int,
     cell_length_target_m: float,
-    inflow_veh_per_hour: float,
+    inflow_pcu_per_hour: float,
     incident_link_id: str,
     incident_start_sec: float,
     incident_end_sec: float,
@@ -64,7 +64,7 @@ def run_experiment(
         simulation_minutes=simulation_minutes,
         snapshot_interval_sec=snapshot_interval_sec,
         cell_length_target_m=cell_length_target_m,
-        inflow_veh_per_hour=inflow_veh_per_hour,
+        inflow_pcu_per_hour=inflow_pcu_per_hour,
         incident_link_id=incident_link_id,
         incident_start_sec=incident_start_sec,
         incident_end_sec=incident_end_sec,
@@ -88,7 +88,7 @@ def collect_metrics(project, scenario_name: str) -> dict[str, Any]:
     sim = project.metadata.get("ctm_simulation", {}) or {}
     incident = project.metadata.get("ctm_incident", {}) or {}
     movement_summary = project.metadata.get("ctm_movement_summary", {}) or {}
-    source_inflows = project.metadata.get("ctm_source_inflows_veh_h", {}) or {}
+    source_inflows = project.metadata.get("ctm_source_inflows_pcu_h", {}) or {}
     lane_delta_links = []
     for link in project.network.links.values():
         delta = link.metadata.get("lane_scenario_delta")
@@ -112,7 +112,8 @@ def collect_metrics(project, scenario_name: str) -> dict[str, Any]:
             max_density = max(max_density, max(snapshot))
             avg_density_sum += sum(snapshot) / len(snapshot)
             avg_density_count += 1
-        for flow in link.results.get("history_flow_veh_h", []) or []:
+        flow_history = link.results.get("history_flow_pcu_h", []) or []
+        for flow in flow_history:
             max_flow = max(max_flow, float(flow))
         for queue in link.results.get("history_external_queue_pcu", []) or []:
             max_source_queue = max(max_source_queue, float(queue))
@@ -134,7 +135,7 @@ def collect_metrics(project, scenario_name: str) -> dict[str, Any]:
         "incident_start_sec": incident.get("start_time_sec", ""),
         "incident_end_sec": incident.get("end_time_sec", ""),
         "lane_delta_links": ";".join(sorted(lane_delta_links)),
-        "source_inflow_total_veh_h": round(sum(float(v) for v in source_inflows.values()), 3),
+        "source_inflow_total_pcu_h": round(sum(float(v) for v in source_inflows.values()), 3),
         "total_generated_pcu": sim.get("total_generated_pcu", 0.0),
         "total_entered_pcu": sim.get("total_entered_pcu", 0.0),
         "total_exited_pcu": sim.get("total_exited_pcu", 0.0),
@@ -149,7 +150,7 @@ def collect_metrics(project, scenario_name: str) -> dict[str, Any]:
         "avg_density_pcu_km": round(avg_density_sum / avg_density_count, 3) if avg_density_count else 0.0,
         "incident_link_max_density_pcu_km": round(incident_link_max_density, 3),
         "incident_link_avg_density_pcu_km": round(incident_link_avg_density, 3),
-        "max_flow_veh_h": round(max_flow, 3),
+        "max_flow_pcu_h": round(max_flow, 3),
         "max_source_queue_pcu": round(max_source_queue, 3),
         "movement_count": movement_summary.get("movement_count", 0),
         "short_connector_candidate_count": movement_summary.get("short_connector_candidate_count", 0),
@@ -219,6 +220,18 @@ def _snapshot_interval(project) -> int:
     return int(project.metadata.get("ctm_scenario_config", {}).get("snapshot_interval_sec", 60))
 
 
+def _scenario_label(name: str) -> str:
+    labels = {
+        "baseline": "Базовый сценарий",
+        "lane_blockage": "Блокировка полосы",
+        "lane_blockage_added_lane": "Блокировка с добавленной полосой",
+        "severe_bottleneck": "Сильное ограничение",
+        "incident_nonfifo": "Авария без FIFO",
+        "incident_fifo": "Авария с FIFO",
+    }
+    return labels.get(name, name)
+
+
 def _incident_window(projects: dict[str, Any]) -> tuple[float, float] | None:
     for project in projects.values():
         incident = project.metadata.get("ctm_incident", {}) or {}
@@ -232,7 +245,7 @@ def _shade_incident_window(projects: dict[str, Any]) -> None:
     if not window:
         return
     start_min, end_min = window
-    plt.axvspan(start_min, end_min, alpha=0.12, label="incident window")
+    plt.axvspan(start_min, end_min, alpha=0.12, label="Период ограничения")
 
 
 def _density_reference_lines(project, link_id: str) -> None:
@@ -250,8 +263,8 @@ def _density_reference_lines(project, link_id: str) -> None:
     capacity_per_lane = float(params.get("cap_per_lane", 0.0) or 0.0)
     if speed > 0.0 and capacity_per_lane > 0.0:
         critical_density = capacity_per_lane * lanes / speed
-        plt.axhline(critical_density, linestyle="--", linewidth=1, label="critical density")
-    plt.axhline(jam_density, linestyle=":", linewidth=1, label="jam density")
+        plt.axhline(critical_density, linestyle="--", linewidth=1, label="Критическая плотность")
+    plt.axhline(jam_density, linestyle=":", linewidth=1, label="Плотность затора")
 
 
 def _same_incident_lanes(projects: dict[str, Any], link_id: str) -> bool:
@@ -271,14 +284,14 @@ def _plot_incident_density(projects: dict[str, Any], link_id: str, path: Path) -
             continue
         history = link.results.get("history_cells_density_pcu_km", []) or []
         series = [sum(snapshot) / len(snapshot) if snapshot else 0.0 for snapshot in history]
-        plt.plot(_time_axis(len(series), _snapshot_interval(project)), series, label=name)
+        plt.plot(_time_axis(len(series), _snapshot_interval(project)), series, label=_scenario_label(name))
     first_project = next(iter(projects.values()))
     if _same_incident_lanes(projects, link_id):
         _density_reference_lines(first_project, link_id)
     _shade_incident_window(projects)
     plt.xlabel("Время, мин")
-    plt.ylabel("Средняя плотность на аварийном link, pcu/km")
-    plt.title(f"Динамика плотности на link {link_id}")
+    plt.ylabel("Средняя плотность на выбранном участке, pcu/км")
+    plt.title(f"Динамика плотности на участке {link_id}")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -292,12 +305,13 @@ def _plot_incident_flow(projects: dict[str, Any], link_id: str, path: Path) -> N
         link = project.network.links.get(link_id)
         if link is None:
             continue
-        series = [float(v) for v in (link.results.get("history_flow_veh_h", []) or [])]
-        plt.plot(_time_axis(len(series), _snapshot_interval(project)), series, label=name)
+        flow_history = link.results.get("history_flow_pcu_h", []) or []
+        series = [float(v) for v in flow_history]
+        plt.plot(_time_axis(len(series), _snapshot_interval(project)), series, label=_scenario_label(name))
     _shade_incident_window(projects)
     plt.xlabel("Время, мин")
-    plt.ylabel("Выходной поток, veh/h")
-    plt.title(f"Выходной поток через link {link_id}")
+    plt.ylabel("Выходной поток, pcu/ч")
+    plt.title(f"Выходной поток через участок {link_id}")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -319,7 +333,7 @@ def _plot_source_queue(projects: dict[str, Any], path: Path) -> None:
         total_queue = []
         for i in range(max_len):
             total_queue.append(sum(series[i] if i < len(series) else series[-1] for series in series_by_source))
-        plt.plot(_time_axis(len(total_queue), _snapshot_interval(project)), total_queue, label=name)
+        plt.plot(_time_axis(len(total_queue), _snapshot_interval(project)), total_queue, label=_scenario_label(name))
     _shade_incident_window(projects)
     plt.xlabel("Время, мин")
     plt.ylabel("Внешняя очередь источников, pcu")
@@ -352,9 +366,9 @@ def _plot_incident_heatmap(project, link_id: str, path: Path) -> None:
     if "start_time_sec" in incident and "end_time_sec" in incident:
         plt.axvline(float(incident["start_time_sec"]) / 60.0, linestyle="--", linewidth=1)
         plt.axvline(float(incident["end_time_sec"]) / 60.0, linestyle="--", linewidth=1)
-    plt.colorbar(label="Плотность, pcu/km")
+    plt.colorbar(label="Плотность, pcu/км")
     plt.xlabel("Время, мин")
-    plt.ylabel("Индекс CTM-ячейки на link")
+    plt.ylabel("Индекс CTM-ячейки на участке")
     plt.title(f"Пространственно-временная диаграмма плотности: {link_id}")
     plt.tight_layout()
     plt.savefig(path)
@@ -367,14 +381,14 @@ def _plot_mass_balance(projects: dict[str, Any], path: Path) -> None:
     demand_errors = []
     for name, project in projects.items():
         sim = project.metadata.get("ctm_simulation", {}) or {}
-        names.append(name)
+        names.append(_scenario_label(name))
         balance_errors.append(abs(float(sim.get("conservation_error_pcu", 0.0) or 0.0)))
         demand_errors.append(abs(float(sim.get("demand_balance_error_pcu", 0.0) or 0.0)))
     x = list(range(len(names)))
     width = 0.35
     plt.figure()
-    plt.bar([v - width / 2 for v in x], balance_errors, width, label="network balance")
-    plt.bar([v + width / 2 for v in x], demand_errors, width, label="full demand balance")
+    plt.bar([v - width / 2 for v in x], balance_errors, width, label="Баланс сети")
+    plt.bar([v + width / 2 for v in x], demand_errors, width, label="Полный баланс спроса")
     plt.xticks(x, names, rotation=20)
     plt.ylabel("Абсолютная ошибка, pcu")
     plt.title("Проверка закона сохранения")
@@ -393,7 +407,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--minutes", type=int, default=100)
     parser.add_argument("--snapshot-sec", type=int, default=10)
     parser.add_argument("--cell-length", type=float, default=15.0)
-    parser.add_argument("--inflow", type=float, default=475.0)
+    parser.add_argument("--inflow", type=float, default=475.0, help="Total source demand, pcu/h.")
     parser.add_argument(
         "--incident-link",
         required=True,
@@ -452,7 +466,7 @@ def main() -> None:
             simulation_minutes=args.minutes,
             snapshot_interval_sec=args.snapshot_sec,
             cell_length_target_m=args.cell_length,
-            inflow_veh_per_hour=args.inflow,
+            inflow_pcu_per_hour=args.inflow,
             incident_link_id=incident_link_id,
             incident_start_sec=args.incident_start,
             incident_end_sec=args.incident_end,

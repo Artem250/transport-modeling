@@ -281,8 +281,7 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": ""
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -332,10 +331,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": ""
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -385,10 +383,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": ""
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -450,10 +447,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": ""
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -515,10 +511,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": ""
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -573,8 +568,7 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": "RU:urban"
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -628,10 +622,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "residential",
-          "osm_name": "Космическая улица",
-          "maxspeed": ""
+          "osm_name": "Космическая улица"
         }
       },
       {
@@ -685,10 +678,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "residential",
-          "osm_name": "Космическая улица",
-          "maxspeed": ""
+          "osm_name": "Космическая улица"
         }
       },
       {
@@ -746,10 +738,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "residential",
-          "osm_name": "Космическая улица",
-          "maxspeed": ""
+          "osm_name": "Космическая улица"
         }
       },
       {
@@ -807,10 +798,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "residential",
-          "osm_name": "Космическая улица",
-          "maxspeed": ""
+          "osm_name": "Космическая улица"
         }
       },
       {
@@ -872,10 +862,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "улица Лыщинского",
-          "maxspeed": ""
+          "osm_name": "улица Лыщинского"
         }
       },
       {
@@ -937,10 +926,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "улица Лыщинского",
-          "maxspeed": ""
+          "osm_name": "улица Лыщинского"
         }
       },
       {
@@ -990,10 +978,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
-          "maxspeed": ""
+          "osm_name": "Новогодняя улица"
         }
       },
       {
@@ -1043,10 +1030,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
-          "maxspeed": ""
+          "osm_name": "Новогодняя улица"
         }
       },
       {
@@ -1096,10 +1082,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
-          "maxspeed": ""
+          "osm_name": "Новогодняя улица"
         }
       },
       {
@@ -1149,10 +1134,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
-          "maxspeed": ""
+          "osm_name": "Новогодняя улица"
         }
       },
       {
@@ -1202,10 +1186,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
-          "maxspeed": ""
+          "osm_name": "Новогодняя улица"
         }
       },
       {
@@ -1255,10 +1238,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "tertiary",
-          "osm_name": "Новогодняя улица",
-          "maxspeed": ""
+          "osm_name": "Новогодняя улица"
         }
       },
       {
@@ -1313,8 +1295,7 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": "RU:urban"
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -1369,8 +1350,7 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": "RU:urban"
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -1421,8 +1401,7 @@
           "osm_is_oneway": true,
           "osm_bidirectional_source_way": false,
           "highway": "tertiary",
-          "osm_name": "Геодезическая улица",
-          "maxspeed": "RU:urban"
+          "osm_name": "Геодезическая улица"
         }
       },
       {
@@ -1472,10 +1451,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1525,10 +1503,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1578,10 +1555,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1631,10 +1607,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1684,10 +1659,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1737,10 +1711,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1790,10 +1763,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1843,10 +1815,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
-          "osm_name": "проспект Карла Маркса",
-          "maxspeed": ""
+          "osm_name": "проспект Карла Маркса"
         }
       },
       {
@@ -1896,10 +1867,9 @@
           "osm_direction": "reverse",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
           "osm_name": "проспект Карла Маркса",
-          "maxspeed": "",
           "merged_link_ids": [
             "L23",
             "L33"
@@ -1953,10 +1923,9 @@
           "osm_direction": "forward",
           "osm_is_oneway": false,
           "osm_bidirectional_source_way": true,
-          "lanes_direction_assumption": "split_total_lanes_equally",
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
           "highway": "primary",
           "osm_name": "проспект Карла Маркса",
-          "maxspeed": "",
           "merged_link_ids": [
             "L32",
             "L22"

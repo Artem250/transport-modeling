@@ -61,6 +61,18 @@ def get_los_and_color_from_density(density_per_lane):
     if density_per_lane <= 35: return "E", QColor(255, 69, 0)  # Критическая плотность (Capacity)
     return "F", QColor(255, 0, 0)  # Затор / Пробка
 
+def get_los_from_load_factor(z):
+    if z < 0.20:
+        return "A", QColor(0, 180, 0)
+    if z < 0.45:
+        return "B", QColor(100, 210, 80)
+    if z < 0.70:
+        return "C", QColor(255, 220, 0)
+    if z < 0.90:
+        return "D", QColor(255, 150, 0)
+    if z <= 1.00:
+        return "E", QColor(230, 80, 0)
+    return "F", QColor(200, 0, 0)
 
 NODE_COLORS = {
     "boundary": QColor(220, 40, 40),
@@ -223,7 +235,7 @@ class TrafficNode(QGraphicsEllipseItem):
         painter.setFont(font)
         painter.setPen(Qt.black)
         text_rect = QRectF(-40, self.rect().bottom() + 1, 80, 3)
-        painter.drawText(text_rect, Qt.AlignCenter, self.label)
+        # painter.drawText(text_rect, Qt.AlignCenter, self.label)
 
 
 class TrafficLink(QGraphicsPathItem):
@@ -237,6 +249,7 @@ class TrafficLink(QGraphicsPathItem):
         self.intermediate_points = []
         self.shape_handles = []
         self.visual_offset_px = 0.0
+        self.shifted_points = []
 
         self.time_index = 0
         self.cell_points = []  # Массив массивов координат для ячеек
@@ -279,6 +292,7 @@ class TrafficLink(QGraphicsPathItem):
                 continue
             nx, ny = -dy / length, dx / length
             shifted_points.append(QPointF(base_points[i].x() + nx * OFFSET_PX, base_points[i].y() + ny * OFFSET_PX))
+        self.shifted_points = shifted_points
 
         # Устанавливаем общий путь для хитбокса (выделения мышкой)
         full_path = QPainterPath()
@@ -291,8 +305,44 @@ class TrafficLink(QGraphicsPathItem):
         cell_count = res.get("cell_count", 1)
         self.cell_points = split_polyline(shifted_points, cell_count)
 
+    def midpoint_arrow_pose(self):
+        points = self.shifted_points
+        if len(points) < 2:
+            return None
+
+        segment_lengths = []
+        total_length = 0.0
+        for i in range(len(points) - 1):
+            p1, p2 = points[i], points[i + 1]
+            length = math.hypot(p2.x() - p1.x(), p2.y() - p1.y())
+            segment_lengths.append(length)
+            total_length += length
+
+        if total_length <= 1e-6:
+            return None
+
+        target = total_length * 0.5
+        passed = 0.0
+        for i, length in enumerate(segment_lengths):
+            if length <= 1e-6:
+                continue
+            if passed + length >= target:
+                p1, p2 = points[i], points[i + 1]
+                t = (target - passed) / length
+                pos = QPointF(
+                    p1.x() + t * (p2.x() - p1.x()),
+                    p1.y() + t * (p2.y() - p1.y()),
+                )
+                angle = math.degrees(math.atan2(p2.y() - p1.y(), p2.x() - p1.x()))
+                return pos, angle
+            passed += length
+
+        p1, p2 = points[-2], points[-1]
+        angle = math.degrees(math.atan2(p2.y() - p1.y(), p2.x() - p1.x()))
+        return p2, angle
+
     def boundingRect(self):
-        margin = self.base_width * 4 + 20
+        margin = self.base_width * 4 + 10
         return super().boundingRect().adjusted(-margin, -margin, margin, margin)
 
     def shape(self):
@@ -353,29 +403,26 @@ class TrafficLink(QGraphicsPathItem):
             last_color = color
 
         # Отрисовка стрелки направления на конце дороги
-        if len(self.cell_points) > 0:
-            last_cell = self.cell_points[-1]
-            if len(last_cell) >= 2:
-                p1, p2 = last_cell[-2], last_cell[-1]
-                dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
-                if math.hypot(dx, dy) > 0:
-                    angle = math.degrees(math.atan2(-dy, dx))
+        arrow_pose = self.midpoint_arrow_pose()
+        if arrow_pose:
+            arrow_pos, arrow_angle = arrow_pose
+            arrow_color = QColor("black")
+            arrow_color.setAlpha(230)
 
-                    arrow_color = QColor(last_color)
-                    arrow_color.setAlpha(255)
-                    painter.setBrush(QBrush(arrow_color))
-                    painter.setPen(Qt.NoPen)
+            painter.save()
+            painter.setBrush(QBrush(arrow_color))
+            painter.setPen(Qt.NoPen)
+            painter.translate(arrow_pos)
+            painter.rotate(arrow_angle)
 
-                    painter.translate(p2)
-                    painter.rotate(-angle)
-
-                    arrow_size = self.base_width * 1.3
-                    arrow_head = QPolygonF([
-                        QPointF(arrow_size, 0),
-                        QPointF(-arrow_size, -arrow_size * 0.6),
-                        QPointF(-arrow_size, arrow_size * 0.6)
-                    ])
-                    painter.drawPolygon(arrow_head)
+            arrow_size = max(4.5, self.base_width * 0.75)
+            arrow_head = QPolygonF([
+                QPointF(arrow_size, 0),
+                QPointF(-arrow_size * 0.65, -arrow_size * 0.55),
+                QPointF(-arrow_size * 0.65, arrow_size * 0.55),
+            ])
+            painter.drawPolygon(arrow_head)
+            painter.restore()
 
         painter.restore()
 
@@ -599,7 +646,7 @@ class MainWindow(QMainWindow):
 
         for link, key in geometry_keys.items():
             has_reverse_geometry = bool(key and tuple(reversed(key)) in key_counts)
-            link.visual_offset_px = 4.0 if has_reverse_geometry else 0.0
+            link.visual_offset_px = 5.0 if has_reverse_geometry else 0.0
             link.update_geometry()
 
     def create_shared_shape_handles(self):
@@ -711,7 +758,7 @@ class MainWindow(QMainWindow):
         return incident
 
     def movement_current_flow(self, movement):
-        history = movement.get("history_flow_veh_h", []) or []
+        history = movement.get("history_flow_pcu_h", []) or []
         if self.current_time_index < len(history):
             return history[self.current_time_index]
         return None
@@ -769,15 +816,15 @@ class MainWindow(QMainWindow):
             <th>вход -> выход</th>
             <th>тип манёвра</th>
             <th>доля поворота</th>
-            <th>средний / максимальный / текущий поток, авт/ч</th>
+            <th>средний / максимальный / текущий поток, pcu/ч</th>
         </tr>
         """
         for movement in sorted(movements, key=lambda item: (item.get("in_link_id", ""), item.get("out_link_id", ""))):
             in_id = escape(str(movement.get("in_link_id", "")))
             out_id = escape(str(movement.get("out_link_id", "")))
             flow_text = (
-                f"{self.format_number(movement.get('avg_flow_veh_h'), 1)} / "
-                f"{self.format_number(movement.get('max_flow_veh_h'), 1)} / "
+                f"{self.format_number(movement.get('avg_flow_pcu_h'), 1)} / "
+                f"{self.format_number(movement.get('max_flow_pcu_h'), 1)} / "
                 f"{self.format_number(self.movement_current_flow(movement), 1)}"
             )
             html += "<tr>"
@@ -792,7 +839,7 @@ class MainWindow(QMainWindow):
     def build_link_details_html(self, link_model):
         res = link_model.results or {}
         hist_dens = res.get("history_cells_density_pcu_km", []) or []
-        hist_flow = res.get("history_flow_veh_h", []) or []
+        hist_flow = res.get("history_flow_pcu_h", []) or []
         lanes = float(link_model.parameters.get("lanes_total", 1) or 1)
 
         if hist_dens and self.current_time_index < len(hist_dens):
@@ -807,11 +854,6 @@ class MainWindow(QMainWindow):
             los_avg, los_max = "н/д", "н/д"
 
         normal_capacity, critical_density, jam_density = self.link_fd_values(link_model)
-        flow_to_capacity = (
-            float(current_flow) / normal_capacity
-            if current_flow is not None and normal_capacity not in (None, 0.0)
-            else None
-        )
         incident = self.link_incident_data(link_model)
         capacity_factor = incident.get("capacity_factor")
         capacity_factor_value = self.optional_float(capacity_factor)
@@ -844,10 +886,16 @@ class MainWindow(QMainWindow):
             else None
         )
 
-        source_inflows = self.project.metadata.get("ctm_source_inflows_veh_h", {}) if self.project else {}
+        source_inflows = self.project.metadata.get("ctm_source_inflows_pcu_h", {}) if self.project else {}
         source_inflow = source_inflows.get(link_model.id)
+        source_queue = None
+        if source_inflow is not None:
+            source_queue_history = res.get("history_external_queue_pcu", []) or []
+            if self.current_time_index < len(source_queue_history):
+                source_queue = source_queue_history[self.current_time_index]
 
-        html = f"<h3>Участок: {escape(link_model.name or link_model.id)}</h3>"
+        html = f'<div style="font-size: 24px; font-family: sans-serif;">'
+        html += f"<h3>Участок: {escape(link_model.name or link_model.id)}</h3>"
         html += f"<b>ID:</b> {escape(link_model.id)}<br>"
         html += f"<b>Сценарий:</b> {escape(str(self.scenario_name()))}<br>"
         html += f"<b>Откуда -> куда:</b> {escape(link_model.start_node_id)} -> {escape(link_model.end_node_id)}<br>"
@@ -857,35 +905,34 @@ class MainWindow(QMainWindow):
         html += f"<b>Время:</b> {self.format_time_min()} мин<br><br>"
 
         html += "<b>CTM / FD:</b><br>"
-        html += f"Нормальная пропускная способность: {self.format_number(normal_capacity, 1)} авт/ч<br>"
+        html += f"Нормальная пропускная способность: {self.format_number(normal_capacity, 1)} pcu/ч<br>"
         html += f"Критическая плотность: {self.format_number(critical_density, 1)} pcu/км<br>"
         html += f"Плотность затора: {self.format_number(jam_density, 1)} pcu/км<br>"
-        html += f"Поток / нормальная пропускная способность: {self.format_number(flow_to_capacity, 3)}<br>"
-        html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} авт/ч<br>"
-        html += f"Текущая эффективная пропускная способность: {self.format_number(current_effective_capacity, 1)} авт/ч<br>"
+        html += f"Текущая эффективная пропускная способность: {self.format_number(current_effective_capacity, 1)} pcu/ч<br>"
         html += (
             "Поток / текущая эффективная пропускная способность: "
             f"{self.format_number(flow_to_current_effective_capacity, 3)}<br>"
         )
         if source_inflow is not None:
-            html += f"Входной спрос источника: {self.format_number(source_inflow, 1)} авт/ч<br>"
+            html += "<br><b>Источник:</b><br>"
+            html += f"Входной спрос источника: {self.format_number(source_inflow, 1)} pcu/ч<br>"
+            html += f"Внешняя очередь источника: {self.format_number(source_queue, 3)} pcu<br>"
 
         if is_control_link:
             html += "<br><b>Аварийное ограничение:</b> нет, выбран контрольный участок<br>"
-        elif not incident:
-            html += "<br><b>Аварийное ограничение:</b> нет<br>"
-        else:
+        elif incident:
             html += "<br><b>Аварийное ограничение:</b><br>"
             html += f"Модель ограничения: {escape(str(incident.get('incident_model', 'нет')))}<br>"
             html += f"Заблокировано полос: {escape(str(incident.get('blocked_lanes', 'н/д')))}<br>"
             html += f"Коэффициент пропускной способности: {self.format_number(capacity_factor, 3)}<br>"
-            html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} авт/ч<br>"
+            html += f"Аварийная пропускная способность: {self.format_number(incident_capacity, 1)} pcu/ч<br>"
             html += f"Ограничение активно сейчас: {escape(incident_active)}<br>"
 
         html += f"<br><b>Динамика CTM ({self.format_time_min()} мин):</b><br>"
-        html += f"<b>Выходной поток:</b> {self.format_number(current_flow, 1)} авт/ч<br>"
+        html += f"<b>Выходной поток:</b> {self.format_number(current_flow, 1)} pcu/ч<br>"
         html += f"<b>Средняя плотность:</b> {self.format_number(avg_dens, 1)} pcu/км (LOS {escape(str(los_avg))})<br>"
         html += f"<b>Макс. плотность ячейки:</b> {self.format_number(max_dens, 1)} pcu/км (LOS {escape(str(los_max))})<br>"
+        html += "</div>"
         return html
 
     def on_node_click(self, node_model):

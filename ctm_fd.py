@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from ctm_network_core_v2 import CTMConfigurationError, TriangularFundamentalDiagram
+from ctm_network_core import CTMConfigurationError, TriangularFundamentalDiagram
 
 
 @dataclass(frozen=True)

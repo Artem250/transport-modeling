@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import math
 
 from ctm_fd import make_triangular_fd_from_capacity
-from ctm_network_core_v2 import CTMModel, CTMStateError, Incident
+from ctm_network_core import CTMModel, CTMStateError, Incident
 from ctm_node_solver import NodeMovement, solve_ctm_node
 from ctm_network_base import (
     CTMScenarioConfig as BaseCTMScenarioConfig,
@@ -123,7 +123,7 @@ class CTMSimulator(BaseCTMSimulator):
             link.results = {
                 "cell_count": cell_count,
                 "history_cells_density_pcu_km": [],
-                "history_flow_veh_h": [],
+                "history_flow_pcu_h": [],
                 "ctm_length_m": round(length_m, 3),
                 "ctm_cell_length_m": round(length_m / cell_count, 3),
                 "fundamental_diagram": dict(diagram_metadata.__dict__),

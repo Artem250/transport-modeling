@@ -15,7 +15,7 @@ from typing import Any
 
 from models import Link, Project
 
-from ctm_network_core_v2 import (
+from ctm_network_core import (
     CTMModel,
     CTMStateError,
     Incident,
@@ -27,7 +27,7 @@ DT_SECONDS = 0.5
 SIMULATION_MINUTES = 100
 SNAPSHOT_INTERVAL_SEC = 60
 CELL_LENGTH_TARGET = 15.0
-INFLOW_VEH_PER_HOUR = 475.0
+INFLOW_PCU_PER_HOUR = 475.0
 
 HIGHWAY_PARAMS = {
     "trunk":       {"speed_kph": 80, "cap_per_lane": 1800, "weight": 4.0},
@@ -68,9 +68,9 @@ class CTMScenarioConfig:
     simulation_minutes: int = SIMULATION_MINUTES
     snapshot_interval_sec: int = SNAPSHOT_INTERVAL_SEC
     cell_length_target_m: float = CELL_LENGTH_TARGET
-    inflow_veh_per_hour: float = INFLOW_VEH_PER_HOUR
+    inflow_pcu_per_hour: float = INFLOW_PCU_PER_HOUR
     source_inflow_allocation: str = "split_total_by_capacity"
-    source_inflows_veh_per_hour: dict[str, float] = field(default_factory=dict)
+    source_inflows_pcu_per_hour: dict[str, float] = field(default_factory=dict)
     highway_params: dict[str, dict[str, float]] = field(default_factory=lambda: deepcopy(HIGHWAY_PARAMS))
     turn_weights: dict[str, float] = field(default_factory=lambda: deepcopy(TURN_WEIGHTS))
     same_road_bonuses: dict[str, float] = field(default_factory=lambda: deepcopy(SAME_ROAD_BONUSES))
@@ -94,8 +94,8 @@ class CTMScenarioConfig:
             raise ValueError("snapshot_interval_sec must be positive")
         if self.cell_length_target_m <= 0.0:
             raise ValueError("cell_length_target_m must be positive")
-        if self.inflow_veh_per_hour < 0.0:
-            raise ValueError("inflow_veh_per_hour must be non-negative")
+        if self.inflow_pcu_per_hour < 0.0:
+            raise ValueError("inflow_pcu_per_hour must be non-negative")
         allowed_source_modes = {
             "uniform_per_source",
             "split_total_equal",
@@ -106,9 +106,9 @@ class CTMScenarioConfig:
                 "source_inflow_allocation must be one of: "
                 + ", ".join(sorted(allowed_source_modes))
             )
-        for source_id, value in self.source_inflows_veh_per_hour.items():
+        for source_id, value in self.source_inflows_pcu_per_hour.items():
             if float(value) < 0.0:
-                raise ValueError(f"source_inflows_veh_per_hour[{source_id!r}] must be non-negative")
+                raise ValueError(f"source_inflows_pcu_per_hour[{source_id!r}] must be non-negative")
         if self.jam_density_pcu_km_per_lane <= 0.0:
             raise ValueError("jam_density_pcu_km_per_lane must be positive")
         if self.backward_wave_speed_kph <= 0.0:
@@ -204,7 +204,7 @@ class CTMSimulator:
             link.results = {
                 "cell_count": cell_count,
                 "history_cells_density_pcu_km": [],
-                "history_flow_veh_h": [],
+                "history_flow_pcu_h": [],
                 "ctm_length_m": round(length_m, 3),
                 "ctm_cell_length_m": round(length_m / cell_count, 3),
             }
@@ -240,15 +240,15 @@ class CTMSimulator:
     def _init_source_inflows(self) -> None:
         self.source_inflow_rates_pcu_s = {}
         if not self.sources:
-            self.project.metadata["ctm_source_inflows_veh_h"] = {}
+            self.project.metadata["ctm_source_inflows_pcu_h"] = {}
             self.project.metadata["ctm_source_inflow_allocation"] = self.config.source_inflow_allocation
             return
 
-        manual = dict(self.config.source_inflows_veh_per_hour or {})
+        manual = dict(self.config.source_inflows_pcu_per_hour or {})
         unknown_manual_sources = sorted(source_id for source_id in manual if source_id not in self.sources)
         if unknown_manual_sources:
             self.movement_warnings.append(
-                "source_inflows_veh_per_hour ignored non-source links: "
+                "source_inflows_pcu_per_hour ignored non-source links: "
                 + ", ".join(unknown_manual_sources)
             )
 
@@ -261,19 +261,19 @@ class CTMSimulator:
             for source_id in self.sources
             if source_id not in self.source_inflow_rates_pcu_s
         ]
-        total_inflow_veh_h = max(0.0, float(self.config.inflow_veh_per_hour))
-        already_manual_veh_h = sum(rate * 3600.0 for rate in self.source_inflow_rates_pcu_s.values())
-        remaining_total_veh_h = max(0.0, total_inflow_veh_h - already_manual_veh_h)
+        total_inflow_pcu_h = max(0.0, float(self.config.inflow_pcu_per_hour))
+        already_manual_pcu_h = sum(rate * 3600.0 for rate in self.source_inflow_rates_pcu_s.values())
+        remaining_total_pcu_h = max(0.0, total_inflow_pcu_h - already_manual_pcu_h)
         mode = self.config.source_inflow_allocation
 
         if remaining_sources:
             if mode == "uniform_per_source":
                 for source_id in remaining_sources:
-                    self.source_inflow_rates_pcu_s[source_id] = total_inflow_veh_h / 3600.0
+                    self.source_inflow_rates_pcu_s[source_id] = total_inflow_pcu_h / 3600.0
             elif mode == "split_total_equal":
-                value_veh_h = remaining_total_veh_h / len(remaining_sources)
+                value_pcu_h = remaining_total_pcu_h / len(remaining_sources)
                 for source_id in remaining_sources:
-                    self.source_inflow_rates_pcu_s[source_id] = value_veh_h / 3600.0
+                    self.source_inflow_rates_pcu_s[source_id] = value_pcu_h / 3600.0
             elif mode == "split_total_by_capacity":
                 weights = {
                     source_id: max(0.0, self.ctm_links[source_id].diagram.capacity * 3600.0)
@@ -281,18 +281,18 @@ class CTMSimulator:
                 }
                 weight_sum = sum(weights.values())
                 if weight_sum <= EPS:
-                    value_veh_h = remaining_total_veh_h / len(remaining_sources)
+                    value_pcu_h = remaining_total_pcu_h / len(remaining_sources)
                     for source_id in remaining_sources:
-                        self.source_inflow_rates_pcu_s[source_id] = value_veh_h / 3600.0
+                        self.source_inflow_rates_pcu_s[source_id] = value_pcu_h / 3600.0
                 else:
                     for source_id in remaining_sources:
-                        value_veh_h = remaining_total_veh_h * weights[source_id] / weight_sum
-                        self.source_inflow_rates_pcu_s[source_id] = value_veh_h / 3600.0
+                        value_pcu_h = remaining_total_pcu_h * weights[source_id] / weight_sum
+                        self.source_inflow_rates_pcu_s[source_id] = value_pcu_h / 3600.0
             else:
                 raise CTMStateError(f"unknown source_inflow_allocation: {mode}")
 
         self.project.metadata["ctm_source_inflow_allocation"] = mode
-        self.project.metadata["ctm_source_inflows_veh_h"] = {
+        self.project.metadata["ctm_source_inflows_pcu_h"] = {
             source_id: round(rate * 3600.0, 3)
             for source_id, rate in sorted(self.source_inflow_rates_pcu_s.items())
         }
@@ -443,9 +443,9 @@ class CTMSimulator:
             "source": source,
             "reason": sorted(set(reason)),
             "flags": sorted(set(flags)),
-            "avg_flow_veh_h": 0.0,
-            "max_flow_veh_h": 0.0,
-            "history_flow_veh_h": [],
+            "avg_flow_pcu_h": 0.0,
+            "max_flow_pcu_h": 0.0,
+            "history_flow_pcu_h": [],
             "blocked_by_supply_count": 0,
             "fifo_limited_count": 0,
             "potential_fifo_limited_count": 0,
@@ -455,13 +455,13 @@ class CTMSimulator:
             "min_nonfifo_factor": 1.0,
             "avg_restriction_factor": 1.0,
             "min_restriction_factor": 1.0,
-            "_flow_sum_veh_h": 0.0,
+            "_flow_sum_pcu_h": 0.0,
             "_flow_sample_count": 0,
             "_factor_sample_count": 0,
             "_fifo_factor_sum": 0.0,
             "_nonfifo_factor_sum": 0.0,
             "_restriction_factor_sum": 0.0,
-            "_last_flow_veh_h": 0.0,
+            "_last_flow_pcu_h": 0.0,
         }
         self.movements.append(movement)
         self.movements_by_node[node_id][in_link.id].append(movement)
@@ -595,14 +595,14 @@ class CTMSimulator:
         for movement in self.movements:
             sample_count = movement["_flow_sample_count"]
             if sample_count:
-                movement["avg_flow_veh_h"] = movement["_flow_sum_veh_h"] / sample_count
+                movement["avg_flow_pcu_h"] = movement["_flow_sum_pcu_h"] / sample_count
             factor_sample_count = movement["_factor_sample_count"]
             if factor_sample_count:
                 movement["avg_fifo_factor"] = movement["_fifo_factor_sum"] / factor_sample_count
                 movement["avg_nonfifo_factor"] = movement["_nonfifo_factor_sum"] / factor_sample_count
                 movement["avg_restriction_factor"] = movement["_restriction_factor_sum"] / factor_sample_count
-            movement["avg_flow_veh_h"] = round(movement["avg_flow_veh_h"], 3)
-            movement["max_flow_veh_h"] = round(movement["max_flow_veh_h"], 3)
+            movement["avg_flow_pcu_h"] = round(movement["avg_flow_pcu_h"], 3)
+            movement["max_flow_pcu_h"] = round(movement["max_flow_pcu_h"], 3)
             movement["avg_fifo_factor"] = round(movement["avg_fifo_factor"], 6)
             movement["min_fifo_factor"] = round(movement["min_fifo_factor"], 6)
             movement["avg_nonfifo_factor"] = round(movement["avg_nonfifo_factor"], 6)
@@ -754,11 +754,11 @@ class CTMSimulator:
 
             if is_snapshot_step:
                 cells_densities = [round(cell.density * 1000, 1) for cell in ctm.cells]
-                avg_flow_veh_h = actual_outflows[link_id] * 3600.0
+                avg_flow_pcu_h = actual_outflows[link_id] * 3600.0
 
                 link = self.project.network.links[link_id]
                 link.results["history_cells_density_pcu_km"].append(cells_densities)
-                link.results["history_flow_veh_h"].append(round(avg_flow_veh_h, 1))
+                link.results["history_flow_pcu_h"].append(round(avg_flow_pcu_h, 1))
                 if link_id in self.sources:
                     link.results["history_external_queue_pcu"].append(round(ctm.external_queue, 3))
 
@@ -839,11 +839,11 @@ class CTMSimulator:
         nonfifo_factor: float,
         restriction_factor: float,
     ) -> None:
-        flow_veh_h = actual_flow * 3600.0
-        movement["_last_flow_veh_h"] = flow_veh_h
-        movement["_flow_sum_veh_h"] += flow_veh_h
+        flow_pcu_h = actual_flow * 3600.0
+        movement["_last_flow_pcu_h"] = flow_pcu_h
+        movement["_flow_sum_pcu_h"] += flow_pcu_h
         movement["_flow_sample_count"] += 1
-        movement["max_flow_veh_h"] = max(movement["max_flow_veh_h"], flow_veh_h)
+        movement["max_flow_pcu_h"] = max(movement["max_flow_pcu_h"], flow_pcu_h)
         if desired_flow > EPS:
             movement["_factor_sample_count"] += 1
             movement["_fifo_factor_sum"] += fifo_factor
@@ -855,7 +855,7 @@ class CTMSimulator:
 
     def _record_movement_snapshot(self) -> None:
         for movement in self.movements:
-            movement["history_flow_veh_h"].append(round(movement.get("_last_flow_veh_h", 0.0), 1))
+            movement["history_flow_pcu_h"].append(round(movement.get("_last_flow_pcu_h", 0.0), 1))
 
     def run(self) -> None:
         total_steps = int((self.config.simulation_minutes * 60) / self.dt)
