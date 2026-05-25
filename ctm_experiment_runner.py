@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ctm_network_simulator import CTMScenarioConfig, CTMSimulator
+from ctm_simulator import CTMScenarioConfig, CTMSimulator
 from project_loader import ProjectLoader
 from project_saver import ProjectSaver
 

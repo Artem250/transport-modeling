@@ -52,27 +52,32 @@ def unproject_coords(x, y_qt):
     return lon, lat
 
 
-# --- АКАДЕМИЧЕСКАЯ ТАБЛИЦА ПЛОТНОСТЕЙ ДЛЯ LOS (Легковые на км на полосу) ---
-def get_los_and_color_from_density(density_per_lane):
-    if density_per_lane <= 11: return "A", QColor(0, 200, 0)  # Свободный поток
-    if density_per_lane <= 16: return "B", QColor(100, 220, 100)  # Стабильный поток
-    if density_per_lane <= 22: return "C", QColor(255, 255, 0)  # Плотный поток
-    if density_per_lane <= 28: return "D", QColor(255, 165, 0)  # Предзаторовое состояние
-    if density_per_lane <= 35: return "E", QColor(255, 69, 0)  # Критическая плотность (Capacity)
-    return "F", QColor(255, 0, 0)  # Затор / Пробка
+# def get_los_and_color_from_density(density_per_lane):
+#     if density_per_lane <= 11: return "A", QColor(0, 200, 0)  # Свободный поток
+#     if density_per_lane <= 16: return "B", QColor(100, 220, 100)  # Стабильный поток
+#     if density_per_lane <= 22: return "C", QColor(255, 255, 0)  # Плотный поток
+#     if density_per_lane <= 28: return "D", QColor(255, 165, 0)  # Предзаторовое состояние
+#     if density_per_lane <= 35: return "E", QColor(255, 69, 0)  # Критическая плотность (Capacity)
+#     return "F", QColor(255, 0, 0)  # Затор / Пробка
 
-def get_los_from_load_factor(z):
-    if z < 0.20:
-        return "A", QColor(0, 180, 0)
-    if z < 0.45:
-        return "B", QColor(100, 210, 80)
-    if z < 0.70:
-        return "C", QColor(255, 220, 0)
-    if z < 0.90:
-        return "D", QColor(255, 150, 0)
-    if z <= 1.00:
-        return "E", QColor(230, 80, 0)
-    return "F", QColor(200, 0, 0)
+def get_los_and_color_from_density(density_per_lane):
+    """
+    Классификация LOS на основе плотности.
+    Источник: HCM 2010, Exhibit 11-5 (Basic Freeway Segments).
+    Конвертация из Imperial (pc/mi/ln) в Metric (pc/km/ln) выполнена коэффициентом 1.609.
+    """
+    if density_per_lane <= 18:
+        return "A", QColor(0, 200, 0)       # A: Free Flow (<= 11 pc/mi/ln)
+    elif density_per_lane <= 29:
+        return "B", QColor(100, 220, 100)    # B: Reasonably Free (11-18 pc/mi/ln)
+    elif density_per_lane <= 42:
+        return "C", QColor(255, 255, 0)     # C: Stable Flow (18-26 pc/mi/ln)
+    elif density_per_lane <= 56:
+        return "D", QColor(255, 165, 0)     # D: Approaching Unstable (26-35 pc/mi/ln)
+    elif density_per_lane <= 72:
+        return "E", QColor(255, 69, 0)      # E: Unstable / At Capacity (35-45 pc/mi/ln)
+    else:
+        return "F", QColor(255, 0, 0)       # F: Breakdown / Jam (> 45 pc/mi/ln)
 
 NODE_COLORS = {
     "boundary": QColor(220, 40, 40),

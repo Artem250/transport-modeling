@@ -1,14 +1,14 @@
 import unittest
 
-from ctm_network_core_v2 import (
+from ctm_network_core import (
     CTMModel,
     CTMStateError,
     Incident,
     TriangularFundamentalDiagram,
 )
 from ctm_experiment_runner import apply_lane_changes
-from ctm_simulator_test import CTMScenarioConfig, CTMSimulator
-from ctm_theory_simulator import (
+from ctm_simulator import CTMScenarioConfig, CTMSimulator
+from ctm_simulator import (
     CTMScenarioConfig as TheoryCTMScenarioConfig,
     CTMSimulator as TheoryCTMSimulator,
 )
@@ -279,7 +279,7 @@ class CTMMovementTableTest(unittest.TestCase):
         )
         self.assertEqual(
             project.metadata["node_solver"],
-            "proportional_split_with_optional_partial_fifo",
+            "explicit_diverge_merge_general_ctm_node_solver",
         )
 
     def test_polyline_turn_angle_uses_segments_near_intersection(self):
@@ -396,7 +396,7 @@ class CTMMovementTableTest(unittest.TestCase):
 
         self.assertEqual(
             summary["node_solver"],
-            "proportional_split_with_optional_partial_fifo",
+            "explicit_diverge_merge_general_ctm_node_solver",
         )
         self.assertEqual(summary["fifo_strength"], 0.0)
         self.assertGreater(summary["movement_count"], 0)
@@ -499,11 +499,10 @@ class CTMScenarioConfigTest(unittest.TestCase):
             {"simulation_minutes": 0},
             {"snapshot_interval_sec": 0},
             {"cell_length_target_m": 0.0},
-            {"inflow_veh_per_hour": -1.0},
+            {"inflow_pcu_per_hour": -1.0},
             {"source_inflow_allocation": "unknown"},
-            {"source_inflows_veh_per_hour": {"L1": -1.0}},
+            {"source_inflows_pcu_per_hour": {"L1": -1.0}},
             {"jam_density_pcu_km_per_lane": 0.0},
-            {"backward_wave_speed_kph": 0.0},
             {"incident_start_sec": 10.0, "incident_end_sec": 10.0},
             {"incident_capacity_factor": -0.1},
             {"incident_capacity_factor": 1.1},
@@ -614,7 +613,7 @@ class CTMExperimentRunnerTest(unittest.TestCase):
 class CTMSourceInflowAllocationTest(unittest.TestCase):
     def test_split_total_by_capacity_is_default(self):
         project = source_inflow_test_project()
-        simulator = CTMSimulator(project, CTMScenarioConfig(inflow_veh_per_hour=2200.0))
+        simulator = CTMSimulator(project, CTMScenarioConfig(inflow_pcu_per_hour=2200.0))
 
         fast_capacity = simulator.ctm_links["L_SRC_FAST"].diagram.capacity * 3600.0
         slow_capacity = simulator.ctm_links["L_SRC_SLOW"].diagram.capacity * 3600.0
@@ -626,7 +625,7 @@ class CTMSourceInflowAllocationTest(unittest.TestCase):
         self.assertAlmostEqual(simulator.source_inflow_rates_pcu_s["L_SRC_SLOW"] * 3600.0, expected_slow)
         self.assertEqual(project.metadata["ctm_source_inflow_allocation"], "split_total_by_capacity")
         self.assertAlmostEqual(
-            sum(project.metadata["ctm_source_inflows_veh_h"].values()),
+            sum(project.metadata["ctm_source_inflows_pcu_h"].values()),
             2200.0,
             places=3,
         )
@@ -636,7 +635,7 @@ class CTMSourceInflowAllocationTest(unittest.TestCase):
         simulator = CTMSimulator(
             project,
             CTMScenarioConfig(
-                inflow_veh_per_hour=1800.0,
+                inflow_pcu_per_hour=1800.0,
                 source_inflow_allocation="split_total_equal",
             ),
         )
@@ -649,7 +648,7 @@ class CTMSourceInflowAllocationTest(unittest.TestCase):
         simulator = CTMSimulator(
             project,
             CTMScenarioConfig(
-                inflow_veh_per_hour=1800.0,
+                inflow_pcu_per_hour=1800.0,
                 source_inflow_allocation="uniform_per_source",
             ),
         )
@@ -662,8 +661,8 @@ class CTMSourceInflowAllocationTest(unittest.TestCase):
         simulator = CTMSimulator(
             project,
             CTMScenarioConfig(
-                inflow_veh_per_hour=2200.0,
-                source_inflows_veh_per_hour={"L_SRC_FAST": 700.0},
+                inflow_pcu_per_hour=2200.0,
+                source_inflows_pcu_per_hour={"L_SRC_FAST": 700.0},
             ),
         )
 
@@ -676,7 +675,7 @@ class CTMSourceInflowAllocationTest(unittest.TestCase):
             project,
             CTMScenarioConfig(
                 dt_seconds=1.0,
-                inflow_veh_per_hour=3600.0,
+                inflow_pcu_per_hour=3600.0,
                 source_inflow_allocation="split_total_equal",
             ),
         )
@@ -685,7 +684,7 @@ class CTMSourceInflowAllocationTest(unittest.TestCase):
 
         self.assertAlmostEqual(simulator.mass_generated, 1.0)
         self.assertTrue(simulator.movements)
-        self.assertTrue(all(movement["history_flow_veh_h"] for movement in simulator.movements))
+        self.assertTrue(all(movement["history_flow_pcu_h"] for movement in simulator.movements))
 
 
 class CTMPartialFIFOTest(unittest.TestCase):
@@ -702,32 +701,20 @@ class CTMPartialFIFOTest(unittest.TestCase):
         simulator._solve_nodes(demands, supplies, actual_inflows, actual_outflows)
         return simulator, actual_inflows, actual_outflows
 
-    def test_fifo_strength_zero_matches_nonfifo_solver(self):
+    def test_diverge_node_uses_fifo_solver(self):
         simulator, actual_inflows, actual_outflows = self._solve_once(0.0)
         movements = {
             movement["out_link_id"]: movement
             for movement in simulator.movements_by_node["N"]["L_IN"]
         }
-        expected_outflow = sum(
-            movements[out_id]["turn_ratio"]
-            * (
-                0.05 / movements[out_id]["turn_ratio"]
-                if out_id == "L_STRAIGHT"
-                else 1.0
-            )
-            for out_id in movements
-        )
+        expected_outflow = 0.05 / movements["L_STRAIGHT"]["turn_ratio"]
 
         self.assertAlmostEqual(actual_inflows["L_STRAIGHT"], 0.05)
         self.assertAlmostEqual(actual_outflows["L_IN"], expected_outflow)
-        self.assertTrue(
-            all(movement["fifo_limited_count"] == 0 for movement in movements.values())
-        )
-        self.assertTrue(
-            any(movement["potential_fifo_limited_count"] > 0 for movement in movements.values())
-        )
+        self.assertEqual(simulator.node_solver_case_counts, {"diverge_fifo": 1})
+        self.assertTrue(all(movement["blocked_by_supply_count"] > 0 for movement in movements.values()))
 
-    def test_fifo_strength_one_applies_same_fifo_factor_to_incoming(self):
+    def test_diverge_node_applies_same_restriction_factor_to_incoming(self):
         simulator, actual_inflows, actual_outflows = self._solve_once(1.0)
         movements = simulator.movements_by_node["N"]["L_IN"]
         fifo_factor = min(movement["min_fifo_factor"] for movement in movements)
@@ -735,18 +722,17 @@ class CTMPartialFIFOTest(unittest.TestCase):
         self.assertAlmostEqual(actual_outflows["L_IN"], fifo_factor)
         for movement in movements:
             self.assertAlmostEqual(movement["min_restriction_factor"], fifo_factor)
-        self.assertTrue(any(movement["fifo_limited_count"] > 0 for movement in movements))
         self.assertLess(actual_inflows["L_LEFT"], movements[1]["turn_ratio"])
 
-    def test_partial_fifo_is_between_nonfifo_and_strict_fifo(self):
+    def test_fifo_strength_does_not_change_explicit_diverge_case(self):
         _, _, nonfifo_outflows = self._solve_once(0.0)
         _, _, half_fifo_outflows = self._solve_once(0.5)
         _, _, strict_fifo_outflows = self._solve_once(1.0)
 
-        self.assertGreater(nonfifo_outflows["L_IN"], half_fifo_outflows["L_IN"])
-        self.assertGreater(half_fifo_outflows["L_IN"], strict_fifo_outflows["L_IN"])
+        self.assertAlmostEqual(nonfifo_outflows["L_IN"], half_fifo_outflows["L_IN"])
+        self.assertAlmostEqual(half_fifo_outflows["L_IN"], strict_fifo_outflows["L_IN"])
 
-    def test_fifo_diagnostics_record_factor_ranges(self):
+    def test_diverge_diagnostics_record_factor_ranges(self):
         simulator, _, _ = self._solve_once(0.5)
         movement = next(
             movement
@@ -755,9 +741,9 @@ class CTMPartialFIFOTest(unittest.TestCase):
         )
 
         self.assertLess(movement["min_fifo_factor"], 1.0)
-        self.assertAlmostEqual(movement["min_nonfifo_factor"], 1.0)
-        self.assertGreater(movement["min_restriction_factor"], movement["min_fifo_factor"])
-        self.assertLess(movement["min_restriction_factor"], movement["min_nonfifo_factor"])
+        self.assertAlmostEqual(movement["min_nonfifo_factor"], movement["min_fifo_factor"])
+        self.assertAlmostEqual(movement["min_restriction_factor"], movement["min_fifo_factor"])
+        self.assertIn("supply:L_STRAIGHT", movement["active_constraints"])
 
     def test_factor_diagnostics_ignore_zero_desired_flow_steps(self):
         project = movement_test_project()
@@ -808,6 +794,7 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
             CTMScenarioConfig(
                 simulation_minutes=50,
                 source_inflow_allocation="uniform_per_source",
+                incident_link_id="L9",
             ),
         )
 
@@ -822,7 +809,7 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
         self.assertEqual(metadata["simulation_minutes"], 50)
         self.assertEqual(
             metadata["node_solver"],
-            "proportional_split_with_optional_partial_fifo",
+            "explicit_diverge_merge_general_ctm_node_solver",
         )
         self.assertEqual(metadata["fifo_strength"], 0.0)
         self.assertIn("total_generated_pcu", metadata)
@@ -838,7 +825,7 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
             if movement["in_link_id"] == "L7"
         ]
         self.assertTrue(l7_movements)
-        self.assertTrue(all("avg_flow_veh_h" in movement for movement in l7_movements))
+        self.assertTrue(all("avg_flow_pcu_h" in movement for movement in l7_movements))
         self.assertTrue(all("blocked_by_supply_count" in movement for movement in l7_movements))
         self.assertTrue(all("avg_fifo_factor" in movement for movement in l7_movements))
         self.assertTrue(all("avg_nonfifo_factor" in movement for movement in l7_movements))
@@ -847,7 +834,7 @@ class CTMSimulatorRegressionTest(unittest.TestCase):
         summary = project.metadata["ctm_movement_summary"]
         self.assertEqual(
             summary["node_solver"],
-            "proportional_split_with_optional_partial_fifo",
+            "explicit_diverge_merge_general_ctm_node_solver",
         )
         self.assertIn("turn_ratio_gt_0_9_count", summary)
         self.assertIn("turn_ratio_gt_0_95_count", summary)

@@ -292,6 +292,34 @@ class OsmProjectImporterTest(unittest.TestCase):
         }
         self.assertEqual(directions, {("OSM_1", "OSM_5"), ("OSM_5", "OSM_1")})
 
+    def test_xml_import_splits_odd_total_lanes_without_inflating_bidirectional_way(self):
+        with workspace_tempdir() as temp_dir:
+            osm_path = Path(temp_dir) / "odd_lanes.osm"
+            osm_path.write_text(
+                """<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lon="82.90000" lat="55.00000" />
+  <node id="2" lon="82.90010" lat="55.00000" />
+  <way id="10">
+    <nd ref="1" />
+    <nd ref="2" />
+    <tag k="highway" v="primary" />
+    <tag k="lanes" v="3" />
+  </way>
+</osm>
+""",
+                encoding="utf-8",
+            )
+
+            project = build_project_from_osm_xml(osm_path)
+
+        lanes_by_direction = {
+            link.metadata["osm_direction"]: link.parameters["lanes_total"]
+            for link in project.network.links.values()
+        }
+        self.assertEqual(lanes_by_direction, {"forward": 2, "reverse": 1})
+        self.assertEqual(sum(lanes_by_direction.values()), 3)
+
     def test_cli_writes_project_json(self):
         with workspace_tempdir() as temp_dir:
             temp_path = Path(temp_dir)

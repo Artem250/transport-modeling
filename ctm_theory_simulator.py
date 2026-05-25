@@ -1,5 +1,5 @@
-"""Compatibility import path for the active CTM network simulator."""
+"""Совместимость со старым именем теоретического симулятора."""
 
-from ctm_network_simulator import CTMScenarioConfig, CTMSimulator
+from ctm_simulator import CTMScenarioConfig, CTMSimulator
 
 __all__ = ["CTMScenarioConfig", "CTMSimulator"]
