@@ -210,7 +210,25 @@ def plot_experiments(result_files: dict[str, Path], output_dir: Path) -> None:
         output_dir / "plot_incident_link_heatmap.png",
     )
     _plot_mass_balance(loaded, output_dir / "plot_mass_balance.png")
+    _plot_mass_balance(loaded, output_dir / "plot_mass_balance.png")
 
+    _plot_fd_reference(
+        loaded,
+        incident_link_id,
+        output_dir / "plot_fd_reference.png",
+    )
+
+    _plot_fd_baseline_states(
+        loaded,
+        incident_link_id,
+        output_dir / "plot_fd_baseline_states.png",
+    )
+
+    _plot_fd_baseline_fd_values(
+        loaded,
+        incident_link_id,
+        output_dir / "plot_fd_baseline_fd_values.png",
+    )
 
 def _time_axis(length: int, snapshot_interval_sec: int) -> list[float]:
     return [i * snapshot_interval_sec / 60.0 for i in range(length)]
@@ -395,6 +413,344 @@ def _plot_mass_balance(projects: dict[str, Any], path: Path) -> None:
     plt.legend()
     plt.grid(True, axis="y")
     plt.tight_layout()
+    plt.savefig(path)
+    plt.close()
+
+def _triangular_fd_flow(
+    density: float,
+    capacity: float,
+    critical_density: float,
+    jam_density: float,
+) -> float:
+    """Возвращает поток q(rho) по треугольной FD.
+
+    density, critical_density, jam_density — pcu/km.
+    capacity — pcu/h.
+    """
+    if density < 0.0:
+        return 0.0
+    if density <= critical_density:
+        return capacity * density / critical_density
+    if density <= jam_density:
+        return capacity * (jam_density - density) / (jam_density - critical_density)
+    return 0.0
+
+
+def _link_fd_values(project, link_id: str) -> tuple[float, float, float] | None:
+    """Возвращает параметры FD выбранного link в common units.
+
+    Return:
+        capacity_pcu_h, critical_density_pcu_km, jam_density_pcu_km
+    """
+    link = project.network.links.get(link_id)
+    if link is None:
+        return None
+
+    fd = (link.results or {}).get("fundamental_diagram") or {}
+
+    metadata_links = (
+        project.metadata
+        .get("ctm_fundamental_diagram_model", {})
+        .get("links", {})
+        if project else {}
+    )
+
+    if not fd:
+        fd = metadata_links.get(link_id, {}) or {}
+
+    capacity = fd.get("capacity_pcu_h")
+    critical_density = fd.get("critical_density_pcu_km")
+    jam_density = fd.get("jam_density_pcu_km")
+
+    if capacity is not None and critical_density is not None and jam_density is not None:
+        return float(capacity), float(critical_density), float(jam_density)
+
+    config = project.metadata.get("ctm_scenario_config", {}) or {}
+    highway_params = config.get("highway_params", {}) or {}
+    highway = link.metadata.get("highway", "default")
+    params = highway_params.get(highway, highway_params.get("default", {})) or {}
+
+    lanes = float(link.parameters.get("lanes_total", 1) or 1)
+    speed = float(params.get("speed_kph", 0.0) or 0.0)
+    cap_per_lane = float(params.get("cap_per_lane", 0.0) or 0.0)
+    jam_per_lane = float(config.get("jam_density_pcu_km_per_lane", 140.0) or 140.0)
+
+    if speed <= 0.0 or cap_per_lane <= 0.0 or lanes <= 0.0:
+        return None
+
+    capacity = cap_per_lane * lanes
+    critical_density = capacity / speed
+    jam_density = jam_per_lane * lanes
+    return capacity, critical_density, jam_density
+
+
+def _fd_curve_points(
+    capacity: float,
+    critical_density: float,
+    jam_density: float,
+    point_count: int = 201,
+) -> tuple[list[float], list[float]]:
+    densities = [
+        jam_density * i / (point_count - 1)
+        for i in range(point_count)
+    ]
+    flows = [
+        _triangular_fd_flow(rho, capacity, critical_density, jam_density)
+        for rho in densities
+    ]
+    return densities, flows
+
+
+def _draw_fd_reference_lines(
+    capacity: float,
+    critical_density: float,
+    jam_density: float,
+) -> None:
+    plt.axvline(
+        critical_density,
+        linestyle="--",
+        linewidth=1,
+        label="Критическая плотность",
+    )
+    plt.axvline(
+        jam_density,
+        linestyle=":",
+        linewidth=1,
+        label="Плотность затора",
+    )
+    plt.axhline(
+        capacity,
+        linestyle="--",
+        linewidth=1,
+        label="Пропускная способность",
+    )
+
+
+def _setup_fd_axes(
+    link_id: str,
+    capacity: float,
+    jam_density: float,
+    title: str,
+) -> None:
+    plt.xlabel("Плотность, pcu/км")
+    plt.ylabel("Поток, pcu/ч")
+    plt.title(title)
+    plt.xlim(left=0.0, right=jam_density * 1.05)
+    plt.ylim(bottom=0.0, top=capacity * 1.15)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+
+def _baseline_project(projects: dict[str, Any]):
+    return projects.get("baseline") or next(iter(projects.values()), None)
+
+
+def _baseline_link_history(
+    projects: dict[str, Any],
+    link_id: str,
+) -> tuple[Any | None, list[list[float]], list[float]]:
+    project = _baseline_project(projects)
+    if project is None:
+        return None, [], []
+
+    link = project.network.links.get(link_id)
+    if link is None:
+        return project, [], []
+
+    density_history = link.results.get("history_cells_density_pcu_km", []) or []
+    flow_history = link.results.get("history_flow_pcu_h", []) or []
+
+    clean_density_history: list[list[float]] = []
+    for snapshot in density_history:
+        if not snapshot:
+            continue
+        clean_density_history.append([float(value) for value in snapshot])
+
+    clean_flow_history = [float(value) for value in flow_history]
+    return project, clean_density_history, clean_flow_history
+
+
+def _plot_fd_reference(
+    projects: dict[str, Any],
+    link_id: str,
+    path: Path,
+) -> None:
+    """Чистая треугольная фундаментальная диаграмма link.
+
+    Этот график не использует фактические выходные потоки симуляции.
+    Он показывает функцию q(rho), заданную параметрами FD.
+    """
+    project = _baseline_project(projects)
+    if project is None:
+        return
+
+    fd_values = _link_fd_values(project, link_id)
+    if fd_values is None:
+        return
+
+    capacity, critical_density, jam_density = fd_values
+    if capacity <= 0.0 or critical_density <= 0.0 or jam_density <= critical_density:
+        return
+
+    densities, flows = _fd_curve_points(capacity, critical_density, jam_density)
+
+    plt.figure()
+    plt.plot(
+        densities,
+        flows,
+        linewidth=2,
+        label="Треугольная фундаментальная диаграмма",
+    )
+    plt.scatter(
+        densities[::5],
+        flows[::5],
+        s=12,
+        alpha=0.6,
+        label="Точки q(ρ)",
+    )
+    _draw_fd_reference_lines(capacity, critical_density, jam_density)
+    _setup_fd_axes(
+        link_id,
+        capacity,
+        jam_density,
+        f"Фундаментальная диаграмма участка {link_id}",
+    )
+    plt.savefig(path)
+    plt.close()
+
+
+def _plot_fd_baseline_states(
+    projects: dict[str, Any],
+    link_id: str,
+    path: Path,
+) -> None:
+    """FD + состояния baseline-сценария.
+
+    Важно: точки здесь НЕ обязаны лежать на треугольнике.
+    X = средняя плотность по ячейкам link.
+    Y = фактический выходной поток link из симуляции.
+    """
+    project, density_history, flow_history = _baseline_link_history(projects, link_id)
+    if project is None:
+        return
+
+    fd_values = _link_fd_values(project, link_id)
+    if fd_values is None:
+        return
+
+    capacity, critical_density, jam_density = fd_values
+    if capacity <= 0.0 or critical_density <= 0.0 or jam_density <= critical_density:
+        return
+
+    densities_fd, flows_fd = _fd_curve_points(capacity, critical_density, jam_density)
+
+    point_count = min(len(density_history), len(flow_history))
+    state_densities: list[float] = []
+    state_flows: list[float] = []
+
+    for snapshot, flow in zip(density_history[:point_count], flow_history[:point_count]):
+        if not snapshot:
+            continue
+        # state_densities.append(sum(snapshot) / len(snapshot))
+        state_densities.append(snapshot[-1])
+        state_flows.append(float(flow))
+
+    plt.figure()
+    plt.plot(
+        densities_fd,
+        flows_fd,
+        linewidth=2,
+        label="Базовая треугольная FD",
+    )
+    if state_densities and state_flows:
+        plt.scatter(
+            state_densities,
+            state_flows,
+            s=14,
+            alpha=0.45,
+            label="Baseline: средняя плотность link + выходной поток",
+        )
+
+    _draw_fd_reference_lines(capacity, critical_density, jam_density)
+    _setup_fd_axes(
+        link_id,
+        capacity,
+        jam_density,
+        f"Baseline-состояния относительно FD: {link_id}",
+    )
+    plt.savefig(path)
+    plt.close()
+
+
+def _plot_fd_baseline_fd_values(
+    projects: dict[str, Any],
+    link_id: str,
+    path: Path,
+) -> None:
+    """Плотности из baseline, но поток пересчитан по q(rho).
+
+    Эти точки должны лежать на треугольнике, потому что Y считается не как
+    фактический выходной поток, а как значение фундаментальной диаграммы.
+    """
+    project, density_history, _flow_history = _baseline_link_history(projects, link_id)
+    if project is None:
+        return
+
+    fd_values = _link_fd_values(project, link_id)
+    if fd_values is None:
+        return
+
+    capacity, critical_density, jam_density = fd_values
+    if capacity <= 0.0 or critical_density <= 0.0 or jam_density <= critical_density:
+        return
+
+    densities_fd, flows_fd = _fd_curve_points(capacity, critical_density, jam_density)
+
+    state_densities: list[float] = []
+    state_fd_flows: list[float] = []
+
+    for snapshot in density_history:
+        if not snapshot:
+            continue
+
+        # Можно брать каждую ячейку, а не среднее по link:
+        # так точек будет больше, и они честнее показывают локальные rho.
+        for rho in snapshot:
+            rho = max(0.0, min(float(rho), jam_density))
+            state_densities.append(rho)
+            state_fd_flows.append(
+                _triangular_fd_flow(
+                    rho,
+                    capacity,
+                    critical_density,
+                    jam_density,
+                )
+            )
+
+    plt.figure()
+    plt.plot(
+        densities_fd,
+        flows_fd,
+        linewidth=2,
+        label="Треугольная FD",
+    )
+    if state_densities and state_fd_flows:
+        plt.scatter(
+            state_densities,
+            state_fd_flows,
+            s=10,
+            alpha=0.35,
+            label="Baseline densities, поток пересчитан по q(ρ)",
+        )
+
+    _draw_fd_reference_lines(capacity, critical_density, jam_density)
+    _setup_fd_axes(
+        link_id,
+        capacity,
+        jam_density,
+        f"FD для плотностей baseline: {link_id}",
+    )
     plt.savefig(path)
     plt.close()
 
