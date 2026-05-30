@@ -1,0 +1,199 @@
+{
+  "project_name": "OSM File Import: map_nar_oneway.osm",
+  "pcu_coefficients": {
+    "car": 1.0,
+    "truck": 2.5,
+    "bus": 2.0
+  },
+  "demand_model": {},
+  "metadata": {
+    "source": "osm_xml",
+    "path": "map_nar_oneway.osm",
+    "direction_policy": {
+      "rule": "OSM ways without oneway=yes are imported as two directed links.",
+      "oneway_true_values": [
+        "1",
+        "true",
+        "yes"
+      ],
+      "oneway_false_values": [
+        "0",
+        "false",
+        "no"
+      ],
+      "lanes_assumption": "If a bidirectional way has only total lanes, lanes are split approximately equally by direction."
+    },
+    "direction_stats": {
+      "forward": 13,
+      "reverse": 1,
+      "bidirectional_ways": 1,
+      "oneway_ways": 12
+    }
+  },
+  "network": {
+    "nodes": [
+      {
+        "id": "OSM_667417660",
+        "lon": 82.902369,
+        "lat": 55.047259,
+        "x": null,
+        "y": null,
+        "node_type": "boundary",
+        "name": "OSM_667417660",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "667417660"
+        }
+      },
+      {
+        "id": "OSM_666164357",
+        "lon": 82.9022,
+        "lat": 55.04741,
+        "x": null,
+        "y": null,
+        "node_type": "intersection",
+        "name": "OSM_666164357",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "666164357"
+        }
+      },
+      {
+        "id": "OSM_10538395830",
+        "lon": 82.895763,
+        "lat": 55.052779,
+        "x": null,
+        "y": null,
+        "node_type": "boundary",
+        "name": "OSM_10538395830",
+        "metadata": {
+          "source": "osm",
+          "osm_id": "10538395830"
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "L2",
+        "name": "Нарымская улица",
+        "start_node_id": "OSM_666164357",
+        "end_node_id": "OSM_667417660",
+        "link_type": "straight",
+        "length_km": 0.199,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.9022,
+              55.04741
+            ],
+            [
+              82.902369,
+              55.047259
+            ]
+          ],
+          "lon_start": 82.9022,
+          "lat_start": 55.04741,
+          "lon_end": 82.902369,
+          "lat_end": 55.047259
+        },
+        "parameters": {
+          "length_km": 0.0199,
+          "lanes_total": 4,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "52517260",
+          "osm_start_ref": "667417660",
+          "osm_end_ref": "666164357",
+          "osm_oneway_raw": "",
+          "osm_direction": "reverse",
+          "osm_is_oneway": false,
+          "osm_bidirectional_source_way": true,
+          "lanes_direction_assumption": "split_total_lanes_evenly_forward_gets_odd_remainder",
+          "highway": "primary",
+          "osm_name": "Нарымская улица"
+        }
+      },
+      {
+        "id": "L1",
+        "name": "Нарымская улица",
+        "end_node_id": "OSM_666164357",
+        "start_node_id": "OSM_10538395830",
+        "link_type": "straight",
+        "length_km": 0.7243,
+        "traffic_counts": {
+          "car": 600
+        },
+        "coords": {
+          "type": "polyline",
+          "points": [
+            [
+              82.895763,
+              55.052779
+            ],
+            [
+              82.89845,
+              55.050572
+            ],
+            [
+              82.9022,
+              55.04741
+            ]
+          ],
+          "lon_end": 82.9022,
+          "lat_end": 55.04741,
+          "lon_start": 82.895763,
+          "lat_start": 55.052779
+        },
+        "parameters": {
+          "length_km": 0.7243,
+          "lanes_total": 4,
+          "lanes_bus": 0,
+          "capacity_per_lane_base": 1800,
+          "lane_width_m": 3.5,
+          "grade_percent": 0.0,
+          "parking_present": false,
+          "heavy_vehicles_percent": 0.0
+        },
+        "results": {},
+        "metadata": {
+          "source": "osm_xml",
+          "osm_way_id": "136407724",
+          "osm_start_ref": "666164357",
+          "osm_end_ref": "3627131351",
+          "osm_oneway_raw": "yes",
+          "osm_direction": "forward",
+          "osm_is_oneway": true,
+          "osm_bidirectional_source_way": false,
+          "highway": "primary",
+          "osm_name": "Нарымская улица",
+          "merged_link_ids": [
+            "L6",
+            "L10",
+            "L7",
+            "L5",
+            "L14",
+            "L13",
+            "L4",
+            "L12",
+            "L11",
+            "L8"
+          ]
+        }
+      }
+    ],
+    "routes": []
+  },
+  "scenarios": []
+}

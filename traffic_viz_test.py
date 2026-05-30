@@ -899,7 +899,7 @@ class MainWindow(QMainWindow):
             if self.current_time_index < len(source_queue_history):
                 source_queue = source_queue_history[self.current_time_index]
 
-        html = f'<div style="font-size: 24px; font-family: sans-serif;">'
+        html = f'<div style="font-size: 18px; font-family: sans-serif;">'
         html += f"<h3>Участок: {escape(link_model.name or link_model.id)}</h3>"
         html += f"<b>ID:</b> {escape(link_model.id)}<br>"
         html += f"<b>Сценарий:</b> {escape(str(self.scenario_name()))}<br>"
